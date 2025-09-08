@@ -5,6 +5,7 @@ const express = require("express");
 const app = express();
 
 var cors = require("cors");
+const errorHandler = require("./middlewares/error-handler");
 
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
@@ -350,6 +351,14 @@ app.use((req, res, next) => {
 //Routes
 app.use(require("./routes/core"));
 app.use(require("./routes/proyecto"));
+
+// 404 (si no cayó en ninguna ruta)
+app.use((req, res, _next) => {
+  res.status(404).json({ success: false, message: "Not Found" });
+});
+
+// Manejador de errores (último siempre)
+app.use(errorHandler);
 
 app.listen(app.get("port"), () => {
   console.log("Server on port ", app.get("port"));
