@@ -1,0 +1,33 @@
+# Dependencias
+node_modules/
+
+# Builds / artefactos
+dist/
+build/
+coverage/
+
+# Entorno y secretos
+.env
+.env.*
+!.env.example
+secrets/
+certs/
+uploads/
+src/service-account.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# SO/editores
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+.env
+secrets/
+uploads/
+certs/*.pem
+src/service-account.json
