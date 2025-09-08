@@ -1,5 +1,5 @@
 // src/app.js
-require('dotenv').config();  // debe ser la PRIMERA línea
+require("dotenv").config(); // debe ser la PRIMERA línea
 
 const express = require("express");
 const app = express();
@@ -8,7 +8,7 @@ var cors = require("cors");
 
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
-const pool = require("./database");
+const pool = require("./db"); // index.js por convención
 
 const jwt = require("jsonwebtoken");
 
@@ -25,7 +25,7 @@ const swaggerOptions = {
     },
   },
   //rutas
-  apis: ["src/app.js", "src/Routes/core.js", "src/Routes/proyecto.js"],
+  apis: ["src/app.js", "src/routes/core.js", "src/routes/proyecto.js"],
 };
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
@@ -255,8 +255,6 @@ app.use((req, res, next) => {
     req.url.includes("/mobile/actualiza/putEquipoAlquiladoID") ||
     req.url.includes("/voucher/consulta/getAllPedidoVoucher");
 
-    
-
   if (usantoken) {
     console.log("token");
     const token = req.query.token || req.headers["authorization"];
@@ -350,8 +348,8 @@ app.use((req, res, next) => {
 });
 
 //Routes
-app.use(require("./Routes/core"));
-app.use(require("./Routes/proyecto"));
+app.use(require("./routes/core"));
+app.use(require("./routes/proyecto"));
 
 app.listen(app.get("port"), () => {
   console.log("Server on port ", app.get("port"));

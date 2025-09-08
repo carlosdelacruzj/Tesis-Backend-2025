@@ -1,6 +1,6 @@
 const mysql = require('mysql2');                 // <-- mysql2
 const { promisify } = require('util');
-const { database } = require('./key');
+const { database } = require('../config/key');
 
 const pool = mysql.createPool(database);
 
