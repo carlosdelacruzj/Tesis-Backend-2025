@@ -4,8 +4,8 @@ const router = express.Router();
 
 const jwt = require("jsonwebtoken");
 
-const pool = require("../database");
-const { query } = require("../database");
+const pool = require("../db");
+const { query } = require("../db");
 
 /*
 EN ESTA PARTE IRA TODO LO RELACIONADO CON EL PROYECTO 
