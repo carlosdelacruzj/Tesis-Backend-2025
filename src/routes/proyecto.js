@@ -2364,21 +2364,29 @@ router.get("/usuario/consulta/getIniciarSesion/:correo/:pass", (req, res) => {
 
 /**
  * @swagger
- * /usuario/consulta/envioCorreoValidacion/{id}:
- *  get:
- *    consumes:
- *     - application/json
- *    tags:
- *    - cliente
- *    parameters:
- *    - in: path
- *      name: correo
- *      type: string
- *      format: email
- *    description: Use to request all prueba
- *    responses:
- *      '200':
- *        description: A successful response
+ * /usuario/consulta/envioCorreoValidacion:
+ *   post:
+ *     summary: Envía correo con código de validación
+ *     consumes:
+ *       - application/json
+ *     parameters:
+ *       - in: body
+ *         name: payload
+ *         required: true
+ *         schema:
+ *           type: object
+ *           properties:
+ *             email:
+ *               type: string
+ *             fechaActual:
+ *               type: string
+ *     responses:
+ *       200:
+ *         description: Correo enviado
+ *       400:
+ *         description: Falta email
+ *       500:
+ *         description: Error al enviar
  */
 router.get("/usuario/consulta/envioCorreoValidacion/:correo", (req, res) => {
   const { correo } = req.params;

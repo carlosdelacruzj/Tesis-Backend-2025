@@ -74,12 +74,12 @@ router.post("/postEmpleado2", upload.single("file"), async (req, res, next) => {
         type: "anyone",
       },
     });
-    console.log("hola");
+    // // console.log("hola");
     const result = await drive.files.get({
       fileId: idImagen,
       fields: "webViewLink, webContentLink",
     });
-    console.log(result);
+    // // console.log(result);
 
     const query = "call SP_postEmpleado2(?,?,?,?,?,?,?,?,?)";
 
@@ -142,12 +142,12 @@ router.post(
           type: "anyone",
         },
       });
-      console.log("hola");
+      // // console.log("hola");
       const result = await drive.files.get({
         fileId: idImagen,
         fields: "webViewLink, webContentLink",
       });
-      console.log(result);
+      // // console.log(result);
 
       const query = "call SP_postVerificarllegada(?,?,?,?,?)";
 
@@ -201,7 +201,7 @@ router.post("/postVoucher", upload.single("file"), async (req, res, next) => {
       fileId: idImagen,
       fields: "webViewLink, webContentLink",
     });
-    console.log(result);
+    // // console.log(result);
 
     const query = "call SP_postVoucher(?,?,?,?,?,?)";
 
@@ -256,7 +256,7 @@ router.post("/postContrato", upload.single("file"), async (req, res, next) => {
       fileId: idImagen,
       fields: "webViewLink, webContentLink",
     });
-    console.log(result);
+    // // console.log(result);
 
     const query = "call SP_postContrato(?,?,?)";
 
@@ -310,7 +310,7 @@ router.post("/loginTrabajador", async (req, res, next) => {
         res.sendStatus(404);
       } else {
         const datos = rows[0];
-        console.log(rows[0]);
+        // console.log(rows[0]);
         if (rows[0] === undefined) {
           res.json({ Status: "El correo es inválido" });
         } else {
@@ -326,7 +326,7 @@ router.post("/loginTrabajador", async (req, res, next) => {
                 token = jwt.sign({ user }, "my_secret_key", {
                   expiresIn: 60 * 60 * 24,
                 });
-                console.log(datos.tipoUsuarioId);
+                // console.log(datos.tipoUsuarioId);
                 res.json({
                   datos,
                   token,
@@ -377,7 +377,7 @@ router.post("/loginAdmin", async (req, res, next) => {
         res.sendStatus(404);
       } else {
         const datos = rows[0];
-        console.log(rows[0]);
+        // console.log(rows[0]);
         if (rows[0] === undefined) {
           res.json({ Status: "El correo es inválido" });
         } else {
@@ -393,7 +393,7 @@ router.post("/loginAdmin", async (req, res, next) => {
                 token = jwt.sign({ user }, "my_secret_key", {
                   expiresIn: 60 * 60 * 24,
                 });
-                console.log(datos.tipoUsuarioId);
+                // console.log(datos.tipoUsuarioId);
                 res.json({
                   datos,
                   token,
@@ -471,7 +471,7 @@ router.post("/enviarNotificacion", function (req, res) {
       },
       function (error, response, body) {
         res.end(body);
-        console.log(body);
+        // console.log(body);
       }
     );
   });
@@ -515,7 +515,7 @@ router.post("/refrescartokenEmpleado", async (req, res, next) => {
             res.json({ Status: "El token no existe" });
           } else {
             const user = rows[0];
-            console.log(rows[0]);
+            // console.log(rows[0]);
             let newtoken;
 
             newtoken = jwt.sign({ user }, "my_secret_key", {
@@ -646,7 +646,7 @@ router.put("/registrartokenEmpleado", async (req, res) => {
     if (!err) {
       res.sendStatus(202);
     } else {
-      console.log(err);
+      // console.log(err);
     }
   });
 });
@@ -683,7 +683,7 @@ router.put("/registrartokenAdmin", async (req, res) => {
     if (!err) {
       res.sendStatus(202);
     } else {
-      console.log(err);
+      // console.log(err);
     }
   });
 });
@@ -722,7 +722,7 @@ router.put("/actualizartokenEmpleado", async (req, res) => {
     if (!err) {
       res.sendStatus(202);
     } else {
-      console.log(err);
+      // console.log(err);
     }
   });
 });
@@ -759,7 +759,7 @@ router.put("/actualizartokenAdmin", async (req, res) => {
     if (!err) {
       res.sendStatus(202);
     } else {
-      console.log(err);
+      // console.log(err);
     }
   });
 });
@@ -791,11 +791,11 @@ router.put("/actualizartokenAdmin", async (req, res) => {
  *      '201':
  *        description: Created
  */
-router.post("/validacionCorreo", validacionCorreo);
+// router.post("/validacionCorreo", validacionCorreo);
 
-router.post("/send-email", upload.single("file"), sendEmail);
+// router.post("/send-email", upload.single("file"), sendEmail);
 
-router.post("/upload-file", upload.single("file"), driveService);
+// router.post("/upload-file", upload.single("file"), driveService);
 
 function getAccesToken() {
   return new Promise(function (resolve, reject) {
@@ -817,7 +817,7 @@ function getAccesToken() {
   });
 }
 getAccesToken().then(function (access_token) {
-  console.log(access_token);
+  // // console.log(access_token);
 });
 
 module.exports = router;
