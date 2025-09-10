@@ -5,8 +5,10 @@ const express = require("express");
 const app = express();
 
 const cors = require("cors");
+const helmet = require("helmet");
+const rateLimit = require("express-rate-limit");
 const errorHandler = require("./middlewares/error-handler");
-const authMiddleware = require("./middlewares/auth"); // 🔑 nuevo import
+const authMiddleware = require("./middlewares/auth"); // 🔑 import del middleware de auth
 
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
@@ -33,8 +35,27 @@ app.use("/api-doc", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
 //settings
 app.set("port", process.env.PORT || 3000);
 
-//Middlewares
-app.use(cors());
+// Middlewares de seguridad
+app.use(helmet()); // protege cabeceras HTTP
+
+app.use(
+  cors({
+    origin: ["http://localhost:4200", "http://localhost:3000"], // ajusta al front que uses
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization"],
+    credentials: true,
+  })
+);
+
+const limiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 min
+  max: 100, // máximo 100 requests/IP/ventana
+  standardHeaders: true, // devuelve info en cabeceras RateLimit
+  legacyHeaders: false, // desactiva X-RateLimit obsoletas
+});
+app.use(limiter);
+
+// Body parser
 app.use(express.json({ extended: false }));
 
 // Healthcheck público
@@ -45,7 +66,7 @@ app.get("/health", (_req, res) => {
 // 👉 tu lógica de auth se aplica aquí
 app.use(authMiddleware);
 
-//Routes
+// Routes
 app.use(require("./routes/core"));
 app.use(require("./routes/proyecto"));
 
@@ -57,6 +78,7 @@ app.use((req, res, _next) => {
 // Manejador de errores (último siempre)
 app.use(errorHandler);
 
+// Start server
 app.listen(app.get("port"), () => {
-  console.log("Server on port ", app.get("port"));
+  console.log("Server on port", app.get("port"));
 });
