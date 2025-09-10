@@ -27,13 +27,15 @@ router.post("/send-email", upload.single("file"), async (req, res) => {
       port: 587,
       secure: false,
       auth: {
-        user: "r.k.villanueva.laurente@gmail.com",
-        pass: "nhrzmbjbptbnwezg",
+        user: process.env.GMAIL_USER || "r.k.villanueva.laurente@gmail.com",
+        pass: process.env.GMAIL_PASS || "nhrzmbjbptbnwezg",
       },
     });
 
     const mailOptions = {
-      from: '"Fotografia y Video De La Cruz" <r.k.villanueva.laurente@gmail.com>',
+      from: `"Fotografia y Video De La Cruz" <${
+        process.env.GMAIL_USER || "r.k.villanueva.laurente@gmail.com"
+      }>`,
       to: email,
       subject: subject,
       text: message,

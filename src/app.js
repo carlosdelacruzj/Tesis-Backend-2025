@@ -1,5 +1,9 @@
 // src/app.js
 require("dotenv").config(); // debe ser la PRIMERA línea
+const fs = require("fs");
+try {
+  fs.mkdirSync("uploads", { recursive: true });
+} catch (_) {}
 
 const express = require("express");
 const app = express();
@@ -26,7 +30,8 @@ const swaggerOptions = {
       servers: ["http://localhost:3000"],
     },
   },
-  apis: ["src/app.js", "src/routes/core.js", "src/routes/proyecto.js"],
+  // apis: ["src/app.js", "src/routes/core.js", "src/routes/proyecto.js"],
+  apis: ["src/app.js", "src/routes/*.js"],
 };
 
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
@@ -67,8 +72,7 @@ app.get("/health", (_req, res) => {
 app.use(authMiddleware);
 
 // Routes
-app.use(require("./routes/core"));
-app.use(require("./routes/proyecto"));
+app.use(require("./routes"));
 
 // 404 (si no cayó en ninguna ruta)
 app.use((req, res, _next) => {
