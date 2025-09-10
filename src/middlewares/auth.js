@@ -215,95 +215,94 @@ function authMiddleware(req, res, next) {
     req.url.includes("/voucher/consulta/getAllPedidoVoucher");
 
   if (usantoken) {
-    console.log("token");
     const token = req.query.token || req.headers["authorization"];
-
     if (typeof token !== "undefined") {
-      jwt.verify(token, "my_secret_key", (err, data) => {
-        if (err) {
-          jwt.verify(token, "my_admin_secret_key", (err, data) => {
-            if (err) {
-              jwt.verify(token, "my_empresa_secret_key", (err, data) => {
-                if (err) {
-                  return res.json({
-                    success: false,
-                    message: "Autenticación fallida!",
-                  });
-                } else {
-                  req.data = data;
-                  next();
-                }
-              });
-            } else {
-              req.data = data;
-              next();
-            }
-          });
-        } else {
+      // Usamos env con fallback a tus valores actuales
+      const USER_SECRET = process.env.JWT_SECRET || "my_secret_key";
+      const ADMIN_SECRET =
+        process.env.JWT_ADMIN_SECRET || "my_admin_secret_key";
+      const EMPRESA_SECRET =
+        process.env.JWT_EMPRESA_SECRET || "my_empresa_secret_key";
+
+      jwt.verify(token, USER_SECRET, (err, data) => {
+        if (!err) {
           req.data = data;
-          next();
+          return next();
         }
+        jwt.verify(token, ADMIN_SECRET, (err2, data2) => {
+          if (!err2) {
+            req.data = data2;
+            return next();
+          }
+          jwt.verify(token, EMPRESA_SECRET, (err3, data3) => {
+            if (!err3) {
+              req.data = data3;
+              return next();
+            }
+            return res.json({
+              success: false,
+              message: "Autenticación fallida!",
+            });
+          });
+        });
       });
     } else {
-      return res.status(403).send({
-        success: false,
-        message: "no existe el token",
-      });
+      return res
+        .status(403)
+        .send({ success: false, message: "no existe el token" });
     }
   }
+
   if (nousantoken) {
-    console.log("sin token");
     next();
   }
   if (req.url.includes("/admin")) {
     const token = req.query.token || req.headers["authorization"];
     if (typeof token !== "undefined") {
-      jwt.verify(token, "my_admin_secret_key", (err, data) => {
-        if (err) {
+      const ADMIN_SECRET =
+        process.env.JWT_ADMIN_SECRET || "my_admin_secret_key";
+      jwt.verify(token, ADMIN_SECRET, (err, data) => {
+        if (err)
           return res.json({
             success: false,
             message: "Autenticación fallida!",
           });
-        } else {
-          req.data = data;
-          next();
-        }
+        req.data = data;
+        return next();
       });
     } else {
-      return res.status(403).send({
-        success: false,
-        message: "no existe el token",
-      });
+      return res
+        .status(403)
+        .send({ success: false, message: "no existe el token" });
     }
   }
   if (req.url.includes("/empresa")) {
     const token = req.query.token || req.headers["authorization"];
     if (typeof token !== "undefined") {
-      jwt.verify(token, "my_empresa_secret_key", (err, data) => {
-        if (err) {
-          jwt.verify(token, "my_admin_secret_key", (err, data) => {
-            if (err) {
-              return res.json({
-                success: false,
-                message: "Autenticación fallida!",
-              });
-            } else {
-              req.data = data;
-              next();
-            }
-          });
-        } else {
+      const EMPRESA_SECRET =
+        process.env.JWT_EMPRESA_SECRET || "my_empresa_secret_key";
+      const ADMIN_SECRET =
+        process.env.JWT_ADMIN_SECRET || "my_admin_secret_key";
+      jwt.verify(token, EMPRESA_SECRET, (err, data) => {
+        if (!err) {
           req.data = data;
-          next();
+          return next();
         }
+        jwt.verify(token, ADMIN_SECRET, (err2, data2) => {
+          if (err2)
+            return res.json({
+              success: false,
+              message: "Autenticación fallida!",
+            });
+          req.data = data2;
+          return next();
+        });
       });
     } else {
-      return res.status(403).send({
-        success: false,
-        message: "no existe el token",
-      });
+      return res
+        .status(403)
+        .send({ success: false, message: "no existe el token" });
     }
   }
 }
-
 module.exports = authMiddleware;
