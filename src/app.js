@@ -22,10 +22,14 @@ try {
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
 const pool = require("./db"); // inicializa conexión DB
+
 // CORS desde .env
-const origins = (process.env.CORS_ORIGINS || "http://localhost:4200,http://localhost:3000")
+const origins = (
+  process.env.CORS_ORIGINS || "http://localhost:4200,http://localhost:3000"
+)
   .split(",")
   .map((s) => s.trim());
+
 // Swagger
 const swaggerOptions = {
   swaggerDefinition: {
@@ -36,11 +40,30 @@ const swaggerOptions = {
       servers: ["http://localhost:3000"],
     },
   },
-  // Busca anotaciones en todos tus routers
   apis: ["src/app.js", "src/routes/*.js"],
 };
 const swaggerDocs = swaggerJsDoc(swaggerOptions);
-app.use("/api-doc", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+
+// Protección de Swagger en prod
+const basicAuth = require("./middlewares/basic-auth");
+const swaggerUser = process.env.SWAGGER_USER || "admin";
+const swaggerPass = process.env.SWAGGER_PASS || "admin123";
+
+// JSON de swagger (útil para integraciones); lo protegemos igual que la UI
+if (process.env.NODE_ENV === "production") {
+  app.get("/api-doc.json", basicAuth(swaggerUser, swaggerPass), (_req, res) => {
+    res.json(swaggerDocs);
+  });
+  app.use(
+    "/api-doc",
+    basicAuth(swaggerUser, swaggerPass),
+    swaggerUi.serve,
+    swaggerUi.setup(swaggerDocs)
+  );
+} else {
+  app.get("/api-doc.json", (_req, res) => res.json(swaggerDocs));
+  app.use("/api-doc", swaggerUi.serve, swaggerUi.setup(swaggerDocs));
+}
 
 // Puerto
 app.set("port", process.env.PORT || 3000);
@@ -61,8 +84,12 @@ app.use(
 // Rate limit desde .env
 const windowMs = Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000);
 const max = Number(process.env.RATE_LIMIT_MAX || 100);
-const limiter = rateLimit({ windowMs, max, standardHeaders: true, legacyHeaders: false });
-
+const limiter = rateLimit({
+  windowMs,
+  max,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
 app.use(limiter);
 
 // Body parser
@@ -122,16 +149,13 @@ app.use((req, res, _next) => {
 app.use(errorHandler);
 
 // --- Graceful shutdown ---
-const httpClose = () =>
-  new Promise((resolve) => server.close(resolve)); // cerrar sin cortar requests en vuelo
+const httpClose = () => new Promise((resolve) => server.close(resolve)); // cerrar sin cortar requests en vuelo
 
 const stop = async (signal) => {
   logger.info({ signal }, "Shutting down...");
   try {
-    // deja de aceptar conexiones nuevas y espera a que terminen las actuales
     await httpClose();
-    // cierra pool de DB (mysql2)
-    if (pool?.end) await pool.end();
+    if (pool?.end) await pool.end(); // cierra pool DB (mysql2)
     logger.info("Shutdown complete");
     process.exit(0);
   } catch (err) {
@@ -152,6 +176,5 @@ process.on("SIGTERM", () => stop("SIGTERM"));
 // Reinicio de nodemon: envía SIGUSR2
 process.once("SIGUSR2", async () => {
   await stop("SIGUSR2");
-  // deja que nodemon continúe con el reinicio
   process.kill(process.pid, "SIGUSR2");
 });
