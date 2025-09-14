@@ -90,8 +90,18 @@ if (process.env.NODE_ENV === "production") {
 // Auth pública (login dev)
 app.use("/api/v1/auth", require("./routes/auth"));
 
-// Rutas protegidas
-app.use(authMiddleware);
+// ✅ Rutas protegidas (desactivables en DEV)
+//    - En producción: SIEMPRE activo
+//    - En desarrollo: usa DEV_REQUIRE_AUTH="true" para activarlo; por defecto desactivado
+const requireAuth = process.env.NODE_ENV === "production" || process.env.DEV_REQUIRE_AUTH === "true";
+if (requireAuth) {
+  app.use(authMiddleware);
+  logger.info("🔒 Auth middleware ACTIVO");
+} else {
+  logger.warn("⚠️ Auth middleware DESACTIVADO (DEV)");
+}
+
+// API principal
 app.use("/api/v1", require("./routes"));
 
 // 404
