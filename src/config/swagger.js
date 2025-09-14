@@ -17,6 +17,9 @@ module.exports = {
       { name: "auth", description: "Autenticación (desarrollo)" },
       { name: "cliente", description: "Gestión de clientes" },
       { name: "empleado", description: "Gestión de empleados" },
+      { name: "servicio", description: "Servicios disponibles" },
+      { name: "evento", description: "Gestión de eventos" },
+      { name: "eventos_servicios", description: "Relación eventos/servicios" },
     ],
     components: {
       securitySchemes: {
@@ -29,6 +32,9 @@ module.exports = {
     "src/routes/auth.js",
     "src/modules/cliente/**/*.js",
     "src/modules/empleado/**/*.js",
+    "src/modules/servicio/**/*.js",
+    "src/modules/evento/**/*.js",
+    "src/modules/eventos_servicios/**/*.js",
   ],
 };
 
