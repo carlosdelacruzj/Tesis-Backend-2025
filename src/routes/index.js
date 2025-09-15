@@ -14,6 +14,8 @@ router.use("/empleados", require("../modules/empleado/empleado.routes.rest"));
 router.use("/servicios", require("../modules/servicio/servicio.routes.rest"));
 router.use("/eventos", require("../modules/evento/evento.routes.rest"));
 router.use("/eventos_servicios", require("../modules/eventos_servicios/eventos_servicios.routes.rest"));
+router.use("/equipo", require("../modules/equipo/equipo.routes.rest"));
+
 
 
 module.exports = router;

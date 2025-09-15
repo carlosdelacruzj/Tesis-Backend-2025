@@ -20,6 +20,7 @@ module.exports = {
       { name: "servicio", description: "Servicios disponibles" },
       { name: "evento", description: "Gestión de eventos" },
       { name: "eventos_servicios", description: "Relación eventos/servicios" },
+      { name: "equipo", description: "Gestion de equipos" },
     ],
     components: {
       securitySchemes: {
@@ -35,6 +36,7 @@ module.exports = {
     "src/modules/servicio/**/*.js",
     "src/modules/evento/**/*.js",
     "src/modules/eventos_servicios/**/*.js",
+    "src/modules/equipo/**/*.js",
   ],
 };
 
