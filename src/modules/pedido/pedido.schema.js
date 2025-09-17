@@ -2,27 +2,21 @@
  * @swagger
  * components:
  *   schemas:
- *     PedidoCreate:
+ *     PedidoIndexItem:
  *       type: object
- *       required: [ExS, doc, fechaCreate, fechaEvent, horaEvent, CodEmp, Direccion]
- *       properties:
- *         ExS:         { type: integer }
- *         doc:         { type: string }
- *         fechaCreate: { type: string, format: date }
- *         fechaEvent:  { type: string, format: date }
- *         horaEvent:   { type: string, format: time }
- *         CodEmp:      { type: integer }
- *         Direccion:   { type: string }
+ *       additionalProperties: true
+ *       example:
+ *         id: 101
+ *         cliente: "Juan Pérez"
+ *         estado: "Pendiente"
+ *         fechaEvento: "2025-09-17"
  *
- *     PedidoUpdate:
+ *     PedidoLastEstado:
  *       type: object
- *       required: [estadoPedido, fechaEvent, horaEvent, lugar, empleado, estadoPago]
- *       properties:
- *         estadoPedido: { type: integer }
- *         fechaEvent:   { type: string, format: date }
- *         horaEvent:    { type: string, format: time }
- *         lugar:        { type: string }
- *         empleado:     { type: integer }
- *         estadoPago:   { type: integer }
+ *       additionalProperties: true
+ *       example:
+ *         idPedido: 101
+ *         estado: "Confirmado"
+ *         fecha: "2025-09-13T10:22:00Z"
  */
 module.exports = {};

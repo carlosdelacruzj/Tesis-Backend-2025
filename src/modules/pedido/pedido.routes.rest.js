@@ -15,6 +15,29 @@ router.get("/", ctrl.getAllPedido);
 
 /**
  * @swagger
+ * /pedido/index:
+ *   get:
+ *     tags: [pedido]
+ *     summary: Listar pedidos index (vista resumida)
+ *     responses:
+ *       '200': { description: OK }
+ */
+router.get("/index", ctrl.getIndexPedido);
+
+/**
+ * @swagger
+ * /pedido/last-estado:
+ *   get:
+ *     tags: [pedido]
+ *     summary: Obtener el último estado de pedido registrado
+ *     responses:
+ *       '200': { description: OK }
+ *       '404': { description: No encontrado }
+ */
+router.get("/last-estado", ctrl.getLastEstadoPedido);
+
+/**
+ * @swagger
  * /pedido/{id}:
  *   get:
  *     tags: [pedido]
