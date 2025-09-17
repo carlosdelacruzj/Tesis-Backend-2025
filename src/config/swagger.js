@@ -39,6 +39,7 @@ module.exports = {
     "src/modules/eventos_servicios/**/*.js",
     "src/modules/equipo/**/*.js",
     "src/modules/pedido/**/*.js",
+    "src/modules/proyecto/**/*.js",
   ],
 };
 
