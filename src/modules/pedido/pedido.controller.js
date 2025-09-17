@@ -1,7 +1,7 @@
 // src/modules/pedido/pedido.controller.js
 const service = require("./pedido.service");
 
-async function getAllPedidos(_req, res, next) {
+async function getAllPedido(_req, res, next) {
   try {
     const data = await service.listAllPedidos();
     res.status(200).json(data);
@@ -10,7 +10,7 @@ async function getAllPedidos(_req, res, next) {
   }
 }
 
-async function getIndexPedidos(_req, res, next) {
+async function getIndexPedido(_req, res, next) {
   try {
     const data = await service.listIndexPedidos();
     res.status(200).json(data);
@@ -58,8 +58,8 @@ async function updatePedido(req, res, next) {
 }
 
 module.exports = {
-  getAllPedidos,
-  getIndexPedidos,
+  getAllPedido,
+  getIndexPedido,
   getPedidoById,
   getLastEstadoPedido,
   createPedido,

@@ -11,7 +11,7 @@ module.exports = {
       },
     },
     servers: [
-      { url: "/api/v1" }, // 👈 importante para que Swagger apunte a /api/v1
+      { url: "/api/v1" }, //importante para que Swagger apunte a /api/v1
     ],
     tags: [
       { name: "auth", description: "Autenticación (desarrollo)" },
