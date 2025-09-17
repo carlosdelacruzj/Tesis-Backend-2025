@@ -1,0 +1,67 @@
+// src/modules/pedido/pedido.controller.js
+const service = require("./pedido.service");
+
+async function getAllPedidos(_req, res, next) {
+  try {
+    const data = await service.listAllPedidos();
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getIndexPedidos(_req, res, next) {
+  try {
+    const data = await service.listIndexPedidos();
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getPedidoById(req, res, next) {
+  try {
+    const data = await service.findPedidoById(req.params.id);
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getLastEstadoPedido(_req, res, next) {
+  try {
+    const data = await service.findLastEstadoPedido();
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function createPedido(req, res, next) {
+  try {
+    const result = await service.createNewPedido(req.body);
+    res.status(201).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function updatePedido(req, res, next) {
+  try {
+    // CORRECCIÓN FINAL: Tomamos el ID de la URL y lo unimos con el body.
+    const payload = { ...req.body, id: req.params.id };
+    const result = await service.updatePedidoById(payload);
+    res.status(200).json(result);
+  } catch (err) {
+    next(err);
+  }
+}
+
+module.exports = {
+  getAllPedidos,
+  getIndexPedidos,
+  getPedidoById,
+  getLastEstadoPedido,
+  createPedido,
+  updatePedido,
+};

@@ -21,6 +21,7 @@ module.exports = {
       { name: "evento", description: "Gestión de eventos" },
       { name: "eventos_servicios", description: "Relación eventos/servicios" },
       { name: "equipo", description: "Gestion de equipos" },
+      { name: "pedido", description: "Gestion de pedidos" },
     ],
     components: {
       securitySchemes: {
@@ -37,6 +38,7 @@ module.exports = {
     "src/modules/evento/**/*.js",
     "src/modules/eventos_servicios/**/*.js",
     "src/modules/equipo/**/*.js",
+    "src/modules/pedido/**/*.js",
   ],
 };
 
@@ -44,7 +46,7 @@ module.exports = {
 //   definition: {
 //     openapi: "3.0.0",
 //     info: {
-//       title: "Tesis 2025",           // 👈 nuevo nombre
+//       title: "Tesis 2025",           // nuevo nombre
 //       version: "1.0.0",
 //       description: "API para la gestión de la tesis 2025",
 //       contact: {
@@ -72,5 +74,5 @@ module.exports = {
 //     ],
 
 //   },
-//     apis: ["src/routes/**/*.js", "src/modules/**/*.js"], // 👈 añade modules
+//     apis: ["src/routes/**/*.js", "src/modules/**/*.js"], // añade modules
 // };
