@@ -42,6 +42,7 @@ async function getAllModelo({ marca, tipo }) {
 }
 
 async function getContadoresByModelo(idModelo) {
+  console.log("idModelo", idModelo);
   return runCall("CALL SP_getAllContadoresEquiposEstado(?)", [
     Number(idModelo),
   ]);
