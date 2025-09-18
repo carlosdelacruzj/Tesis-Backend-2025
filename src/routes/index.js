@@ -17,6 +17,7 @@ router.use("/eventos_servicios", require("../modules/eventos_servicios/eventos_s
 router.use("/equipo", require("../modules/equipo/equipo.routes.rest"));
 router.use("/pedido", require("../modules/pedido/pedido.routes.rest"));
 router.use("/proyecto", require("../modules/proyecto/proyecto.routes.rest"));
+router.use("/contrato", require("../modules/contrato/contrato.routes.rest"));
 
 
 
