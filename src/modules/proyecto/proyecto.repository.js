@@ -1,4 +1,3 @@
-// src/modules/proyecto/proyecto.repository.js
 const pool = require("../../db");
 
 async function runCall(sql, params = []) {
@@ -6,7 +5,7 @@ async function runCall(sql, params = []) {
   return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
 }
 
-/* Básicos */
+/* Proyecto */
 function getAllProyecto() {
   return runCall("CALL SP_getAllProyecto()");
 }
@@ -17,7 +16,7 @@ function postProyecto({ proyecto_nombre, codigo_pedido, fecha_inicio_edicion }) 
   return runCall("CALL SP_postProyecto(?,?,?)", [
     proyecto_nombre?.trim() ?? null,
     Number(codigo_pedido),
-    fecha_inicio_edicion, // 'YYYY-MM-DD'
+    fecha_inicio_edicion,
   ]);
 }
 function putProyectoById({ finFecha, multimedia, edicion, enlace, id }) {
@@ -35,9 +34,9 @@ function getAllPedidosContratado() {
   return runCall("CALL SP_getAllPedidosContratado()");
 }
 
-/* Asignaciones de equipos */
+/* Asignaciones */
 function getAllAsignarEquipos() {
-  return runCall("CALL SP_getAllAsignarEquipos()");
+  return runCall("CALL SP_getAllAsignarEquipos()"); // ✅ sin id
 }
 function getAsignarEquiposById(id) {
   return runCall("CALL SP_getAsignarEquiposById(?)", [Number(id)]);
@@ -60,9 +59,9 @@ function deleteAsignarEquipoById(id) {
   return runCall("CALL SP_deleteAsignarEquipoById(?)", [Number(id)]);
 }
 
-/* Equipos filtrados + eventos */
+/* Util */
 function getAllEquiposFiltrados({ fecha, proyecto, idTipoEquipo }) {
-  const f = fecha ? String(fecha).slice(0, 10) : null; // YYYY-MM-DD
+  const f = fecha ? String(fecha).slice(0, 10) : null;
   const p = proyecto != null ? Number(proyecto) : null;
   const t = idTipoEquipo != null ? Number(idTipoEquipo) : null;
   return runCall("CALL SP_getAllEquiposFiltrados(?,?,?)", [f, p, t]);
@@ -72,23 +71,16 @@ function getAllEventosProyectoById(id) {
 }
 
 module.exports = {
-  /* proyecto */
   getAllProyecto,
   getByIdProyecto,
   postProyecto,
   putProyectoById,
-
-  /* pedidos */
   getAllPedidosContratado,
-
-  /* asignaciones */
   getAllAsignarEquipos,
   getAsignarEquiposById,
   postAsignarPersonalEquipo,
   putByIdAsignarPersonalEquipo,
   deleteAsignarEquipoById,
-
-  /* util */
   getAllEquiposFiltrados,
   getAllEventosProyectoById,
 };

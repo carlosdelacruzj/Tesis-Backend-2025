@@ -1,4 +1,3 @@
-// src/modules/proyecto/proyecto.service.js
 const repo = require("./proyecto.repository");
 
 function assertInt(v, name) {
@@ -19,10 +18,8 @@ function assertStr(v, name) {
   return v.trim();
 }
 
-/* proyecto */
-async function listProyecto() {
-  return repo.getAllProyecto();
-}
+/* Proyecto */
+async function listProyecto() { return repo.getAllProyecto(); }
 async function findProyectoById(id) {
   const n = assertInt(id, "id");
   const data = await repo.getByIdProyecto(n);
@@ -56,15 +53,11 @@ async function updateProyecto(payload) {
   return { Status: "Actualización exitosa" };
 }
 
-/* pedidos */
-async function listPedidosContratado() {
-  return repo.getAllPedidosContratado();
-}
+/* Pedidos */
+async function listPedidosContratado() { return repo.getAllPedidosContratado(); }
 
-/* asignaciones */
-async function listAsignaciones() {
-  return repo.getAllAsignarEquipos();
-}
+/* Asignaciones */
+async function listAsignaciones() { return repo.getAllAsignarEquipos(); } // ✅ sin id
 async function listAsignacionesByProyecto(id) {
   const n = assertInt(id, "id");
   const data = await repo.getAsignarEquiposById(n);
@@ -95,14 +88,13 @@ async function deleteAsignacion(id) {
   return { Status: "Eliminada" };
 }
 
-/* util */
+/* Util */
 async function listEquiposFiltrados(query) {
-  const data = await repo.getAllEquiposFiltrados({
+  return repo.getAllEquiposFiltrados({
     fecha: query.fecha ?? null,
     proyecto: query.proyecto ?? null,
     idTipoEquipo: query.idTipoEquipo ?? null,
   });
-  return data;
 }
 async function listEventosByProyecto(id) {
   const n = assertInt(id, "id");
@@ -110,23 +102,16 @@ async function listEventosByProyecto(id) {
 }
 
 module.exports = {
-  /* proyecto */
   listProyecto,
   findProyectoById,
   createProyecto,
   updateProyecto,
-
-  /* pedidos */
   listPedidosContratado,
-
-  /* asignaciones */
   listAsignaciones,
   listAsignacionesByProyecto,
   createAsignacion,
   updateAsignacion,
   deleteAsignacion,
-
-  /* util */
   listEquiposFiltrados,
   listEventosByProyecto,
 };
