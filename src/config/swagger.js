@@ -22,7 +22,8 @@ module.exports = {
       { name: "eventos_servicios", description: "Relación eventos/servicios" },
       { name: "equipo", description: "Gestion de equipos" },
       { name: "pedido", description: "Gestion de pedidos" },
-       { name: "contrato", description: "Gestion de pedidos" },
+      { name: "contrato", description: "Gestion de contratos" },
+      { name: "voucher", description: "Gestion de voucher" },
     ],
     components: {
       securitySchemes: {
@@ -42,6 +43,7 @@ module.exports = {
     "src/modules/pedido/**/*.js",
     "src/modules/proyecto/**/*.js",
     "src/modules/contrato/**/*.js",
+    "src/modules/voucher/**/*.js",
   ],
 };
 
