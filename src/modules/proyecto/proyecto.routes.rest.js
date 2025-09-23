@@ -15,23 +15,6 @@ router.get("/", ctrl.getAllProyecto);
 
 /**
  * @swagger
- * /proyecto/{id}:
- *   get:
- *     tags: [proyecto]
- *     summary: Obtener proyecto por ID
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       '200': { description: OK }
- *       '404': { description: No encontrado }
- */
-router.get("/:id", ctrl.getByIdProyecto);
-
-/**
- * @swagger
  * /proyecto:
  *   post:
  *     tags: [proyecto]
@@ -78,22 +61,7 @@ router.get("/pedidos-contratado", ctrl.getAllPedidosContratado);
  *     summary: Listar asignaciones de equipos (todas)
  *     responses: { '200': { description: OK } }
  */
-router.get("/asignaciones", ctrl.getAsignaciones); // SIN id
-
-/**
- * @swagger
- * /proyecto/{id}/equipos:
- *   get:
- *     tags: [proyecto]
- *     summary: Listar asignaciones de equipos por proyecto
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses: { '200': { description: OK } }
- */
-router.get("/:id/equipos", ctrl.getAsignacionesByProyecto);
+router.get("/asignaciones", ctrl.getAsignaciones);
 
 /**
  * @swagger
@@ -138,7 +106,7 @@ router.put("/asignaciones", ctrl.putAsignacion);
  *         schema: { type: integer }
  *     responses: { '200': { description: Eliminado } }
  */
-router.delete("/asignaciones/:id", ctrl.deleteAsignacion);
+router.delete("/asignaciones/:id(\\d+)", ctrl.deleteAsignacion);
 
 /**
  * @swagger
@@ -173,6 +141,38 @@ router.get("/equipos", ctrl.getEquiposFiltrados);
  *         schema: { type: integer }
  *     responses: { '200': { description: OK } }
  */
-router.get("/:id/eventos", ctrl.getEventosByProyecto);
+router.get("/:id(\\d+)/eventos", ctrl.getEventosByProyecto);
+
+/**
+ * @swagger
+ * /proyecto/{id}/equipos:
+ *   get:
+ *     tags: [proyecto]
+ *     summary: Listar asignaciones de equipos por proyecto
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses: { '200': { description: OK } }
+ */
+router.get("/:id(\\d+)/equipos", ctrl.getAsignacionesByProyecto);
+
+/**
+ * @swagger
+ * /proyecto/{id}:
+ *   get:
+ *     tags: [proyecto]
+ *     summary: Obtener proyecto por ID
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200': { description: OK }
+ *       '404': { description: No encontrado }
+ */
+router.get("/:id(\\d+)", ctrl.getByIdProyecto);
 
 module.exports = router;

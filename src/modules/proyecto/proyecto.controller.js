@@ -1,4 +1,3 @@
-// src/modules/proyecto/proyecto.controller.js
 const service = require("./proyecto.service");
 
 /* Proyecto */
@@ -38,7 +37,7 @@ async function getAllPedidosContratado(_req, res, next) {
 /* Asignaciones de equipos */
 async function getAsignaciones(_req, res, next) {
   try {
-    const data = await service.listAsignaciones(); // SIN parámetros
+    const data = await service.listAsignaciones(); // ✅ SIN parámetros
     res.status(200).json(data);
   } catch (e) { next(e); }
 }
@@ -82,23 +81,16 @@ async function getEventosByProyecto(req, res, next) {
 }
 
 module.exports = {
-  /* proyecto */
   getAllProyecto,
   getByIdProyecto,
   postProyecto,
   putProyecto,
-
-  /* pedidos */
   getAllPedidosContratado,
-
-  /* asignaciones */
   getAsignaciones,
   getAsignacionesByProyecto,
   postAsignacion,
   putAsignacion,
   deleteAsignacion,
-
-  /* util */
   getEquiposFiltrados,
   getEventosByProyecto,
 };
