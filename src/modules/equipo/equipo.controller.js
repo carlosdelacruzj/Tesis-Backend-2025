@@ -100,11 +100,13 @@ async function getAllContadoresEquiposEstado(req, res, next) {
 async function getExistEquipo(req, res, next) {
   try {
     const data = await service.existsBySerie(req.params.numSerie);
-    res.status(200).json(data);
+    // data = [{ existsFlag: 1 }] → devolvemos solo el número
+    res.status(200).json(data[0]?.existsFlag ?? 0);
   } catch (err) {
     next(err);
   }
 }
+
 
 module.exports = {
   getAllEquipo,

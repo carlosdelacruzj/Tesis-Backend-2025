@@ -1,6 +1,7 @@
-const { Router } = require("express");
+// routes/pedido.routes.rest.js
+const express = require("express");
+const router = express.Router();
 const ctrl = require("./pedido.controller");
-const router = Router();
 
 /**
  * @swagger
@@ -18,23 +19,11 @@ router.get("/", ctrl.getAllPedido);
  * /pedido/index:
  *   get:
  *     tags: [pedido]
- *     summary: Listar pedidos index (vista resumida)
+ *     summary: Listado índice de pedidos
  *     responses:
  *       '200': { description: OK }
  */
 router.get("/index", ctrl.getIndexPedido);
-
-/**
- * @swagger
- * /pedido/last-estado:
- *   get:
- *     tags: [pedido]
- *     summary: Obtener el último estado de pedido registrado
- *     responses:
- *       '200': { description: OK }
- *       '404': { description: No encontrado }
- */
-router.get("/last-estado", ctrl.getLastEstadoPedido);
 
 /**
  * @swagger
@@ -55,10 +44,22 @@ router.get("/:id", ctrl.getPedidoById);
 
 /**
  * @swagger
+ * /pedido/estado/last:
+ *   get:
+ *     tags: [pedido]
+ *     summary: Último estado de pedido
+ *     responses:
+ *       '200': { description: OK }
+ *       '404': { description: No encontrado }
+ */
+router.get("/estado/last", ctrl.getLastEstadoPedido);
+
+/**
+ * @swagger
  * /pedido:
  *   post:
  *     tags: [pedido]
- *     summary: Crear un nuevo pedido
+ *     summary: Crear un nuevo pedido (composite)
  *     requestBody:
  *       required: true
  *       content:
@@ -66,7 +67,12 @@ router.get("/:id", ctrl.getPedidoById);
  *           schema:
  *             $ref: '#/components/schemas/PedidoCreate'
  *     responses:
- *       '201': { description: Creado }
+ *       '201':
+ *         description: Creado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PedidoCreateResponse'
  */
 router.post("/", ctrl.createPedido);
 
@@ -75,7 +81,7 @@ router.post("/", ctrl.createPedido);
  * /pedido/{id}:
  *   put:
  *     tags: [pedido]
- *     summary: Actualizar un pedido por ID
+ *     summary: Actualizar pedido por ID
  *     parameters:
  *       - in: path
  *         name: id
@@ -88,7 +94,7 @@ router.post("/", ctrl.createPedido);
  *           schema:
  *             $ref: '#/components/schemas/PedidoUpdate'
  *     responses:
- *       '200': { description: Actualizado }
+ *       '200': { description: OK }
  */
 router.put("/:id", ctrl.updatePedido);
 
