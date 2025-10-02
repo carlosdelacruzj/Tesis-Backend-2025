@@ -16,6 +16,7 @@ const authMiddleware = require("./middlewares/auth");
 const errorHandler = require("./middlewares/error-handler");
 const basicAuth = require("./middlewares/basic-auth");
 
+
 // Swagger
 const swaggerJsDoc = require("swagger-jsdoc");
 const swaggerUi = require("swagger-ui-express");
@@ -51,9 +52,16 @@ const limiter = rateLimit({
   skip: (req) => req.path === "/health" || req.path.startsWith("/api-doc") || req.path === "/api-doc.json",
 });
 app.use(limiter);
+// usa SOLO esta (con límite) y evita la otra más abajo
+app.use(express.json({ limit: '10mb' })); // por si mandas logo en base64
 
+// se elimina esta porque ya configuras CORS arriba con 'origins'
+// app.use(cors({ origin: 'http://localhost:4200' }));
+
+// ruta correcta al archivo de rutas
+app.use('/api', require('./routes/quotes.routes'));
 // Body parsers + logs
-app.use(express.json());
+
 app.use(express.urlencoded({ extended: true }));
 app.use(pinoHttp({
   logger,
