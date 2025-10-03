@@ -97,6 +97,10 @@ if (process.env.NODE_ENV === "production") {
   app.use("/api-doc", swaggerUi.serve, swaggerUi.setup(swaggerDocs, swaggerUiOpts));
 }
 
+app.get('/api/ping-root', (_req, res) => res.json({ ok: true, from: 'app.js' }));
+
+app.get('/', (_req, res) => res.status(200).send('OK'));
+
 // Auth pública (login dev)
 app.use("/api/v1/auth", require("./routes/auth"));
 
@@ -125,7 +129,7 @@ app.use("/api/v1", require("./routes"));
 // API principal
 app.use("/api/v1", require("./routes"));
 
-app.get('/', (_req, res) => res.status(200).send('OK'));
+
 
 // 404
 app.use((req, res) => {

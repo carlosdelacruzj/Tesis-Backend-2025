@@ -201,6 +201,7 @@ function buildDoc(payload) {
 
 router.get('/ping', (_req, res) => res.json({ ok: true, routes: ['POST /cotizaciones'] }));
 
+
 router.post('/cotizaciones', requireQuoteKey, (req, res) => {
   try {
     const payload = req.body;
