@@ -1,3 +1,11 @@
+// al inicio del archivo
+const requireQuoteKey = (req, res, next) => {
+  // en dev no molesta; en prod exige header
+  if (process.env.NODE_ENV !== 'production') return next();
+  const key = req.get('x-api-key');
+  if (process.env.QUOTES_API_KEY && key === process.env.QUOTES_API_KEY) return next();
+  return res.status(401).json({ message: 'Unauthorized' });
+};
 const express = require('express');
 const router = express.Router();
 const PdfPrinter = require('pdfmake');
@@ -191,7 +199,7 @@ function buildDoc(payload) {
   };
 }
 
-router.post('/cotizaciones', (req, res) => {
+router.post('/cotizaciones', requireQuoteKey, (req, res) => {
   try {
     const payload = req.body;
     const printer = new PdfPrinter(fonts);

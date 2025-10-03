@@ -31,6 +31,8 @@ try { fs.mkdirSync("uploads", { recursive: true }); } catch (_) {}
 
 app.set("port", process.env.PORT || 3000);
 
+
+
 // Seguridad y CORS
 app.use(helmet());
 const origins = (process.env.CORS_ORIGINS || "http://localhost:4200,http://localhost:3000")
@@ -101,13 +103,24 @@ app.use("/api/v1/auth", require("./routes/auth"));
 // ✅ Rutas protegidas (desactivables en DEV)
 //    - En producción: SIEMPRE activo
 //    - En desarrollo: usa DEV_REQUIRE_AUTH="true" para activarlo; por defecto desactivado
-const requireAuth = process.env.NODE_ENV === "production" || process.env.DEV_REQUIRE_AUTH === "true";
+// Rutas públicas
+app.get("/health", async (_req, res) => {
+  // ... tu lógica actual
+});
+app.use('/api', require('./routes/quotes.routes')); // cotizaciones tiene su propio check (x-api-key)
+
+// Rutas protegidas
+const requireAuth = (process.env.REQUIRE_AUTH || '').toLowerCase() === 'true';
 if (requireAuth) {
   app.use(authMiddleware);
   logger.info("🔒 Auth middleware ACTIVO");
 } else {
   logger.warn("⚠️ Auth middleware DESACTIVADO (DEV)");
 }
+
+// Lo demás de tu API
+app.use("/api/v1", require("./routes"));
+
 
 // API principal
 app.use("/api/v1", require("./routes"));
@@ -116,6 +129,8 @@ app.use("/api/v1", require("./routes"));
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Not Found" });
 });
+
+
 
 // Errores
 app.use(errorHandler);
