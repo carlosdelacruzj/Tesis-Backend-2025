@@ -125,6 +125,8 @@ app.use("/api/v1", require("./routes"));
 // API principal
 app.use("/api/v1", require("./routes"));
 
+app.get('/', (_req, res) => res.status(200).send('OK'));
+
 // 404
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Not Found" });
