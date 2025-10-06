@@ -19,20 +19,18 @@
 
 
 // src/db/index.js
-const mysql = require("mysql2/promise");
-const { database } = require("../config/key");
+// src/db/index.js
+const mysql = require('mysql2/promise');
+const { database } = require("../config/key"); // <-- ajustado el path
 
-// Espera que `database` tenga: { host, port, user, password, database }
 const pool = mysql.createPool({
   ...database,
   waitForConnections: true,
   connectionLimit: Number(process.env.DB_POOL || 10),
   queueLimit: 0,
-  charset: "utf8mb4",
-  // Opcionales útiles:
+  charset: 'utf8mb4',
   // decimalNumbers: true,
-  // dateStrings: true,   // si prefieres strings en vez de Date
-  // namedPlaceholders: true,
+  // dateStrings: true,
 });
 
 async function initPing() {
@@ -40,9 +38,10 @@ async function initPing() {
     const conn = await pool.getConnection();
     await conn.ping();
     conn.release();
-    console.log("DB is connected");
+    console.log('DB is connected');
   } catch (err) {
-    console.error("DB connection error:", err.code || err.message);
+    // Muestra código típico (ECONNREFUSED, HANDSHAKE_UNKNOWN_CA, etc.)
+    console.error('DB connection error:', err.code || err.message);
   }
 }
 initPing();

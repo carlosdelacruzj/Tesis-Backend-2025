@@ -1,14 +1,14 @@
 // src/app.js
 require("dotenv").config();
 
-const express = require("express");
-const app = express();
-
 const fs = require("fs");
+const express = require("express");
 const helmet = require("helmet");
 const cors = require("cors");
 const rateLimit = require("express-rate-limit");
 const pinoHttp = require("pino-http");
+
+const app = express();
 
 const pool = require("./db");
 const logger = require("./utils/logger");
@@ -16,55 +16,31 @@ const authMiddleware = require("./middlewares/auth");
 const errorHandler = require("./middlewares/error-handler");
 const basicAuth = require("./middlewares/basic-auth");
 
-
-// Swagger
-const swaggerJsDoc = require("swagger-jsdoc");
-const swaggerUi = require("swagger-ui-express");
-const swaggerConfig = require("./config/swagger");
-const swaggerDocs = swaggerJsDoc(swaggerConfig);
-const swaggerUiOpts = {
-  swaggerOptions: { docExpansion: "none", tagsSorter: "alpha", operationsSorter: "alpha" },
-};
-
-// uploads/
+// ───────────────────────── Bootstrap ───────────────────────
 try { fs.mkdirSync("uploads", { recursive: true }); } catch (_) {}
 
-app.set("port", process.env.PORT || 3000);
+const PORT = Number(process.env.PORT || 8080);
+app.set("port", PORT);
 
+// ───────────────────────── Seguridad / CORS ────────────────
+app.use(helmet({ contentSecurityPolicy: false }));
 
-
-// Seguridad y CORS
-app.use(helmet());
-const origins = (process.env.CORS_ORIGINS || "http://localhost:4200,http://localhost:3000")
+const origins = (process.env.CORS_ORIGINS || "http://localhost:4200")
   .split(",")
-  .map((s) => s.trim());
+  .map(s => s.trim())
+  .filter(Boolean);
+
 app.use(cors({
   origin: origins,
-  methods: ["GET","POST","PUT","DELETE","OPTIONS"],
-  allowedHeaders: ["Content-Type","Authorization"],
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
   credentials: true,
 }));
 
-// Rate limit (excluye health y swagger)
-const limiter = rateLimit({
-  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
-  max: Number(process.env.RATE_LIMIT_MAX || 100),
-  standardHeaders: true,
-  legacyHeaders: false,
-  skip: (req) => req.path === "/health" || req.path.startsWith("/api-doc") || req.path === "/api-doc.json",
-});
-app.use(limiter);
-// usa SOLO esta (con límite) y evita la otra más abajo
-app.use(express.json({ limit: '10mb' })); // por si mandas logo en base64
-
-// se elimina esta porque ya configuras CORS arriba con 'origins'
-// app.use(cors({ origin: 'http://localhost:4200' }));
-
-// ruta correcta al archivo de rutas
-app.use('/api', require('./routes/quotes.routes'));
-// Body parsers + logs
-
+// ───────────────────────── Parsers / Logs ──────────────────
+app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+
 app.use(pinoHttp({
   logger,
   serializers: {
@@ -75,46 +51,75 @@ app.use(pinoHttp({
   customErrorMessage(req, res, err) { return `ERROR ${req.method} ${req.url} → ${res.statusCode}: ${err.message}`; },
 }));
 
-// Healthcheck
+// ───────────────────────── Rate limit ──────────────────────
+const limiter = rateLimit({
+  windowMs: Number(process.env.RATE_LIMIT_WINDOW_MS || 15 * 60 * 1000),
+  max: Number(process.env.RATE_LIMIT_MAX || 100),
+  standardHeaders: true,
+  legacyHeaders: false,
+  skip: (req) =>
+    req.path === "/health" ||
+    req.path === "/" ||
+    req.path.startsWith("/api-doc") ||
+    req.path === "/api-doc.json",
+});
+app.use(limiter);
+
+// ───────────────────────── Health / Root ───────────────────
+app.get("/", (_req, res) => res.status(200).send("OK"));
+
 app.get("/health", async (_req, res) => {
   const start = Date.now();
   try {
     await pool.query("SELECT 1");
     res.json({ status: "ok", db: "up", latency_ms: Date.now() - start });
   } catch (err) {
-    res.status(503).json({ status: "degraded", db: "down", latency_ms: Date.now() - start, error: err.message });
+    res.status(503).json({
+      status: "degraded",
+      db: "down",
+      latency_ms: Date.now() - start,
+      error: err.message,
+    });
   }
 });
 
-// Swagger UI / JSON (público en dev, basic-auth en prod)
-const swaggerUser = process.env.SWAGGER_USER || "admin";
-const swaggerPass = process.env.SWAGGER_PASS || "admin123";
-if (process.env.NODE_ENV === "production") {
-  app.get("/api-doc.json", basicAuth(swaggerUser, swaggerPass), (_req, res) => res.json(swaggerDocs));
-  app.use("/api-doc", basicAuth(swaggerUser, swaggerPass), swaggerUi.serve, swaggerUi.setup(swaggerDocs, swaggerUiOpts));
-} else {
-  app.get("/api-doc.json", (_req, res) => res.json(swaggerDocs));
-  app.use("/api-doc", swaggerUi.serve, swaggerUi.setup(swaggerDocs, swaggerUiOpts));
-}
+app.get("/api/ping-root", (_req, res) => res.json({ ok: true, from: "app.js" }));
 
-app.get('/api/ping-root', (_req, res) => res.json({ ok: true, from: 'app.js' }));
+// ───────────────────────── Swagger (opcional) ──────────────
+(() => {
+  try {
+    const swaggerJsDoc = require("swagger-jsdoc");
+    const swaggerUi = require("swagger-ui-express");
+    const swaggerConfig = require("./config/swagger");
 
-app.get('/', (_req, res) => res.status(200).send('OK'));
+    const swaggerDocs = swaggerJsDoc(swaggerConfig);
+    const swaggerUiOpts = {
+      swaggerOptions: { docExpansion: "none", tagsSorter: "alpha", operationsSorter: "alpha" },
+    };
 
-// Auth pública (login dev)
-app.use("/api/v1/auth", require("./routes/auth"));
+    const swaggerUser = process.env.SWAGGER_USER || "admin";
+    const swaggerPass = process.env.SWAGGER_PASS || "admin123";
 
-// ✅ Rutas protegidas (desactivables en DEV)
-//    - En producción: SIEMPRE activo
-//    - En desarrollo: usa DEV_REQUIRE_AUTH="true" para activarlo; por defecto desactivado
-// Rutas públicas
-app.get("/health", async (_req, res) => {
-  // ... tu lógica actual
-});
-app.use('/api', require('./routes/quotes.routes')); // cotizaciones tiene su propio check (x-api-key)
+    if ((process.env.NODE_ENV || "").toLowerCase() === "production") {
+      app.get("/api-doc.json", basicAuth(swaggerUser, swaggerPass), (_req, res) => res.json(swaggerDocs));
+      app.use("/api-doc", basicAuth(swaggerUser, swaggerPass), swaggerUi.serve, swaggerUi.setup(swaggerDocs, swaggerUiOpts));
+    } else {
+      app.get("/api-doc.json", (_req, res) => res.json(swaggerDocs));
+      app.use("/api-doc", swaggerUi.serve, swaggerUi.setup(swaggerDocs, swaggerUiOpts));
+    }
 
-// Rutas protegidas
-const requireAuth = (process.env.REQUIRE_AUTH || '').toLowerCase() === 'true';
+    logger.info("[swagger] habilitado");
+  } catch (e) {
+    logger.warn(`[swagger] deshabilitado: ${e.message}`);
+  }
+})();
+
+// ───────────────────────── Rutas públicas ──────────────────
+app.use("/api", require("./routes/quotes.routes")); // x-api-key propio
+app.use("/api/v1/auth", require("./routes/auth"));  // login moderno/legacy
+
+// ───────────────────────── Rutas protegidas ────────────────
+const requireAuth = (process.env.REQUIRE_AUTH || "").toLowerCase() === "true";
 if (requireAuth) {
   app.use(authMiddleware);
   logger.info("🔒 Auth middleware ACTIVO");
@@ -122,28 +127,25 @@ if (requireAuth) {
   logger.warn("⚠️ Auth middleware DESACTIVADO (DEV)");
 }
 
-// Lo demás de tu API
+// API principal versionada
 app.use("/api/v1", require("./routes"));
 
-
-// API principal
-app.use("/api/v1", require("./routes"));
-
-
-
-// 404
+// ───────────────────────── 404 & errores ───────────────────
 app.use((req, res) => {
   res.status(404).json({ success: false, message: "Not Found" });
 });
 
-
-
-// Errores
 app.use(errorHandler);
 
-// Graceful shutdown
-const httpClose = () => new Promise((resolve) => server.close(resolve));
-const stop = async (signal) => {
+// ───────────────────────── Arranque & shutdown ─────────────
+const server = app.listen(app.get("port"), "0.0.0.0", () => {
+  logger.info({ port: app.get("port") }, "Server started");
+});
+
+async function httpClose() {
+  return new Promise((resolve) => server.close(resolve));
+}
+async function stop(signal) {
   logger.info({ signal }, "Shutting down...");
   try {
     await httpClose();
@@ -154,12 +156,10 @@ const stop = async (signal) => {
     logger.error({ err }, "Shutdown error");
     process.exit(1);
   }
-};
-
-const server = app.listen(app.get("port"), () => {
-  logger.info({ port: app.get("port") }, "Server started");
-});
+}
 
 process.on("SIGINT", () => stop("SIGINT"));
 process.on("SIGTERM", () => stop("SIGTERM"));
 process.once("SIGUSR2", async () => { await stop("SIGUSR2"); process.kill(process.pid, "SIGUSR2"); });
+
+module.exports = app;
