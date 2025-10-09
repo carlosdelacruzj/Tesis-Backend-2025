@@ -19,7 +19,7 @@ const basicAuth = require("./middlewares/basic-auth");
 // ───────────────────────── Bootstrap ───────────────────────
 try { fs.mkdirSync("uploads", { recursive: true }); } catch (_) {}
 
-const PORT = Number(process.env.PORT || 8080);
+const PORT = Number(process.env.PORT || 3000);
 app.set("port", PORT);
 
 // ───────────────────────── Seguridad / CORS ────────────────
