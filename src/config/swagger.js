@@ -20,10 +20,12 @@ module.exports = {
       { name: "servicio", description: "Servicios disponibles" },
       { name: "evento", description: "Gestión de eventos" },
       { name: "eventos_servicios", description: "Relación eventos/servicios" },
+      { name: "cotizacion", description: "Gesti�n de cotizaciones y leads" },
       { name: "equipo", description: "Gestion de equipos" },
       { name: "pedido", description: "Gestion de pedidos" },
       { name: "contrato", description: "Gestion de contratos" },
       { name: "voucher", description: "Gestion de voucher" },
+      { name: "pagos", description: "Gestion de pagos" },
     ],
     components: {
       securitySchemes: {
@@ -39,11 +41,13 @@ module.exports = {
     "src/modules/servicio/**/*.js",
     "src/modules/evento/**/*.js",
     "src/modules/eventos_servicios/**/*.js",
+    "src/modules/cotizacion/**/*.js",
     "src/modules/equipo/**/*.js",
     "src/modules/pedido/**/*.js",
     "src/modules/proyecto/**/*.js",
     "src/modules/contrato/**/*.js",
     "src/modules/voucher/**/*.js",
+    "src/modules/pagos/**/*.js",
   ],
 };
 
