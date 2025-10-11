@@ -194,7 +194,7 @@
  *               trailerMin:       { type: integer, nullable: true, example: 0 }
  *               filmMin:          { type: integer, nullable: true, example: 0 }
  *
-*     CotizacionUpdate:
+ *     CotizacionUpdate:
  *       type: object
  *       properties:
  *         cotizacion:
@@ -247,6 +247,50 @@
  *             fotosImpresas: 20
  *             trailerMin: 0
  *             filmMin: 0
+ *
+ *     # ===================== (NUEVO) CAMBIO DE ESTADO CON CONCURRENCIA =====================
+ *     CotizacionEstadoUpdateOptimista:
+ *       type: object
+ *       required: [estadoNuevo, estadoEsperado]
+ *       properties:
+ *         estadoNuevo:
+ *           type: string
+ *           enum: [Borrador, Enviada, Aceptada, Rechazada]
+ *           example: Enviada
+ *         estadoEsperado:
+ *           type: string
+ *           description: Estado que el cliente leyo antes de intentar cambiar (concurrencia optimista)
+ *           enum: [Borrador, Enviada, Aceptada, Rechazada]
+ *           example: Borrador
+ *
+ *     # ===================== (NUEVO) RESPUESTA DEL CAMBIO DE ESTADO =====================
+ *     CotizacionEstadoUpdateResponse:
+ *       type: object
+ *       properties:
+ *         Status: { type: string, example: "Estado actualizado" }
+ *         id:     { type: integer, example: 6 }
+ *         estado: { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada], example: "Enviada" }
+ *         detalle:
+ *           $ref: '#/components/schemas/CotizacionListItem'
+ *       example:
+ *         Status: "Estado actualizado"
+ *         estado: "Enviada"
+ *         detalle:
+ *           id: 6
+ *           estado: "Enviada"
+ *           fechaCreacion: "2025-10-11T10:19:21.000Z"
+ *           eventoId: 1
+ *           tipoEvento: "Boda"
+ *           fechaEvento: "2025-10-20T05:00:00.000Z"
+ *           lugar: "Cusco - Catedral"
+ *           horasEstimadas: "8.0"
+ *           mensaje: "Agregar paquete premium"
+ *           total: "4600.00"
+ *           lead:
+ *             id: 1
+ *             nombre: "carlos"
+ *             celular: "999663047"
+ *             origen: "Tiktok"
+ *             fechaCreacion: "2025-10-10T19:43:59.000Z"
  */
-
 module.exports = {};

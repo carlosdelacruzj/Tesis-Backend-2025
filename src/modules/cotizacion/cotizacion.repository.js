@@ -237,12 +237,29 @@ async function deleteById(id) {
     conn.release();
   }
 }
+// Cambiar estado (usa el SP con concurrencia opcional)
+// cotizacion.repository.js
+async function cambiarEstado(id, { estadoNuevo, estadoEsperado = null } = {}) {
+  const [res] = await pool.query(
+    'CALL defaultdb.sp_cotizacion_cambiar_estado(?,?,?)',
+    [Number(id), String(estadoNuevo), estadoEsperado == null ? null : String(estadoEsperado)]
+  );
 
+  // res => [ [ { detalle_json: '...' } ], ... ]
+  const firstResultset = Array.isArray(res) ? res[0] : res;
+  const firstRow = Array.isArray(firstResultset) ? firstResultset[0] : firstResultset;
+
+  const raw = firstRow?.detalle_json || firstRow?.detalle; // por si el alias difiere
+  const detalle = typeof raw === 'string' ? JSON.parse(raw) : raw || null;
+
+  return { detalle };
+}
 module.exports = {
   listAll,
   findByIdWithItems, // usa SP JSON
-  createAdmin,       // usa SP crear_admin
-  createPublic,      // usa SP crear_publica
-  updateAdmin,       // usa SP actualizar_admin (reemplaza ítems si se pasan)
+  createAdmin, // usa SP crear_admin
+  createPublic, // usa SP crear_publica
+  updateAdmin, // usa SP actualizar_admin (reemplaza ítems si se pasan)
   deleteById,
+  cambiarEstado
 };

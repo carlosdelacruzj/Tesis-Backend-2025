@@ -115,7 +115,6 @@ app.get("/api/ping-root", (_req, res) => res.json({ ok: true, from: "app.js" }))
 })();
 
 // ───────────────────────── Rutas públicas ──────────────────
-app.use("/api", require("./routes/quotes.routes")); // x-api-key propio
 app.use("/api/v1/auth", require("./routes/auth"));  // login moderno/legacy
 
 // ───────────────────────── Rutas protegidas ────────────────

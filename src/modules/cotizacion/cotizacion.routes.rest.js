@@ -49,6 +49,30 @@ router.get("/:id(\\d+)", ctrl.getById);
 
 /**
  * @swagger
+ * /cotizaciones/{id}/pdf:
+ *   get:
+ *     tags: [cotizacion]
+ *     summary: Descargar cotización en PDF
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: PDF generado
+ *         content:
+ *           application/pdf:
+ *             schema:
+ *               type: string
+ *               format: binary
+ *       '401': { description: Unauthorized }
+ *       '404': { description: No encontrado }
+ */
+router.get("/:id(\\d+)/pdf", ctrl.downloadPdf);
+
+/**
+ * @swagger
  * /cotizaciones/public:
  *   post:
  *     tags: [cotizacion]
@@ -115,5 +139,34 @@ router.put("/:id(\\d+)", ctrl.update);
  *       '200': { description: Eliminado }
  */
 router.delete("/:id(\\d+)", ctrl.remove);
+/**
+ * @swagger
+ * /cotizaciones/{id}/estado:
+ *   put:
+ *     tags: [cotizacion]
+ *     summary: Cambiar estado con concurrencia optimista
+ *     description: |
+ *       Cambia el estado de la cotización aplicando reglas de transición y validación de versión (estadoEsperado).
+ *       Si otro usuario cambió el estado entre tu lectura y esta operación, responderá con conflicto (409).
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/CotizacionEstadoUpdateOptimista' }
+ *     responses:
+ *       '200':
+ *         description: Estado actualizado
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/CotizacionEstadoUpdateResponse' }
+ *       '409':
+ *         description: Conflicto de versión
+ */
+router.put("/:id(\\d+)/estado", ctrl.updateEstado);
 
 module.exports = router;
