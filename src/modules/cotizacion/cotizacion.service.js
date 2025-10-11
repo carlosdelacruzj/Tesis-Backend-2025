@@ -1,204 +1,393 @@
+// cotizacion.service.js
 const repo = require("./cotizacion.repository");
 
-const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
+const ESTADOS_VALIDOS = new Set([
+  "Borrador",
+  "Enviada",
+  "Aceptada",
+  "Rechazada",
+]);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
+// ───────────── Utilidades de errores / validaciones ─────────────
 function badRequest(message) {
   const err = new Error(message);
   err.status = 400;
   return err;
 }
-
-function assertPositiveInt(value, field) {
-  const n = Number(value);
-  if (!Number.isInteger(n) || n <= 0) {
-    throw badRequest(`${field} inv�lido`);
-  }
+function assertPositiveInt(v, f) {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n <= 0) throw badRequest(`${f} inválido`);
   return n;
 }
-
-function assertString(value, field) {
-  if (typeof value !== "string" || !value.trim()) {
-    throw badRequest(`Campo '${field}' es requerido`);
-  }
-  return value.trim();
+function assertNonNegativeInt(v, f) {
+  const n = Number(v);
+  if (!Number.isInteger(n) || n < 0)
+    throw badRequest(`${f} inválido (debe ser entero ≥ 0)`);
+  return n;
 }
-
-function cleanString(value) {
-  if (value == null) return null;
-  const trimmed = String(value).trim();
-  return trimmed === "" ? null : trimmed;
+function assertNumberNonNeg(v, f) {
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0)
+    throw badRequest(`${f} inválido (debe ser número ≥ 0)`);
+  return Number(n.toFixed(2));
 }
-
-function assertDate(value, field) {
-  if (value == null) return null;
-  if (typeof value !== "string" || !ISO_DATE.test(value)) {
-    throw badRequest(`Campo '${field}' debe ser YYYY-MM-DD`);
-  }
-  return value;
+function assertString(v, f) {
+  if (typeof v !== "string" || !v.trim())
+    throw badRequest(`Campo '${f}' es requerido`);
+  return v.trim();
 }
-
-function assertHoras(value) {
-  if (value == null) return null;
-  const n = Number(value);
-  if (!Number.isFinite(n) || n < 0) {
-    throw badRequest("horasEstimadas debe ser num�rico positivo");
-  }
+function cleanString(v) {
+  if (v == null) return null;
+  const t = String(v).trim();
+  return t === "" ? null : t;
+}
+function assertDate(v, f) {
+  if (v == null) return null;
+  if (typeof v !== "string" || !ISO_DATE.test(v))
+    throw badRequest(`Campo '${f}' debe ser YYYY-MM-DD`);
+  return v;
+}
+function assertHoras(v) {
+  if (v == null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0)
+    throw badRequest("horasEstimadas debe ser numérico positivo");
   return Number(n.toFixed(1));
 }
-
-function assertEstado(value) {
-  if (value == null) return "Borrador";
-  const estado = String(value).trim();
-  if (!ESTADOS_VALIDOS.has(estado)) {
-    throw badRequest(`estado inv�lido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`);
-  }
-  return estado;
+function assertEstado(v) {
+  if (v == null) return "Borrador";
+  const e = String(v).trim();
+  if (!ESTADOS_VALIDOS.has(e))
+    throw badRequest(
+      `estado inválido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`
+    );
+  return e;
+}
+function assertCurrency3(v, f) {
+  const s = String(v || "")
+    .trim()
+    .toUpperCase();
+  if (!/^[A-Z]{3}$/.test(s))
+    throw badRequest(
+      `Campo '${f}' debe ser un código de moneda ISO de 3 letras`
+    );
+  return s;
+}
+function assertArray(v, f) {
+  if (!Array.isArray(v)) throw badRequest(`Campo '${f}' debe ser un arreglo`);
+  return v;
 }
 
-function mapRow(row) {
-  if (!row) return null;
+// ───────────── Normalizaciones (UI → SP JSON en español) ─────────────
+function normalizeItemsInput(itemsPayload, field = "items") {
+  return assertArray(itemsPayload, field).map((it, idx) => {
+    const base = `${field}[${idx}]`;
+    const idEventoServicio = assertPositiveInt(
+      it.idEventoServicio ?? it.exsId,
+      `${base}.idEventoServicio`
+    );
+    const titulo = assertString(it.titulo ?? it.nombre, `${base}.titulo`);
+    const descripcion = cleanString(it.descripcion);
+    const moneda = assertCurrency3(it.moneda, `${base}.moneda`);
+    const precioUnitario = assertNumberNonNeg(
+      it.precioUnitario ?? it.precioUnit,
+      `${base}.precioUnitario`
+    );
+    const cantidad = assertPositiveInt(it.cantidad ?? 1, `${base}.cantidad`);
+    const notas = cleanString(it.notas);
+    const horas =
+      it.horas == null ? null : assertNonNegativeInt(it.horas, `${base}.horas`);
+    const personal =
+      it.personal == null
+        ? null
+        : assertNonNegativeInt(it.personal, `${base}.personal`);
+    const fotosImpresas =
+      it.fotosImpresas == null
+        ? null
+        : assertNonNegativeInt(it.fotosImpresas, `${base}.fotosImpresas`);
+    const trailerMin =
+      it.trailerMin == null
+        ? null
+        : assertNonNegativeInt(it.trailerMin, `${base}.trailerMin`);
+    const filmMin =
+      it.filmMin == null
+        ? null
+        : assertNonNegativeInt(it.filmMin, `${base}.filmMin`);
+
+    // Mapeo al contrato del SP (español):
+    return {
+      idEventoServicio,
+      nombre: titulo,
+      descripcion,
+      moneda,
+      precioUnit: precioUnitario,
+      cantidad,
+      descuento: 0,
+      recargo: 0,
+      notas,
+      horas,
+      personal,
+      fotosImpresas,
+      trailerMin,
+      filmMin,
+    };
+  });
+}
+
+function computeItemsAggregates(items = []) {
+  // items aquí son los normalizados (precioUnit / cantidad, etc.)
+  const totalCalculado = Number(
+    items
+      .reduce((acc, it) => acc + (it.precioUnit ?? 0) * (it.cantidad ?? 0), 0)
+      .toFixed(2)
+  );
+  const horasTotales = items.reduce(
+    (acc, it) => acc + (it.horas ?? 0) * (it.cantidad ?? 1),
+    0
+  );
+  const personalTotal = items.reduce(
+    (acc, it) => acc + (it.personal ?? 0) * (it.cantidad ?? 1),
+    0
+  );
+  return { totalCalculado, horasTotales, personalTotal };
+}
+
+// ───────────── Mapeos de salida ─────────────
+function mapRowList(r) {
+  // IDs y campos base (tolera SP y SQL directo)
+  const id = r.id ?? r.idCotizacion ?? r.cotizacion_id ?? r.PK_Cot_Cod;
+  const estado = r.estado ?? r.Cot_Estado;
+  const fechaCreacion = r.fechaCreacion ?? r.Cot_Fecha_Crea;
+
+  const eventoId = r.eventoId ?? r.Cot_IdTipoEvento ?? null;
+  const tipoEvento = r.tipoEvento ?? r.Cot_TipoEvento;
+  const fechaEvento = r.fechaEvento ?? r.Cot_FechaEvento;
+  const lugar = r.lugar ?? r.Cot_Lugar;
+  const horasEstimadas = r.horasEstimadas ?? r.Cot_HorasEst;
+  const mensaje = r.mensaje ?? r.Cot_Mensaje;
+  const total = r.total ?? r.cot_total ?? null;
+
+  // Campos de lead provenientes del SP: idLead, nombre, celular, etc.
+  const lead = {
+    id: r.leadId ?? r.idLead ?? r.PK_Lead_Cod,
+    nombre: r.leadNombre ?? r.nombre ?? r.Lead_Nombre,
+    celular: r.leadCelular ?? r.celular ?? r.Lead_Celular,
+    origen: r.leadOrigen ?? r.origen ?? r.Lead_Origen,
+    fechaCreacion: r.leadFechaCreacion ?? r.Lead_Fecha_Crea,
+  };
+
   return {
-    id: row.id,
-    estado: row.estado,
-    fechaCreacion: row.fechaCreacion,
-    tipoEvento: row.tipoEvento,
-    fechaEvento: row.fechaEvento,
-    lugar: row.lugar,
-    horasEstimadas: row.horasEstimadas,
-    mensaje: row.mensaje,
-    lead: {
-      id: row.leadId,
-      nombre: row.leadNombre,
-      celular: row.leadCelular,
-      origen: row.leadOrigen,
-      fechaCreacion: row.leadFechaCreacion,
-    },
+    id,
+    estado,
+    fechaCreacion,
+    eventoId,
+    tipoEvento,
+    fechaEvento,
+    lugar,
+    horasEstimadas,
+    mensaje,
+    total,
+    lead,
   };
 }
 
+
+// ───────────── Casos de uso (API) ─────────────
 async function list({ estado } = {}) {
   const filtroEstado = estado ? assertEstado(estado) : undefined;
   const rows = await repo.listAll({ estado: filtroEstado });
-  return rows.map(mapRow);
+  return rows.map(mapRowList);
 }
+// ── mapea JSON del SP → contrato de API ──
+// function mapDetailFromJson(obj) {
+//   const it = (x) => ({
+//     id: x.itemId ?? x.idCotizacionServicio ?? null,
+//     idEventoServicio: x.exsId ?? x.idEventoServicio ?? null,
+//     titulo: x.nombre,
+//     descripcion: x.descripcion,
+//     moneda: x.moneda,
+//     precioUnitario: x.precioUnit,
+//     cantidad: x.cantidad,
+//     notas: x.notas,
+//     horas: x.horas,
+//     personal: x.personal,
+//     fotosImpresas: x.fotosImpresas,
+//     trailerMin: x.trailerMin,
+//     filmMin: x.filmMin,
+//     subtotal: x.subtotal,
+//   });
 
+//   return {
+//     id: obj.idCotizacion,
+//     lead: {
+//       id: obj.lead?.idlead,
+//       nombre: obj.lead?.nombre,
+//       celular: obj.lead?.celular,
+//       origen: obj.lead?.origen,
+//       fechaCreacion: obj.lead?.fechaCrea,
+//     },
+//     cotizacion: {
+//       eventoId: obj.cotizacion?.idTipoEvento ?? null,
+//       tipoEvento: obj.cotizacion?.tipoEvento,
+//       fechaEvento: obj.cotizacion?.fechaEvento,
+//       lugar: obj.cotizacion?.lugar,
+//       horasEstimadas: obj.cotizacion?.horasEstimadas,
+//       mensaje: obj.cotizacion?.mensaje,
+//       estado: obj.cotizacion?.estado,
+//       total: obj.cotizacion?.total ?? null,
+//       fechaCreacion: obj.cotizacion?.fechaCreacion,
+//     },
+//     items: Array.isArray(obj.items) ? obj.items.map(it) : [],
+//   };
+// }
+
+// ── usa repo.findByIdWithItems (SP JSON) y mapea al contrato de API ──
 async function findById(id) {
   const n = assertPositiveInt(id, "id");
-  const row = await repo.findById(n);
-  if (!row) {
-    const err = new Error(`Cotizaci�n ${n} no encontrada`);
+  const data = await repo.findByIdWithItems(n); // <- SP JSON
+  if (!data) {
+    const err = new Error(`Cotización ${n} no encontrada`);
     err.status = 404;
     throw err;
   }
-  return mapRow(row);
+  // return mapDetailFromJson(data);
+  return data;
 }
 
-async function create(payload = {}) {
-  const leadPayload = payload.lead || {};
-  const cotPayload = payload.cotizacion || {};
 
-  const nombre = assertString(leadPayload.nombre, "lead.nombre");
-  const celular = cleanString(leadPayload.celular);
-  const origen = cleanString(leadPayload.origen);
+// Crea por público (prospecto)
+async function createPublic(payload = {}) {
+  const lead = payload.lead || {};
+  const cot = payload.cotizacion || {};
 
-  const tipoEvento = assertString(cotPayload.tipoEvento, "cotizacion.tipoEvento");
-  const fechaEvento = assertDate(cotPayload.fechaEvento, "cotizacion.fechaEvento");
-  const lugar = cleanString(cotPayload.lugar);
-  const horasEstimadas = assertHoras(cotPayload.horasEstimadas);
-  const mensaje = cleanString(cotPayload.mensaje);
-  const estado = assertEstado(cotPayload.estado);
+  const nombre = assertString(lead.nombre, "lead.nombre");
+  const celular = cleanString(lead.celular);
+  const origen = cleanString(lead.origen) ?? "Web";
 
-  const result = await repo.create({
+  const tipoEvento = assertString(cot.tipoEvento, "cotizacion.tipoEvento");
+  const idTipoEvento =
+    cot.idTipoEvento != null
+      ? assertPositiveInt(cot.idTipoEvento, "cotizacion.idTipoEvento")
+      : null;
+  const fechaEvento = assertDate(cot.fechaEvento, "cotizacion.fechaEvento");
+  const lugar = cleanString(cot.lugar);
+  const horasEstimadas = assertHoras(cot.horasEstimadas);
+  const mensaje = cleanString(cot.mensaje);
+
+  const result = await repo.createPublic({
     lead: { nombre, celular, origen },
     cotizacion: {
       tipoEvento,
+      idTipoEvento,
+      fechaEvento,
+      lugar,
+      horasEstimadas,
+      mensaje,
+    },
+  });
+
+  return { Status: "Registro exitoso", ...result };
+}
+
+// Crea por admin (completa, con items)
+async function createAdmin(payload = {}) {
+  const lead = payload.lead || {};
+  const cot = payload.cotizacion || {};
+  const items = normalizeItemsInput(payload.items ?? [], "items"); // → JSON en español para SP
+  // (opc) agregados locales si los quieres devolver
+  const { totalCalculado } = computeItemsAggregates(items);
+
+  // Validaciones de cabecera
+  const tipoEvento = assertString(cot.tipoEvento, "cotizacion.tipoEvento");
+  const idTipoEvento =
+    cot.idTipoEvento != null
+      ? assertPositiveInt(cot.idTipoEvento, "cotizacion.idTipoEvento")
+      : null;
+  const fechaEvento = assertDate(cot.fechaEvento, "cotizacion.fechaEvento");
+  const lugar = cleanString(cot.lugar);
+  const horasEstimadas = assertHoras(cot.horasEstimadas);
+  const mensaje = cleanString(cot.mensaje);
+  const estado = assertEstado(cot.estado);
+
+  const res = await repo.createAdmin({
+    lead: {
+      id: lead.id ?? null,
+      nombre: cleanString(lead.nombre),
+      celular: cleanString(lead.celular),
+      origen: cleanString(lead.origen) ?? "Backoffice",
+    },
+    cotizacion: {
+      tipoEvento,
+      idTipoEvento,
       fechaEvento,
       lugar,
       horasEstimadas,
       mensaje,
       estado,
     },
+    items,
   });
 
   return {
     Status: "Registro exitoso",
-    leadId: result.leadId,
-    cotizacionId: result.cotizacionId,
+    cotizacionId: res.idCotizacion,
+    totalCalculado,
+    itemsCreados: items.length,
   };
 }
 
+// Actualiza por admin (parcial; si envías items, reemplaza todo el set)
 async function update(id, payload = {}) {
   const cotizacionId = assertPositiveInt(id, "id");
-  if (!payload.lead && !payload.cotizacion) {
-    throw badRequest("Debe enviar lead y/o cotizacion para actualizar");
-  }
 
-  const row = await repo.findById(cotizacionId);
-  if (!row) {
-    const err = new Error(`Cotizaci�n ${cotizacionId} no encontrada`);
-    err.status = 404;
-    throw err;
-  }
+  const cot = payload.cotizacion || {};
+  const items =
+    payload.items !== undefined
+      ? normalizeItemsInput(payload.items, "items")
+      : undefined;
 
-  if (payload.lead) {
-    const updates = {};
-    if (Object.prototype.hasOwnProperty.call(payload.lead, "nombre")) {
-      updates.nombre = assertString(payload.lead.nombre, "lead.nombre");
-    }
-    if (Object.prototype.hasOwnProperty.call(payload.lead, "celular")) {
-      updates.celular = cleanString(payload.lead.celular);
-    }
-    if (Object.prototype.hasOwnProperty.call(payload.lead, "origen")) {
-      updates.origen = cleanString(payload.lead.origen);
-    }
-    await repo.updateLead(row.leadId, updates);
-  }
+  // Validaciones parciales (pueden ir null → COALESCE en SP conserva)
+  const p = {};
+  if ("tipoEvento" in cot)
+    p.tipoEvento = assertString(cot.tipoEvento, "cotizacion.tipoEvento");
+  if ("idTipoEvento" in cot)
+    p.idTipoEvento =
+      cot.idTipoEvento == null
+        ? null
+        : assertPositiveInt(cot.idTipoEvento, "cotizacion.idTipoEvento");
+  if ("fechaEvento" in cot)
+    p.fechaEvento = assertDate(cot.fechaEvento, "cotizacion.fechaEvento");
+  if ("lugar" in cot) p.lugar = cleanString(cot.lugar);
+  if ("horasEstimadas" in cot)
+    p.horasEstimadas = assertHoras(cot.horasEstimadas);
+  if ("mensaje" in cot) p.mensaje = cleanString(cot.mensaje);
+  if ("estado" in cot) p.estado = assertEstado(cot.estado);
 
-  if (payload.cotizacion) {
-    const updates = {};
-    if (Object.prototype.hasOwnProperty.call(payload.cotizacion, "tipoEvento")) {
-      updates.tipoEvento = assertString(payload.cotizacion.tipoEvento, "cotizacion.tipoEvento");
-    }
-    if (Object.prototype.hasOwnProperty.call(payload.cotizacion, "fechaEvento")) {
-      updates.fechaEvento = assertDate(payload.cotizacion.fechaEvento, "cotizacion.fechaEvento");
-    }
-    if (Object.prototype.hasOwnProperty.call(payload.cotizacion, "lugar")) {
-      updates.lugar = cleanString(payload.cotizacion.lugar);
-    }
-    if (Object.prototype.hasOwnProperty.call(payload.cotizacion, "horasEstimadas")) {
-      updates.horasEstimadas = assertHoras(payload.cotizacion.horasEstimadas);
-    }
-    if (Object.prototype.hasOwnProperty.call(payload.cotizacion, "mensaje")) {
-      updates.mensaje = cleanString(payload.cotizacion.mensaje);
-    }
-    if (Object.prototype.hasOwnProperty.call(payload.cotizacion, "estado")) {
-      updates.estado = assertEstado(payload.cotizacion.estado);
-    }
-    await repo.updateCotizacion(cotizacionId, updates);
-  }
+  await repo.updateAdmin(cotizacionId, {
+    cotizacion: p,
+    items, // si es array → SP reemplaza; si undefined → no toca ítems; si null → borra todos (envía [] si quieres set vacío)
+  });
 
-  return { Status: "Actualizaci�n exitosa" };
+  return { Status: "Actualización exitosa" };
 }
 
 async function remove(id) {
   const cotizacionId = assertPositiveInt(id, "id");
   const result = await repo.deleteById(cotizacionId);
   if (!result.deleted) {
-    const err = new Error(`Cotizaci�n ${cotizacionId} no encontrada`);
+    const err = new Error(`Cotización ${cotizacionId} no encontrada`);
     err.status = 404;
     throw err;
   }
-  return {
-    Status: "Eliminaci�n exitosa",
-    leadEliminado: result.leadDeleted,
-  };
+  return { Status: "Eliminación exitosa", leadEliminado: result.leadDeleted };
 }
 
 module.exports = {
   list,
   findById,
-  create,
+  createPublic,
+  createAdmin,
   update,
   remove,
 };

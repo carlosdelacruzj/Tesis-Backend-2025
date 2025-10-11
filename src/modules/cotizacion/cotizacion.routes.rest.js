@@ -1,3 +1,4 @@
+// src/modules/cotizacion/cotizacion.routes.rest.js
 const { Router } = require("express");
 const ctrl = require("./cotizacion.controller");
 
@@ -15,7 +16,12 @@ const router = Router();
  *         required: false
  *         schema: { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada] }
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CotizacionList'
  */
 router.get("/", ctrl.getAll);
 
@@ -24,40 +30,61 @@ router.get("/", ctrl.getAll);
  * /cotizaciones/{id}:
  *   get:
  *     tags: [cotizacion]
- *     summary: Obtener cotizaci髇 por ID
+ *     summary: Obtener cotizaci贸n por ID (JSON crudo del SP)
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CotizacionDetailSP'
  *       '404': { description: No encontrado }
  */
 router.get("/:id(\\d+)", ctrl.getById);
 
 /**
  * @swagger
- * /cotizaciones:
+ * /cotizaciones/public:
  *   post:
  *     tags: [cotizacion]
- *     summary: Registrar nueva cotizaci髇
+ *     summary: Crear cotizaci贸n (p煤blico/prospecto)
  *     requestBody:
  *       required: true
  *       content:
  *         application/json:
- *           schema: { $ref: '#/components/schemas/CotizacionCreate' }
+ *           schema: { $ref: '#/components/schemas/CotizacionCreatePublic' }
  *     responses:
  *       '201': { description: Creado }
  */
-router.post("/", ctrl.create);
+router.post("/public", ctrl.createPublic);
+
+/**
+ * @swagger
+ * /cotizaciones/admin:
+ *   post:
+ *     tags: [cotizacion]
+ *     summary: Crear cotizaci贸n (admin, con 铆tems)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/CotizacionCreateAdmin' }
+ *     responses:
+ *       '201': { description: Creado }
+ */
+router.post("/admin", ctrl.createAdmin);
 
 /**
  * @swagger
  * /cotizaciones/{id}:
  *   put:
  *     tags: [cotizacion]
- *     summary: Actualizar cotizaci髇 existente
+ *     summary: Actualizar cotizaci贸n (admin)
  *     parameters:
  *       - in: path
  *         name: id
@@ -78,7 +105,7 @@ router.put("/:id(\\d+)", ctrl.update);
  * /cotizaciones/{id}:
  *   delete:
  *     tags: [cotizacion]
- *     summary: Eliminar cotizaci髇
+ *     summary: Eliminar cotizaci贸n
  *     parameters:
  *       - in: path
  *         name: id
