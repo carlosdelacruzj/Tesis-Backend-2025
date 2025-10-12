@@ -1,34 +1,72 @@
-// cotizacion.controller.js
+// src/modules/cotizacion/cotizacion.controller.js
+const svc = require("./cotizacion.service");
 const logger = require("../../utils/logger");
 const service = require("./cotizacion.service");
 
 async function getAll(req, res, next) {
   try {
-    const data = await service.list({ estado: req.query?.estado });
-    res.status(200).json(data);
+    const { estado } = req.query || {};
+    const data = await svc.list({ estado });
+    res.json(data);
   } catch (err) { next(err); }
 }
 
 async function getById(req, res, next) {
   try {
-    const data = await service.findById(req.params.id);
-    res.status(200).json(data);
+    const id = req.params.id;
+    const data = await svc.findById(id);
+    res.json(data);
   } catch (err) { next(err); }
 }
 
+async function createPublic(req, res, next) {
+  try {
+    const out = await svc.createPublic(req.body || {});
+    res.status(201).json(out);
+  } catch (err) { next(err); }
+}
+
+async function createAdmin(req, res, next) {
+  try {
+    const out = await svc.createAdmin(req.body || {});
+    res.status(201).json(out);
+  } catch (err) { next(err); }
+}
+
+async function update(req, res, next) {
+  try {
+    const id = req.params.id;
+    const out = await svc.update(id, req.body || {});
+    res.json(out);
+  } catch (err) { next(err); }
+}
+
+async function remove(req, res, next) {
+  try {
+    const id = req.params.id;
+    const out = await svc.remove(id);
+    res.json(out);
+  } catch (err) { next(err); }
+}
+
+// ⬇️ IMPORTANTE: este es el que debe llamar a TU streamPdf
 async function downloadPdf(req, res, next) {
   logger.info(
     {
       module: "cotizacion",
       action: "downloadPdf",
       id: req.params.id,
+      q: req.query, // <-- ver qué query llega
     },
     "Solicitud de PDF recibida"
   );
   try {
+    // PASAR QUERY AL SERVICIO  👇
     await service.streamPdf({
       id: req.params.id,
       res,
+      mode: req.query.mode,   // <-- NUEVO
+      raw: req.query.raw,     // <-- NUEVO
     });
     logger.info(
       {
@@ -52,52 +90,22 @@ async function downloadPdf(req, res, next) {
     next(err);
   }
 }
-
-// POST /cotizaciones/public
-async function createPublic(req, res, next) {
-  try {
-    const result = await service.createPublic(req.body);
-    res.status(201).json(result);
-  } catch (err) { next(err); }
-}
-
-// POST /cotizaciones/admin
-async function createAdmin(req, res, next) {
-  try {
-    const result = await service.createAdmin(req.body);
-    res.status(201).json(result);
-  } catch (err) { next(err); }
-}
-
-async function update(req, res, next) {
-  try {
-    const result = await service.update(req.params.id, req.body);
-    res.status(200).json(result);
-  } catch (err) { next(err); }
-}
-
-async function remove(req, res, next) {
-  try {
-    const result = await service.remove(req.params.id);
-    res.status(200).json(result);
-  } catch (err) { next(err); }
-}
-// cotizacion.controller.js
 async function updateEstado(req, res, next) {
   try {
+    const { id } = req.params;
     const { estadoNuevo, estadoEsperado } = req.body || {};
-    const data = await service.cambiarEstadoOptimista(req.params.id, { estadoNuevo, estadoEsperado });
-    res.status(200).json(data);
+    const out = await svc.cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado });
+    res.json(out);
   } catch (err) { next(err); }
 }
 
 module.exports = {
   getAll,
   getById,
-  downloadPdf,
   createPublic,
   createAdmin,
   update,
   remove,
-  updateEstado
+  downloadPdf,     // 👈 asegúrate que la ruta usa esto
+  updateEstado,
 };

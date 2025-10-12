@@ -61,12 +61,23 @@ async function findByIdWithItems(id) {
     "CALL defaultdb.sp_cotizacion_obtener_json_por_id(?)",
     [Number(id)]
   );
-  if (!rows0.length) return null;
-  // El SP retorna una fila con la columna cotizacion_json (JSON string o ya-JSON según mysql2)
-  const raw = rows0[0].cotizacion_json;
-  const data = typeof raw === "string" ? JSON.parse(raw) : raw;
-  return data; // { idCotizacion, lead:{...}, cotizacion:{...}, items:[...] }
+  if (!rows0 || !rows0.length) return null;
+
+  // Tolera alias distintos y Buffer
+  const row = rows0[0] || {};
+  const raw =
+    row.cotizacion_json ??
+    row.detalle_json ??
+    row.json ??
+    row.data ??
+    row[Object.keys(row).find(k => /json/i.test(k))];
+
+  const str = Buffer.isBuffer(raw) ? raw.toString("utf8") : raw;
+  const data = typeof str === "string" ? JSON.parse(str) : str;
+
+  return data || null; // { idCotizacion, lead, cotizacion, items: [...] }
 }
+
 
 // ===================== CREAR (ADMIN) =====================
 /**
