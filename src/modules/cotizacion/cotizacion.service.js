@@ -848,7 +848,7 @@ async function cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado }) {
     ).toLowerCase();
     if (msg.includes("version conflict")) {
       const e = badRequest(
-        "Conflicto de versión: el estado cambió antes de tu actualización"
+        "Conflicto de versión: el estado cambió antes de tu actualizacion"
       );
       e.status = 409;
       throw e;
