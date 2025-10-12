@@ -62,7 +62,36 @@
  *         correo: "nuevo@example.com"
  *         celular: "946202445"
  *         direccion: "su casita"
+ *
+ *     # === NUEVO ===
+ *     ClienteAutocompleteItem:
+ *       type: object
+ *       description: Item devuelto por /clientes/buscar (autocompletado).
+ *       properties:
+ *         idCliente:     { type: integer }
+ *         codigoCliente: { type: string, description: "Código formateado: CLI-000001" }
+ *         nombre:        { type: string }
+ *         apellido:      { type: string }
+ *         correo:        { type: string, format: email }
+ *         celular:       { type: string }
+ *         doc:           { type: string, description: "DNI/RUC u otro documento" }
+ *         direccion:     { type: string }
+ *       required: [idCliente, nombre]
+ *       example:
+ *         idCliente: 12
+ *         codigoCliente: "CLI-000012"
+ *         nombre: "María"
+ *         apellido: "García"
+ *         correo: "nuevo@example.com"
+ *         celular: "946202445"
+ *         doc: "47651234"
+ *         direccion: "su casita 2"
+ *
+ *     ClientesAutocompleteResponse:
+ *       type: array
+ *       description: Lista de coincidencias para autocompletado.
+ *       items:
+ *         $ref: '#/components/schemas/ClienteAutocompleteItem'
  */
 
-// (Opcional) si quieres exportar algo para validación en runtime, puedes dejar:
 module.exports = {};

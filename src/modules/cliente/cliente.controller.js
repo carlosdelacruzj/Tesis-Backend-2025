@@ -54,10 +54,26 @@ async function putClienteById(req, res, next) {
   }
 }
 
+/* =========================
+   NUEVO: GET /clientes/buscar
+   Autocompletado (query + limit)
+   ========================= */
+async function buscarClientes(req, res, next) {
+  try {
+    const query = String(req.query?.query ?? "").trim();
+    const limit = Number(req.query?.limit ?? 10);
+    const data = await service.autocomplete({ query, limit });
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAllCliente,
   getByIdCliente,
   getDataCliente,
   postCliente,
   putClienteById,
+  buscarClientes, // <-- export nuevo
 };

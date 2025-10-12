@@ -71,10 +71,26 @@ async function update(payload) {
   return { Status: "Actualizacion exitosa" };
 }
 
+/* =========================
+   NUEVO: Autocomplete
+   ========================= */
+async function autocomplete({ query, limit = 10 }) {
+  assertString(query, "query");
+  const q = query.trim();
+  if (q.length < 2) {
+    const err = new Error("query debe tener al menos 2 caracteres");
+    err.status = 400;
+    throw err;
+  }
+  const lim = Number.isFinite(Number(limit)) ? Number(limit) : 10;
+  return repo.autocomplete({ query: q, limit: lim });
+}
+
 module.exports = {
   list,
   findById,
   findByDoc,
   create,
   update,
+  autocomplete, // <-- exporta el nuevo método
 };

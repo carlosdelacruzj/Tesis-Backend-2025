@@ -14,6 +14,29 @@ router.get("/", ctrl.getAllCliente);
 
 /**
  * @swagger
+ * /clientes/buscar:
+ *   get:
+ *     tags: [cliente]
+ *     summary: Autocompletar clientes por query
+ *     parameters:
+ *       - in: query
+ *         name: query
+ *         required: true
+ *         schema: { type: string, minLength: 2 }
+ *         description: DNI/RUC, correo, celular, nombre o apellido
+ *       - in: query
+ *         name: limit
+ *         required: false
+ *         schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
+ *         description: Máximo de resultados a retornar
+ *     responses:
+ *       '200': { description: OK }
+ *       '400': { description: Parámetros inválidos }
+ */
+router.get("/buscar", ctrl.buscarClientes);
+
+/**
+ * @swagger
  * /clientes/{id}:
  *   get:
  *     tags: [cliente]

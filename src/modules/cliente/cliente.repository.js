@@ -32,6 +32,19 @@ async function getByDoc(doc) {
   return runCall("CALL SP_getDataCliente(?)", [doc]);
 }
 
+/**
+ * Autocompletado por DNI/RUC, correo, celular, nombre o apellido.
+ * - query: string (requerido, ideal >= 2 chars)
+ * - limit: number (opcional, default 10; el SP acota 1..50)
+ * Retorna un array de filas: [{ idCliente, codigoCliente, nombre, apellido, correo, celular, doc, direccion }]
+ */
+async function autocomplete({ query, limit = 10 }) {
+  const q = t(query);
+  if (!q || q.length < 2) return []; // evita llamadas innecesarias
+  const lim = Number.isFinite(limit) ? Number(limit) : 10;
+  return runCall("CALL SP_autocompleteClientes(?, ?)", [q, lim]);
+}
+
 // --- Mutaciones ---
 async function create({ nombre, apellido, correo, numDoc, celular, direccion }) {
   // Si tu SP hace SELECT del nuevo id, runCall() lo devolverá. Tu service hoy no lo usa.
@@ -58,6 +71,7 @@ module.exports = {
   getAll,
   getById,
   getByDoc,
+  autocomplete, // <-- nuevo método exportado
   create,
   updateById,
 };
