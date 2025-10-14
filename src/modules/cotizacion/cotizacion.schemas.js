@@ -293,4 +293,5 @@
  *             origen: "Tiktok"
  *             fechaCreacion: "2025-10-10T19:43:59.000Z"
  */
+
 module.exports = {};
