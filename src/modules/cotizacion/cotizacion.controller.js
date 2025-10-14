@@ -1,7 +1,5 @@
-// src/modules/cotizacion/cotizacion.controller.js
 const svc = require("./cotizacion.service");
 const logger = require("../../utils/logger");
-const service = require("./cotizacion.service");
 
 async function getAll(req, res, next) {
   try {
@@ -49,31 +47,22 @@ async function remove(req, res, next) {
   } catch (err) { next(err); }
 }
 
-// ⬇️ IMPORTANTE: este es el que debe llamar a TU streamPdf
+// ⬇️ Generación de PDF (pasa query + body al servicio)
 async function downloadPdf(req, res, next) {
   logger.info(
-    {
-      module: "cotizacion",
-      action: "downloadPdf",
-      id: req.params.id,
-      q: req.query, // <-- ver qué query llega
-    },
+    { module: "cotizacion", action: "downloadPdf", id: req.params.id, q: req.query },
     "Solicitud de PDF recibida"
   );
   try {
-    // PASAR QUERY AL SERVICIO  👇
-    await service.streamPdf({
+    await svc.streamPdf({
       id: req.params.id,
       res,
-      mode: req.query.mode,   // <-- NUEVO
-      raw: req.query.raw,     // <-- NUEVO
+      mode: req.query.mode,
+      raw: req.query.raw,
+      body: req.body || {},     // 👈 aquí va el logo/firma/equipo que viene del front
     });
     logger.info(
-      {
-        module: "cotizacion",
-        action: "downloadPdf:success",
-        id: req.params.id,
-      },
+      { module: "cotizacion", action: "downloadPdf:success", id: req.params.id },
       "PDF generado y enviado"
     );
   } catch (err) {
@@ -90,6 +79,7 @@ async function downloadPdf(req, res, next) {
     next(err);
   }
 }
+
 async function updateEstado(req, res, next) {
   try {
     const { id } = req.params;
@@ -106,6 +96,6 @@ module.exports = {
   createAdmin,
   update,
   remove,
-  downloadPdf,     // 👈 asegúrate que la ruta usa esto
+  downloadPdf,
   updateEstado,
 };

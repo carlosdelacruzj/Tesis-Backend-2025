@@ -1,79 +1,207 @@
 // src/pdf/cotizacion.js
 const PDFDocument = require("pdfkit");
 
-// helpers
-function sectionRule(doc, yPad = 6) {
-  const x0 = 50, x1 = doc.page.width - 50, y = doc.y + yPad;
-  doc.moveTo(x0, y).lineTo(x1, y).lineWidth(0.5).strokeColor("#333").stroke().moveDown(0.3);
+/** ================= helpers ================= */
+function fmtMoney(n, currency = "USD") {
+  const v = Number(n || 0);
+  const [int, dec] = v.toFixed(2).split(".");
+  return `${currency === "USD" ? "US $" : ""}${int.replace(/\B(?=(\d{3})+(?!\d))/g, ",")}.${dec}`;
 }
 function ensureArray(a) { return Array.isArray(a) ? a : (a ? [a] : []); }
-
-// equipo (global opcional)
-function renderEquipoGlobal(doc, equipo = []) {
-  if (!Array.isArray(equipo) || equipo.length === 0) return;
-  doc.moveDown(0.5);
-  doc.font("Helvetica-Bold").fontSize(12).text("Equipo asignado (general)").moveDown(0.3);
-  sectionRule(doc, 4);
-  doc.font("Helvetica").fontSize(11);
-  equipo.forEach((e) => {
-    const nombre = e.nombre || e.empleado || e.fullname || "—";
-    const rol    = e.rol || e.puesto || e.cargo || "";
-    const tel    = e.celular || e.telefono || "";
-    doc.text(`- ${nombre}${rol ? " — " + rol : ""}${tel ? " — " + tel : ""}`);
-  });
-  doc.moveDown(0.8);
-}
-function pickStaffLines(equipo = [], count = 0) {
-  if (!Array.isArray(equipo) || equipo.length === 0 || !count) return [];
-  return equipo.slice(0, Math.max(0, count)).map(e => {
-    const nombre = e.nombre || e.empleado || e.fullname || "—";
-    const rol    = e.rol || e.puesto || e.cargo || "";
-    return `${nombre}${rol ? " — " + rol : ""}`;
-  });
+function asRawBase64(s) {
+  if (!s) return "";
+  const m = String(s).match(/^data:.*;base64,(.*)$/i);
+  return m ? m[1] : String(s);
 }
 
-// renderers
-function renderOption(doc, idx, opt, equipo) {
-  doc.font("Helvetica-Bold").fontSize(12).text(`Opción ${idx}.`);
-  doc.font("Helvetica").fontSize(11);
+/** === Tamaños (ajusta SIZE_OPTION_TEXT a 11 si quieres -1pt) === */
+const SIZE_OPTION = 13;       // "Opción X."
+const SIZE_OPTION_TEXT = 10;  // todo lo que va debajo de la opción
 
-  const bullets = [
-    ...(ensureArray(opt.bullets)),
-    opt.horas ? `Tiempo de trabajo: ${opt.horas} horas` : null,
-  ].filter(Boolean);
+/** ========== línea de costo (con puntos guía) ========== */
+function costLine(
+  doc, label, amount, currency = "USD",
+  bold = true, withLeader = true, fontSize = SIZE_OPTION_TEXT
+) {
+  const left  = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+  const y = doc.y;
 
-  if (opt.titulo) doc.text(`— ${opt.titulo}`);
-  bullets.forEach(b => doc.text(`-  ${b}`));
+  const labelFont = bold ? "Helvetica-Bold" : "Helvetica";
+  const txt = fmtMoney(amount, currency);
 
-  // STAFF ESTÁTICO POR OPCIÓN (siempre que personal > 0)
-  const nStaff = Number(opt.personal || 0);
-  if (nStaff > 0) {
-    const lines = pickStaffLines(equipo, nStaff);
-    // siempre muestra el número; si hay nombres, también
-    doc.text(`Personal asignado: ${nStaff}`);
-    if (lines.length) lines.forEach(s => doc.text(`   • ${s}`));
+  doc.x = left;
+  doc.font(labelFont).fontSize(fontSize);
+
+  const labelW  = doc.widthOfString(label);
+  const amountW = doc.widthOfString(txt);
+
+  // Etiqueta
+  doc.text(label, left, y, { lineBreak: false });
+
+  // Puntos guía
+  if (withLeader) {
+    const dotW = doc.widthOfString(".");
+    const avail = (right - left) - (labelW + amountW + 8);
+    if (avail > 0) {
+      const dots = ".".repeat(Math.floor(avail / dotW));
+      doc.text(dots, left + labelW + 4, y, { lineBreak: false });
+    }
   }
 
-  if (opt.notas) doc.text(`* Notas: ${opt.notas}`, { oblique: true });
-  doc.moveDown(0.8); // sin totales
+  // Monto a la derecha
+  doc.text(txt, right - amountW, y, { lineBreak: false });
+
+  // Restaurar flujo
+  doc.x = left;
+  doc.moveDown(0.8);
 }
 
-function renderCategory(doc, titulo, opciones) {
-  doc.font("Helvetica-Bold").fontSize(12).text(titulo).moveDown(0.4);
-  sectionRule(doc, 4);
+/** =========== render bloques =========== */
+function renderOption(doc, idx, opt) {
+  const left = doc.page.margins.left;
+  doc.x = left;
 
-  if (!opciones || opciones.length === 0) {
-    doc.font("Helvetica-Oblique").fontSize(11).text(`No se seleccionaron opciones de ${/foto/i.test(titulo) ? "fotografía" : "video"}.`).moveDown(0.8);
+  // Espacio entre opciones
+  doc.moveDown(idx > 1 ? 1.0 : 0.6);
+
+  // Título "Opción X." (13pt)
+  doc.font("Helvetica-Bold").fontSize(SIZE_OPTION).text(`Opción ${idx}.`);
+
+  // Texto debajo (10pt)
+  doc.font("Helvetica").fontSize(SIZE_OPTION_TEXT);
+
+  if (opt.titulo) { doc.x = left; doc.text(`— ${opt.titulo}`); doc.moveDown(0.4); }
+
+  // Detalles con ligeros espacios
+  const bullets = [];
+  const dets = ensureArray(opt.bullets).filter(Boolean);
+  dets.forEach(d => bullets.push(d));
+  if (opt.personal != null) bullets.push(`Durante el evento estará/n presente/s ${opt.personal} fotógrafo/s`);
+  if (opt.horas != null)    bullets.push(`Tiempo de trabajo: ${opt.horas} horas`);
+
+  bullets.forEach((b, i) => {
+    doc.x = left;
+    doc.text(`-  ${b}`);
+    if (i !== bullets.length - 1) doc.moveDown(0.2);
+  });
+
+  if (opt.notas) { doc.moveDown(0.4); doc.x = left; doc.text(`* Notas: ${opt.notas}`); }
+
+  // Costo por el servicio (10pt)
+  const total = Number(opt.precioUnitario || 0) * Number(opt.cantidad || 1);
+  doc.moveDown(0.4);
+  costLine(doc, "Costo por el servicio", total, opt.moneda || "USD", true, true, SIZE_OPTION_TEXT);
+}
+
+function renderCategory(doc, tituloNum, tituloSubrayado, opciones) {
+  const left = doc.page.margins.left;
+  doc.x = left;
+
+  // Título subrayado (sin raya adicional)
+  doc.font("Helvetica-Bold").fontSize(12).text(tituloNum, { continued: true });
+  doc.text(tituloSubrayado, { underline: true });
+
+  // Más espacio entre título y contenido
+  doc.moveDown(0.8);
+
+  if (!opciones || !opciones.length) {
+    doc.x = left;
+    doc.font("Helvetica-Oblique").fontSize(11).text("— sin opciones —").moveDown(1.0);
     return;
   }
 
   let idx = 1;
-  opciones.forEach(opt => renderOption(doc, idx++, opt, renderCategory.__equipo));
-  doc.moveDown(0.8);
+  opciones.forEach(opt => renderOption(doc, idx++, opt));
+
+  // Aire extra al cerrar el tema
+  doc.moveDown(1.0);
 }
 
-// API
-function generarCotizacionPdf({ cabecera = {}, selecciones = {}, equipo = [] }) {
+function renderExtras(doc, titulo, extras = []) {
+  if (!extras || !extras.length) return;
+  const left = doc.page.margins.left;
+
+  doc.x = left;
+  doc.font("Helvetica-Bold").fontSize(12).text(titulo, { underline: true });
+  doc.moveDown(0.8); // espacio (sin línea horizontal)
+
+  // Texto de extras en 10pt también
+  doc.font("Helvetica").fontSize(SIZE_OPTION_TEXT);
+
+  extras.forEach((e, i) => {
+    doc.x = left;
+    doc.text(`-  ${e.titulo || `Extra ${i+1}`}`);
+    const total = Number(e.precioUnitario || 0) * Number(e.cantidad || 1);
+    doc.moveDown(0.2);
+    costLine(doc, "Costo", total, e.moneda || "USD", false, true, SIZE_OPTION_TEXT);
+  });
+
+  doc.moveDown(1.0);
+}
+
+// Firma a la derecha + fecha a la izquierda
+function renderSignAndDate(doc, { createdAt, firmaBase64 }) {
+  const left = doc.page.margins.left;
+  const right = doc.page.width - doc.page.margins.right;
+
+  doc.moveDown(1.2);
+  const yBase = doc.y;
+
+  const fechaTxt = createdAt ? new Date(createdAt).toLocaleDateString()
+                             : new Date().toLocaleDateString();
+  doc.x = left;
+  doc.font("Helvetica").fontSize(10).text(fechaTxt, left, yBase);
+
+  const firmaWidth = 120;
+  if (firmaBase64) {
+    try {
+      doc.image(Buffer.from(asRawBase64(firmaBase64), "base64"), right - firmaWidth, yBase - 20, { width: firmaWidth });
+      doc.font("Helvetica").fontSize(10).text("Edwin De La Cruz", right - firmaWidth + 15, yBase + 40);
+      doc.text("fotógrafo", right - firmaWidth + 15, yBase + 54);
+    } catch {
+      doc.font("Helvetica").fontSize(10).text("Edwin De La Cruz", right - 120, yBase);
+      doc.text("fotógrafo", right - 120, yBase + 14);
+    }
+  } else {
+    doc.font("Helvetica").fontSize(10).text("Edwin De La Cruz", right - 120, yBase);
+    doc.text("fotógrafo", right - 120, yBase + 14);
+  }
+  doc.x = left;
+  doc.moveDown(1.2);
+}
+
+/** ========== Footer SEGURO ========== */
+function setupFooter(doc) {
+  function footer() {
+    if (doc._writingFooter) return;
+    doc._writingFooter = true;
+
+    const ml = doc.page.margins.left;
+    const usableWidth = doc.page.width - ml - doc.page.margins.right;
+    const y = doc.page.height - doc.page.margins.bottom - 28;
+
+    const prevX = doc.x, prevY = doc.y;
+
+    doc.save();
+    doc.font("Helvetica").fontSize(9);
+    doc.text("Telf: 999 091 822 / 946 202 445", ml, y,     { width: usableWidth, align: "center", lineBreak: false });
+    doc.text("edwindelacruz03@gmail.com",       ml, y + 12, { width: usableWidth, align: "center", lineBreak: false });
+    doc.restore();
+
+    doc.x = prevX; doc.y = prevY;
+    doc._writingFooter = false;
+  }
+  footer();
+  doc.on("pageAdded", footer);
+}
+
+/** ================== API principal ================== */
+function generarCotizacionPdf({ cabecera = {}, selecciones = {} }) {
+  const {
+    atencion, evento, fechaEvento, lugar,
+    logoBase64, firmaBase64, videoEquipo, createdAt
+  } = cabecera;
   const { foto = [], video = [], extrasFoto = [], extrasVideo = [] } = selecciones;
 
   return new Promise((resolve, reject) => {
@@ -83,45 +211,46 @@ function generarCotizacionPdf({ cabecera = {}, selecciones = {}, equipo = [] }) 
     doc.on("end", () => resolve(Buffer.concat(chunks)));
     doc.on("error", reject);
 
-    // header
-    doc.font("Helvetica-Bold").fontSize(18).text("Presupuesto fotografía y video", { align: "center" }).moveDown(1);
+    setupFooter(doc);
+
+    // Logo
+    if (logoBase64) {
+      try { doc.image(Buffer.from(asRawBase64(logoBase64), "base64"), doc.page.margins.left, 20, { width: 120 }); }
+      catch {}
+    } else {
+      doc.font("Helvetica-Bold").fontSize(16).text("D’ La Cruz Video y Fotografía", { align: "left" });
+    }
+
+    // Título
+    doc.moveDown(1.0);
+    doc.font("Helvetica-Bold").fontSize(18)
+      .text("Cotización para tomas fotográficas y video", { align: "center" })
+      .moveDown(1.0);
+    doc.x = doc.page.margins.left;
+
+    // Atención + mensaje
     doc.font("Helvetica").fontSize(11);
-    if (cabecera.atencion) doc.text(`Atención:  ${cabecera.atencion}`);
-    if (cabecera.mensajeIntro) doc.moveDown(0.5).text(cabecera.mensajeIntro);
-    if (cabecera.lugarFecha) doc.moveDown(0.5).text(cabecera.lugarFecha);
-    doc.moveDown(0.6);
-
-    renderEquipoGlobal(doc, equipo);
-    renderCategory.__equipo = equipo;
-
-    // categorías (sin totales)
-    renderCategory(doc, "1.-  Fotografía", foto);
-    renderCategory(doc, "2.-  Servicio de filmación - 35 mm y sistema 4K", video);
-
-    // extras (si quieres listarlos, sin importes)
-    if (extrasFoto.length) {
-      doc.font("Helvetica-Bold").fontSize(12).text("Eventos Adicionales (Fotografía)").moveDown(0.4);
-      sectionRule(doc, 4);
-      extrasFoto.forEach((e, i) => doc.font("Helvetica").fontSize(11).text(`-  ${e.titulo || `Extra ${i+1}`}`));
-      doc.moveDown(0.8);
+    if (atencion) {
+      doc.text("Atención: ", { continued: true });
+      doc.font("Helvetica-Bold").text(atencion);
+      doc.font("Helvetica");
     }
-    if (extrasVideo.length) {
-      doc.font("Helvetica-Bold").fontSize(12).text("Eventos Adicionales (Video)").moveDown(0.4);
-      sectionRule(doc, 4);
-      extrasVideo.forEach((e, i) => doc.font("Helvetica").fontSize(11).text(`-  ${e.titulo || `Extra ${i+1}`}`));
-      doc.moveDown(0.8);
-    }
+    const fechaTxt = fechaEvento ? new Date(fechaEvento).toLocaleDateString() : "—";
+    const msg = `Por medio de la presente hago llegar la cotización para la realización de fotografía y video para ${evento || "evento"} a realizarse el ${fechaTxt}${lugar ? `, ${lugar}` : ""}.`;
+    doc.moveDown(0.4).text(msg).moveDown(1.0);
+    doc.x = doc.page.margins.left;
 
-    // cierre
-    doc.font("Helvetica").fontSize(10)
-      .text("Estos precios no incluyen el I.G.V", { align: "left" })
-      .text("Forma de pago 60% al firmar el contrato, saldo días antes del evento.", { align: "left" })
-      .moveDown(1.2)
-      .text("Sin otro en particular nos despedimos agradeciendo de antemano por la confianza recibida.", { align: "left" })
-      .moveDown(1.2)
-      .text("Atte", { align: "center" })
-      .text("Edwin De La Cruz", { align: "center" })
-      .text("fotógrafo", { align: "center" });
+    // 1) Fotografía
+    renderCategory(doc, "1.-  ", "Fotografía", foto);
+    renderExtras(doc, "Eventos Adicionales (Fotografía)", extrasFoto);
+
+    // 2) Video
+    const videoTitleRight = videoEquipo ? `Servicio de filmación — ${videoEquipo}` : "Servicio de filmación";
+    renderCategory(doc, "2.-  ", videoTitleRight, video);
+    renderExtras(doc, "Eventos Adicionales (Video)", extrasVideo);
+
+    // Firma + Fecha
+    renderSignAndDate(doc, { createdAt, firmaBase64 });
 
     doc.end();
   });
