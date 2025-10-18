@@ -14,45 +14,49 @@ const n = (v) => (v == null ? null : Number(v));
 const s = (v) => (v == null ? null : String(v));
 
 // ===================== LISTAR =====================
+// repo.cotizacion.js (función listAll)
 async function listAll({ estado } = {}) {
-  // Si no filtras por estado, usa el SP ya creado
-  if (!estado) {
-    const [rows0] = await callSP("CALL defaultdb.sp_cotizacion_listar()");
-    return rows0; // lista plana (cabecera + lead + total calculado)
+  const spRes = await callSP("CALL defaultdb.sp_cotizacion_listar()");
+
+  // Normaliza posibles formas del resultado de CALL
+  let rows;
+  if (Array.isArray(spRes)) {
+    rows = Array.isArray(spRes[0])
+      ? Array.isArray(spRes[0][0])
+        ? spRes[0][0]
+        : spRes[0]
+      : spRes;
+  } else {
+    rows = [];
   }
 
-  // (Opcional) Si quieres filtrar por estado vía SP, crea sp_cotizacion_listar_por_estado(estado)
-  // Mientras tanto, fallback con SQL directo:
-  const [rows] = await pool.query(
-    `
-    SELECT
-      c.PK_Cot_Cod         AS id,
-      c.FK_Lead_Cod        AS leadId,
-      c.Cot_IdTipoEvento   AS eventoId,
-      c.Cot_TipoEvento     AS tipoEvento,
-      c.Cot_FechaEvento    AS fechaEvento,
-      c.Cot_Lugar          AS lugar,
-      c.Cot_HorasEst       AS horasEstimadas,
-      c.Cot_Mensaje        AS mensaje,
-      c.Cot_Estado         AS estado,
-      c.Cot_Fecha_Crea     AS fechaCreacion,
-      l.Lead_Nombre        AS leadNombre,
-      l.Lead_Celular       AS leadCelular,
-      l.Lead_Origen        AS leadOrigen,
-      l.Lead_Fecha_Crea    AS leadFechaCreacion,
-      COALESCE((
-        SELECT SUM(cs.CS_Subtotal)
-        FROM T_CotizacionServicio cs
-        WHERE cs.FK_Cot_Cod = c.PK_Cot_Cod
-      ),0) AS cot_total
-    FROM T_Cotizacion c
-    JOIN T_Lead l ON l.PK_Lead_Cod = c.FK_Lead_Cod
-    WHERE c.Cot_Estado = ?
-    ORDER BY c.Cot_Fecha_Crea DESC, c.PK_Cot_Cod DESC
-  `,
-    [estado]
-  );
-  return rows;
+  const list = rows.map((r) => {
+    const item = {
+      id: Number(r.idCotizacion),
+      estado: String(r.estado),
+      fechaCreacion: r.fechaCreacion,
+      eventoId: r.idTipoEvento ?? null, // <- del SP: Cot_IdTipoEvento AS idTipoEvento
+      tipoEvento: r.tipoEvento,
+      fechaEvento: r.fechaEvento,
+      lugar: r.lugar,
+      horasEstimadas:
+      r.horasEstimadas != null ? Number(r.horasEstimadas) : null,
+      mensaje: r.mensaje,
+      total: r.total != null ? Number(r.total) : null,
+
+      // 👇 bloque unificado 'contacto' (lo que quieres en la respuesta)
+      contacto: {
+        id: r.origen === "CLIENTE" ? r.idCliente : r.idLead,
+        origen: r.origen, // 'CLIENTE' | 'LEAD'
+        nombre: r.contactoNombre ?? null,
+        celular: r.contactoCelular ?? null,
+      },
+    };
+
+    return item;
+  });
+
+  return estado ? list.filter((x) => x.estado === estado) : list;
 }
 
 // ===================== OBTENER (JSON) =====================
@@ -70,7 +74,7 @@ async function findByIdWithItems(id) {
     row.detalle_json ??
     row.json ??
     row.data ??
-    row[Object.keys(row).find(k => /json/i.test(k))];
+    row[Object.keys(row).find((k) => /json/i.test(k))];
 
   const str = Buffer.isBuffer(raw) ? raw.toString("utf8") : raw;
   const data = typeof str === "string" ? JSON.parse(str) : str;
@@ -78,20 +82,14 @@ async function findByIdWithItems(id) {
   return data || null; // { idCotizacion, lead, cotizacion, items: [...] }
 }
 
-
 // ===================== CREAR (ADMIN) =====================
-/**
- * Espera:
- * {
- *   lead: { id?, nombre, celular, origen },
- *   cotizacion: { tipoEvento, idTipoEvento, fechaEvento, lugar, horasEstimadas, mensaje, estado? },
- *   items: [{ idEventoServicio, nombre|titulo, descripcion, moneda, precioUnit|precioUnitario, cantidad, descuento, recargo, notas, horas, personal, fotosImpresas, trailerMin, filmMin }]
- * }
- */
-async function createAdmin({ lead, cotizacion, items = [] }) {
-  // Mapea items al contrato del SP en español
+async function createAdminV3({ cliente, lead, cotizacion, items = [] }) {
+  const hasCliente = cliente && Number(cliente.id) > 0;
+
+  // === map de items al contrato del SP (JSON) ===
   const itemsMapped = (items || []).map((it) => ({
     idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
+    // el SP acepta nombre o titulo -> mandamos nombre si existe, si no titulo
     nombre: s(it.nombre ?? it.titulo),
     descripcion: s(it.descripcion),
     moneda: s((it.moneda || "USD").toUpperCase()),
@@ -107,34 +105,49 @@ async function createAdmin({ lead, cotizacion, items = [] }) {
     filmMin: n(it.filmMin),
   }));
 
-  const itemsJson = JSON.stringify(itemsMapped);
-
   const params = [
-    // p_lead_id (puede ser null/<=0 para crear)
-    lead?.id ?? null,
-    // datos lead si se crea:
-    s(lead?.nombre ?? null),
-    s(lead?.celular ?? null),
-    s(lead?.origen ?? "Backoffice"),
-    // cabecera cotización:
+    // 1) p_cliente_id (si viene >0, NO se crea lead)
+    hasCliente ? n(cliente.id) : null,
+    // 2–4) datos de lead SOLO si NO hay cliente
+    hasCliente ? null : s(lead?.nombre),
+    hasCliente ? null : s(lead?.celular),
+    hasCliente ? null : s(lead?.origen ?? "Backoffice"),
+    // 5–11) cabecera
     s(cotizacion?.tipoEvento),
     n(cotizacion?.idTipoEvento),
-    s(cotizacion?.fechaEvento), // YYYY-MM-DD
+    s(cotizacion?.fechaEvento), // 'YYYY-MM-DD'
     s(cotizacion?.lugar),
     n(cotizacion?.horasEstimadas),
     s(cotizacion?.mensaje),
     s(cotizacion?.estado ?? "Borrador"),
-    // items JSON
-    itemsMapped.length ? itemsJson : null,
+    // 12) items JSON
+    itemsMapped.length ? JSON.stringify(itemsMapped) : null,
   ];
 
-  const [rows0] = await callSP(
-    "CALL defaultdb.sp_cotizacion_crear_admin(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-    params
-  );
-  // SP devuelve: SELECT v_cot_id AS idCotizacion;
-  const idCotizacion = rows0[0]?.idCotizacion;
-  return { idCotizacion };
+  try {
+    const [rows0] = await callSP(
+      "CALL defaultdb.sp_cotizacion_crear_admin_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      params
+    );
+    const out = rows0?.[0] || {};
+    return {
+      idCotizacion: out.idCotizacion ?? null,
+      clienteId: out.clienteId ?? null,
+      leadId: out.leadId ?? null,
+      origen: out.origen ?? (hasCliente ? "CLIENTE" : "LEAD"),
+    };
+  } catch (err) {
+    // Traduce mensajes del SIGNAL del SP a errores más claros
+    const msg = String(err?.message || "");
+    if (msg.match(/Cliente no existe/i))
+      throw new Error("El cliente indicado no existe.");
+    if (msg.match(/Se requiere nombre para crear el lead/i))
+      throw new Error("Falta el nombre para crear el lead.");
+    throw err;
+  }
+}
+async function createAdmin(payload) {
+  return createAdminV3(payload);
 }
 
 // ===================== CREAR (PÚBLICA/WEB) =====================
@@ -252,16 +265,22 @@ async function deleteById(id) {
 // cotizacion.repository.js
 async function cambiarEstado(id, { estadoNuevo, estadoEsperado = null } = {}) {
   const [res] = await pool.query(
-    'CALL defaultdb.sp_cotizacion_cambiar_estado(?,?,?)',
-    [Number(id), String(estadoNuevo), estadoEsperado == null ? null : String(estadoEsperado)]
+    "CALL defaultdb.sp_cotizacion_cambiar_estado(?,?,?)",
+    [
+      Number(id),
+      String(estadoNuevo),
+      estadoEsperado == null ? null : String(estadoEsperado),
+    ]
   );
 
   // res => [ [ { detalle_json: '...' } ], ... ]
   const firstResultset = Array.isArray(res) ? res[0] : res;
-  const firstRow = Array.isArray(firstResultset) ? firstResultset[0] : firstResultset;
+  const firstRow = Array.isArray(firstResultset)
+    ? firstResultset[0]
+    : firstResultset;
 
   const raw = firstRow?.detalle_json || firstRow?.detalle; // por si el alias difiere
-  const detalle = typeof raw === 'string' ? JSON.parse(raw) : raw || null;
+  const detalle = typeof raw === "string" ? JSON.parse(raw) : raw || null;
 
   return { detalle };
 }
@@ -272,5 +291,5 @@ module.exports = {
   createPublic, // usa SP crear_publica
   updateAdmin, // usa SP actualizar_admin (reemplaza ítems si se pasan)
   deleteById,
-  cambiarEstado
+  cambiarEstado,
 };

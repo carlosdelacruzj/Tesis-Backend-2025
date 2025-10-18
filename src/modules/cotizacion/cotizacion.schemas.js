@@ -103,32 +103,62 @@
  *             trailerMin: 2
  *             filmMin: 0
  *
- *     # ===================== LISTADO (puedes seguir usando tu salida actual) =====================
+ *     # ===================== LISTADO (ACTUALIZADO SOLO LO NECESARIO) =====================
  *     CotizacionListItem:
  *       type: object
  *       properties:
- *         id:             { type: integer }
+ *         id:             { type: integer, description: "ID unificado de cotización (mapeado desde idCotizacion)" }
  *         estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada] }
  *         fechaCreacion:  { type: string, format: date-time }
- *         eventoId:       { type: integer, nullable: true, example: 1 }
+ *         eventoId:       { type: integer, nullable: true, example: 1, description: "Mapeado desde idTipoEvento" }
  *         tipoEvento:     { type: string }
  *         fechaEvento:    { type: string, format: date, nullable: true }
  *         lugar:          { type: string, nullable: true }
  *         horasEstimadas: { type: number, format: float, nullable: true }
  *         mensaje:        { type: string, nullable: true }
  *         total:          { type: number, format: float, nullable: true, example: 1150 }
- *         lead:
+ *         contacto:
  *           type: object
  *           properties:
- *             id:             { type: integer }
- *             nombre:         { type: string }
- *             celular:        { type: string, nullable: true }
- *             origen:         { type: string, nullable: true }
- *             fechaCreacion:  { type: string, format: date-time }
+ *             id:      { type: integer, nullable: true, description: "Si CLIENTE: clienteId; si LEAD: leadId" }
+ *             origen:  { type: string, enum: [CLIENTE, LEAD] }
+ *             nombre:  { type: string, nullable: true }
+ *             celular: { type: string, nullable: true }
  *
  *     CotizacionList:
  *       type: array
  *       items: { $ref: '#/components/schemas/CotizacionListItem' }
+ *       example:
+ *         - id: 42
+ *           estado: "Borrador"
+ *           fechaCreacion: "2025-10-12T14:43:59.000Z"
+ *           eventoId: 1
+ *           tipoEvento: "Boda"
+ *           fechaEvento: "2025-10-20"
+ *           lugar: "Cusco - Catedral"
+ *           horasEstimadas: 8
+ *           mensaje: "Paquete premium"
+ *           total: 1150
+ *           contacto:
+ *             id: 101
+ *             origen: "CLIENTE"
+ *             nombre: "Ana Pérez"
+ *             celular: "999888777"
+ *         - id: 41
+ *           estado: "Enviada"
+ *           fechaCreacion: "2025-10-11T10:19:21.000Z"
+ *           eventoId: 2
+ *           tipoEvento: "Cumpleaños"
+ *           fechaEvento: "2025-10-25"
+ *           lugar: "Miraflores"
+ *           horasEstimadas: 6
+ *           mensaje: "Agregar trailer"
+ *           total: 4600
+ *           contacto:
+ *             id: 55
+ *             origen: "LEAD"
+ *             nombre: "Carlos"
+ *             celular: "999663047"
  *
  *     # ===================== REQUESTS (public/admin) =====================
  *     CotizacionCreatePublic:
@@ -153,14 +183,21 @@
  *             horasEstimadas: { type: number, format: float, example: 8 }
  *             mensaje:        { type: string, example: "Cobertura básica" }
  *
+ *     # ===================== (ACTUALIZADO) CREATE ADMIN (v3 compatible) =====================
  *     CotizacionCreateAdmin:
  *       type: object
  *       required: [cotizacion]
+ *       description: |
+ *         Prioriza **cliente**: si `cliente.id > 0`, no se crea lead.
+ *         Si no se envía `cliente.id`, se creará un **lead** con los datos de `lead`.
  *       properties:
+ *         cliente:
+ *           type: object
+ *           properties:
+ *             id: { type: integer, nullable: true, example: 101 }
  *         lead:
  *           type: object
  *           properties:
- *             id:      { type: integer, nullable: true, example: 55 }
  *             nombre:  { type: string, nullable: true, example: "Carlos" }
  *             celular: { type: string, nullable: true, example: "999663047" }
  *             origen:  { type: string, nullable: true, example: "Backoffice" }
@@ -193,6 +230,19 @@
  *               fotosImpresas:    { type: integer, nullable: true, example: 20 }
  *               trailerMin:       { type: integer, nullable: true, example: 0 }
  *               filmMin:          { type: integer, nullable: true, example: 0 }
+ *
+ *     # ===================== (NUEVO) RESPUESTA CREATE ADMIN V3 =====================
+ *     CotizacionCreateAdminResponse:
+ *       type: object
+ *       required: [idCotizacion, origen]
+ *       properties:
+ *         idCotizacion: { type: integer, example: 42 }
+ *         clienteId:    { type: integer, nullable: true, example: 101 }
+ *         leadId:       { type: integer, nullable: true, example: 55 }
+ *         origen:
+ *           type: string
+ *           enum: [CLIENTE, LEAD]
+ *           example: CLIENTE
  *
  *     CotizacionUpdate:
  *       type: object

@@ -165,28 +165,49 @@ async function streamPdf({ id, res, body, mode, raw } = {}) {
 }
 
 /** ====== REST no tocado ====== */
-async function list({ estado } = {}){ 
+async function list({ estado } = {}) {
   const rows = await repo.listAll({ estado });
-  return rows.map(r => ({
-    id: r.id ?? r.idCotizacion ?? r.cotizacion_id ?? r.PK_Cot_Cod,
-    estado: r.estado ?? r.Cot_Estado,
-    fechaCreacion: r.fechaCreacion ?? r.Cot_Fecha_Crea,
-    eventoId: r.eventoId ?? r.Cot_IdTipoEvento ?? null,
-    tipoEvento: r.tipoEvento ?? r.Cot_TipoEvento,
-    fechaEvento: r.fechaEvento ?? r.Cot_FechaEvento,
-    lugar: r.lugar ?? r.Cot_Lugar,
-    horasEstimadas: r.horasEstimadas ?? r.Cot_HorasEst,
-    mensaje: r.mensaje ?? r.Cot_Mensaje,
-    total: r.total ?? r.cot_total ?? null,
-    lead: {
-      id: r.leadId ?? r.idLead ?? r.PK_Lead_Cod,
-      nombre: r.leadNombre ?? r.nombre ?? r.Lead_Nombre,
-      celular: r.leadCelular ?? r.celular ?? r.Lead_Celular,
-      origen: r.leadOrigen ?? r.origen ?? r.Lead_Origen,
-      fechaCreacion: r.leadFechaCreacion ?? r.Lead_Fecha_Crea,
-    },
-  }));
+
+  return rows.map((r) => {
+    // Construimos el bloque 'contacto' a partir de lo que venga del repo/SP
+    const contacto = r.contacto ?? (
+      r.origen ? {
+        id: r.origen === 'CLIENTE'
+          ? (r.clienteId ?? r.idCliente ?? null)
+          : (r.leadId ?? r.idLead ?? null),
+        origen: r.origen,
+        nombre: r.contactoNombre ?? r.leadNombre ?? r.nombre ?? r.Lead_Nombre ?? null,
+        celular: r.contactoCelular ?? r.leadCelular ?? r.celular ?? r.Lead_Celular ?? null,
+      } : undefined
+    );
+
+    return {
+      id: r.id ?? r.idCotizacion ?? r.cotizacion_id ?? r.PK_Cot_Cod,
+      estado: r.estado ?? r.Cot_Estado,
+      fechaCreacion: r.fechaCreacion ?? r.Cot_Fecha_Crea,
+
+      // 🔹 asegúrate de poblar eventoId (desde idTipoEvento en el SP)
+      eventoId: r.eventoId ?? r.idTipoEvento ?? r.Cot_IdTipoEvento ?? null,
+      tipoEvento: r.tipoEvento ?? r.Cot_TipoEvento,
+      fechaEvento: r.fechaEvento ?? r.Cot_FechaEvento,
+      lugar: r.lugar ?? r.Cot_Lugar,
+
+      // 🔹 coerces numéricos a Number
+      horasEstimadas:
+        r.horasEstimadas != null ? Number(r.horasEstimadas)
+        : (r.Cot_HorasEst != null ? Number(r.Cot_HorasEst) : null),
+
+      mensaje: r.mensaje ?? r.Cot_Mensaje,
+      total:
+        r.total != null ? Number(r.total)
+        : (r.cot_total != null ? Number(r.cot_total) : null),
+
+      // 🔥 solo incluimos 'contacto' si existe; no exponemos 'lead'
+      ...(contacto ? { contacto } : {}),
+    };
+  });
 }
+
 
 module.exports = {
   list,
@@ -194,4 +215,33 @@ module.exports = {
   buildPdfDefinition,
   createPdfDocument,
   streamPdf,
+  // Nuevos métodos usados por el controller
+  async createPublic(payload = {}) {
+    if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
+    const { lead, cotizacion } = payload;
+    // Validaciones mínimas (el SP también valida)
+    assertString(lead?.nombre ?? "", "lead.nombre");
+    assertString(cotizacion?.tipoEvento ?? "", "cotizacion.tipoEvento");
+    assertDate(cotizacion?.fechaEvento, "cotizacion.fechaEvento");
+    return await repo.createPublic({ lead, cotizacion });
+  },
+  async createAdmin(payload = {}) {
+    if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
+    return await repo.createAdmin(payload);
+  },
+  async update(id, body = {}) {
+    const nId = assertPositiveInt(id, "id");
+    if (!body || typeof body !== "object") throw badRequest("Body inválido");
+    return await repo.updateAdmin(nId, body);
+  },
+  async remove(id) {
+    const nId = assertPositiveInt(id, "id");
+    return await repo.deleteById(nId);
+  },
+  async cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) {
+    const nId = assertPositiveInt(id, "id");
+    const nuevo = assertEstado(estadoNuevo);
+    const esperado = estadoEsperado == null ? null : assertEstado(estadoEsperado);
+    return await repo.cambiarEstado(nId, { estadoNuevo: nuevo, estadoEsperado: esperado });
+  },
 };
