@@ -1,4 +1,3 @@
-const PdfPrinter = require("pdfmake");
 const logger = require("../../utils/logger");
 const repo = require("./cotizacion.repository");
 const pool = require("../../db");
@@ -6,15 +5,6 @@ const { generarCotizacionPdf } = require("../../pdf/cotizacion");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
-
-const PDF_FONTS = {
-  Helvetica: {
-    normal: "Helvetica",
-    bold: "Helvetica-Bold",
-    italics: "Helvetica-Oblique",
-    bolditalics: "Helvetica-BoldOblique",
-  },
-};
 
 // ───────── utils ─────────
 function badRequest(message){ const err=new Error(message); err.status=400; return err; }
@@ -29,11 +19,6 @@ function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(
 function assertCurrency3(v,f){ const s=String(v||"").trim().toUpperCase(); if(!/^[A-Z]{3}$/.test(s)) throw badRequest(`Campo '${f}' debe ser un código de moneda ISO de 3 letras`); return s; }
 function assertArray(v,f){ if(!Array.isArray(v)) throw badRequest(`Campo '${f}' debe ser un arreglo`); return v; }
 
-// ───────── pdfmake (compat) ─────────
-function bulletsBlock(values=[]){ const list=Array.isArray(values)?values.filter(Boolean):[]; if(!list.length) return [{text:"-  --"}]; return list.map(text=>({text:`-  ${text}`})); }
-function buildPdfDefinition(payload={}){ return { pageSize:"A4", pageMargins:[50,40,50,50], defaultStyle:{font:"Helvetica",fontSize:10}, content:[{text:"(Plantilla pdfmake de respaldo)", italics:true}], }; }
-function createPdfDocument(payload={}){ const printer=new PdfPrinter(PDF_FONTS); const definition=buildPdfDefinition(payload); return printer.createPdfKitDocument(definition); }
-
 // ───────── repo passthrough ─────────
 async function findById(id){
   const n = assertPositiveInt(id,"id");
@@ -45,37 +30,39 @@ async function findById(id){
 // ───────── STREAM PDF ─────────
 function toBullets(desc){ if(!desc) return []; return String(desc).split(/\r?\n|●|- |•|·|\u2022|\. /).map(s=>s.trim()).filter(Boolean); }
 
-async function streamPdf({ id, res, body, mode, raw } = {}) {
+async function streamPdf({ id, res, body } = {}) {
   const cotizacionId = assertPositiveInt(id, "id");
 
   const detail = await repo.findByIdWithItems(cotizacionId);
   if (!detail) { const err = new Error(`Cotización ${cotizacionId} no encontrada`); err.status = 404; throw err; }
 
-  // Normaliza items y saca "personal" (CS_Staff)
+  // Normaliza items según esquema actual del SP
   const rawItems = Array.isArray(detail.items) ? detail.items : [];
   const norm = rawItems.map((it) => {
-    const titulo = it.titulo ?? it.nombre ?? it.CS_Nombre ?? it.cs_nombre ?? "";
-    const descripcion = it.descripcion ?? it.CS_Descripcion ?? it.cs_descripcion ?? "";
-    const moneda = (it.moneda ?? it.CS_Moneda ?? it.cs_moneda ?? "USD").toString().toUpperCase();
-    const cantidad = Number(it.cantidad ?? it.CS_Cantidad ?? it.cs_cantidad ?? 1);
-    const precioUnitario = Number(it.precioUnitario ?? it.precioUnit ?? it.CS_PrecioUnit ?? it.cs_preciounit ?? 0);
-    const horas = it.horas ?? it.CS_Horas ?? it.cs_horas ?? null;
-    const notas = it.notas ?? it.CS_Notas ?? it.cs_notas ?? "";
-    const personal = it.personal ?? it.CS_Staff ?? it.cs_staff ?? null;
-    const fotosImpresas = Number(it.fotosImpresas ?? it.CS_FotosImpresas ?? it.cs_fotosimpresas ?? 0) || 0;
-    const trailerMin   = Number(it.trailerMin   ?? it.CS_TrailerMin   ?? it.cs_trailermin   ?? 0) || 0;
-    const filmMin      = Number(it.filmMin      ?? it.CS_FilmMin      ?? it.cs_filmmin      ?? 0) || 0;
+    const titulo = String(it.nombre || "").trim();
+    const descripcion = String(it.descripcion || "").trim();
+    const moneda = String(it.moneda || "USD").toUpperCase();
+
+    const cantidadNum = Number(it.cantidad);
+    const precioUnitNum = Number(it.precioUnit);
+    const horasNum = Number(it.horas);
+    const personalNum = Number(it.personal);
+    const fotosImpresasNum = Number(it.fotosImpresas);
+    const trailerMinNum = Number(it.trailerMin);
+    const filmMinNum = Number(it.filmMin);
 
     return {
       titulo: String(titulo || "").trim(),
       descripcion: String(descripcion || "").trim(),
       moneda,
-      cantidad: Number.isFinite(cantidad) ? cantidad : 1,
-      precioUnitario: Number.isFinite(precioUnitario) ? precioUnitario : 0,
-      horas: Number.isFinite(Number(horas)) ? Number(horas) : null,
-      notas: String(notas || "").trim(),
-      personal: Number.isFinite(Number(personal)) ? Number(personal) : null,
-      fotosImpresas, trailerMin, filmMin,
+      cantidad: Number.isFinite(cantidadNum) ? cantidadNum : 1,
+      precioUnitario: Number.isFinite(precioUnitNum) ? precioUnitNum : 0,
+      horas: Number.isFinite(horasNum) ? horasNum : null,
+      notas: String(it.notas || "").trim(),
+      personal: Number.isFinite(personalNum) ? personalNum : null,
+      fotosImpresas: Number.isFinite(fotosImpresasNum) ? fotosImpresasNum : 0,
+      trailerMin: Number.isFinite(trailerMinNum) ? trailerMinNum : 0,
+      filmMin: Number.isFinite(filmMinNum) ? filmMinNum : 0,
     };
   });
 
@@ -121,7 +108,10 @@ async function streamPdf({ id, res, body, mode, raw } = {}) {
 
   // Cabecera para PDF (DB + overrides desde body)
   const cabecera = {
-    atencion: detail.leadNombre || detail.lead?.nombre || "Cliente",
+    atencion: (detail.contacto && detail.contacto.nombre)
+      || detail.leadNombre
+      || (detail.lead && detail.lead.nombre)
+      || "Cliente",
     evento: detail.cotizacion?.tipoEvento || detail.tipoEvento || "evento",
     fechaEvento: detail.cotizacion?.fechaEvento || detail.fechaEvento || null,
     lugar: detail.cotizacion?.lugar || detail.lugar || "",
@@ -142,20 +132,6 @@ async function streamPdf({ id, res, body, mode, raw } = {}) {
   }
 
   const selecciones = { foto, video, extrasFoto, extrasVideo };
-
-  // diag/raw (opcional)
-  if (String(mode||"").toLowerCase()==="diag") {
-    const PDFDocument = require("pdfkit");
-    const doc = new PDFDocument({ size:"A4", margin: 40 });
-    res.setHeader("Content-Type","application/pdf");
-    res.setHeader("Content-Disposition",`inline; filename="cotizacion_${cotizacionId}_diag.pdf"`);
-    doc.pipe(res);
-    doc.font("Helvetica-Bold").fontSize(16).text("Diagnóstico PDF", { align:"center" }).moveDown();
-    doc.fontSize(11).font("Helvetica").text(`Foto: ${foto.length} | Video: ${video.length}`);
-    doc.end();
-    return;
-  }
-  if (raw === "1") { res.status(200).json({ items: norm }); return; }
 
   const buffer = await generarCotizacionPdf({ cabecera, selecciones });
   res.status(200);
@@ -212,8 +188,6 @@ async function list({ estado } = {}) {
 module.exports = {
   list,
   findById,
-  buildPdfDefinition,
-  createPdfDocument,
   streamPdf,
   // Nuevos métodos usados por el controller
   async createPublic(payload = {}) {

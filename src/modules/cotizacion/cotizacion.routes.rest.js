@@ -86,19 +86,6 @@ router.get("/:id(\\d+)", ctrl.getById);
  *         name: id
  *         required: true
  *         schema: { type: integer }
- *       - in: query
- *         name: mode
- *         required: false
- *         schema:
- *           type: string
- *           enum: [diag]
- *         description: Si se envía `diag`, devuelve un PDF diagnóstico minimal.
- *       - in: query
- *         name: raw
- *         required: false
- *         schema:
- *           type: string
- *         description: Si `raw=1`, retorna JSON con los ítems normalizados en lugar de PDF.
  *     responses:
  *       '200':
  *         description: PDF generado
@@ -122,17 +109,6 @@ router.get("/:id(\\d+)/pdf", ctrl.downloadPdf);
  *         name: id
  *         required: true
  *         schema: { type: integer }
- *       - in: query
- *         name: mode
- *         required: false
- *         schema:
- *           type: string
- *           enum: [diag]
- *       - in: query
- *         name: raw
- *         required: false
- *         schema:
- *           type: string
  *     requestBody:
  *       required: false
  *       content:

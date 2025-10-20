@@ -50,15 +50,13 @@ async function remove(req, res, next) {
 // ⬇️ Generación de PDF (pasa query + body al servicio)
 async function downloadPdf(req, res, next) {
   logger.info(
-    { module: "cotizacion", action: "downloadPdf", id: req.params.id, q: req.query },
+    { module: "cotizacion", action: "downloadPdf", id: req.params.id },
     "Solicitud de PDF recibida"
   );
   try {
     await svc.streamPdf({
       id: req.params.id,
       res,
-      mode: req.query.mode,
-      raw: req.query.raw,
       body: req.body || {},     // 👈 aquí va el logo/firma/equipo que viene del front
     });
     logger.info(
