@@ -129,6 +129,7 @@ app.use("/api/v1", require("./routes"));
 // ───────────── Alias SIN versión (si tu front los usa) ─────────────
 const cotCtrl = require("./modules/cotizacion/cotizacion.controller");
 app.post("/api/cotizacion/:id(\\d+)/pdf", cotCtrl.downloadPdf);
+app.post("/api/cotizacion/:id(\\d+)/pedido", cotCtrl.migrarAPedido);
 app.post("/api/cotizacion/:id(\\d+)/estado", cotCtrl.updateEstado);
 
 // ───────────── 404 & errores ─────────────

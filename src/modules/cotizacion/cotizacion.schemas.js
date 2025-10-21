@@ -125,9 +125,9 @@
  *             nombre:  { type: string, nullable: true }
  *             celular: { type: string, nullable: true }
  *
- *     CotizacionList:
- *       type: array
- *       items: { $ref: '#/components/schemas/CotizacionListItem' }
+*     CotizacionList:
+*       type: array
+*       items: { $ref: '#/components/schemas/CotizacionListItem' }
  *       example:
  *         - id: 42
  *           estado: "Borrador"
@@ -158,10 +158,27 @@
  *             id: 55
  *             origen: "LEAD"
  *             nombre: "Carlos"
- *             celular: "999663047"
+*             celular: "999663047"
+*
+ *     # ===================== MIGRACIÓN A PEDIDO =====================
+ *     CotizacionMigrarPedidoRequest:
+ *       type: object
+ *       required: [empleadoId]
+ *       properties:
+ *         empleadoId:   { type: integer, example: 7 }
+ *         nombrePedido: { type: string, nullable: true, example: "Boda Ana & Luis" }
  *
- *     # ===================== REQUESTS (public/admin) =====================
- *     CotizacionCreatePublic:
+ *     CotizacionMigrarPedidoResponse:
+ *       type: object
+ *       properties:
+ *         pedidoId:
+ *           type: integer
+ *           nullable: true
+ *           example: 120
+ *           description: "ID del pedido generado por el SP"
+ *
+*     # ===================== REQUESTS (public/admin) =====================
+*     CotizacionCreatePublic:
  *       type: object
  *       required: [lead, cotizacion]
  *       properties:

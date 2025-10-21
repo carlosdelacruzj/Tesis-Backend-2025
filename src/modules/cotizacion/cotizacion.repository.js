@@ -284,6 +284,30 @@ async function cambiarEstado(id, { estadoNuevo, estadoEsperado = null } = {}) {
 
   return { detalle };
 }
+
+async function migrarAPedido({ cotizacionId, empleadoId, nombrePedido = null } = {}) {
+  const conn = await pool.getConnection();
+  try {
+    const params = [
+      Number(cotizacionId),
+      Number(empleadoId),
+      nombrePedido != null ? String(nombrePedido) : null,
+    ];
+
+    await conn.query("SET @pedidoId = NULL");
+    await conn.query(
+      "CALL defaultdb.sp_cotizacion_migrar_a_pedido(?, ?, ?, @pedidoId)",
+      params
+    );
+
+    const [[row]] = await conn.query("SELECT @pedidoId AS pedidoId");
+    const pedidoId = row?.pedidoId != null ? Number(row.pedidoId) : null;
+
+    return { pedidoId };
+  } finally {
+    conn.release();
+  }
+}
 module.exports = {
   listAll,
   findByIdWithItems, // usa SP JSON
@@ -292,4 +316,5 @@ module.exports = {
   updateAdmin, // usa SP actualizar_admin (reemplaza ítems si se pasan)
   deleteById,
   cambiarEstado,
+  migrarAPedido,
 };

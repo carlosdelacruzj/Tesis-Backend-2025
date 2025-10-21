@@ -30,25 +30,25 @@
  *
  *     EmpleadoCreate:
  *       type: object
- *       required: [nombre, apellido, correo, celular, doc, direccion]
+ *       required: [nombre, apellido, correo, celular, documento, direccion]
  *       properties:
  *         nombre:    { type: string }
  *         apellido:  { type: string }
  *         correo:    { type: string, format: email }
  *         celular:   { type: string }
- *         doc:       { type: string }
+ *         documento:       { type: string }
  *         direccion: { type: string }
  *         autonomo:  { type: integer, nullable: true }
- *         cargo:     { type: integer, nullable: true }
+ *         idCargo:     { type: integer, nullable: true }
  *       example:
  *         nombre: "Bruno"
  *         apellido: "Silupu"
  *         correo: "bruno@example.com"
  *         celular: "99876533"
- *         doc: "70443316"
+ *         documento: "70443316"
  *         direccion: "Calle Falsa 123"
  *         autonomo: 1
- *         cargo: 3
+ *         idCargo: 3
  *
  *     EmpleadoUpdate:
  *       type: object

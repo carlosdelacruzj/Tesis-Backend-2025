@@ -47,6 +47,15 @@ async function remove(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function migrarAPedido(req, res, next) {
+  try {
+    const { id } = req.params;
+    const { empleadoId, nombrePedido } = req.body || {};
+    const out = await svc.migrarAPedido(id, { empleadoId, nombrePedido });
+    res.status(201).json(out);
+  } catch (err) { next(err); }
+}
+
 // ⬇️ Generación de PDF (pasa query + body al servicio)
 async function downloadPdf(req, res, next) {
   logger.info(
@@ -94,6 +103,7 @@ module.exports = {
   createAdmin,
   update,
   remove,
+  migrarAPedido,
   downloadPdf,
   updateEstado,
 };

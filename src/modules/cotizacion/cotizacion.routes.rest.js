@@ -14,6 +14,7 @@ const router = Router();
  *   GET    /api/v1/cotizaciones/:id
  *   GET    /api/v1/cotizaciones/:id/pdf
  *   POST   /api/v1/cotizaciones/:id/pdf
+ *   POST   /api/v1/cotizaciones/:id/pedido
  *   POST   /api/v1/cotizaciones/public
  *   POST   /api/v1/cotizaciones/admin
  *   PUT    /api/v1/cotizaciones/:id
@@ -135,6 +136,33 @@ router.get("/:id(\\d+)/pdf", ctrl.downloadPdf);
  *       '404': { description: No encontrado }
  */
 router.post("/:id(\\d+)/pdf", ctrl.downloadPdf);
+
+/**
+ * @swagger
+ * /cotizaciones/{id}/pedido:
+ *   post:
+ *     tags: [cotizacion]
+ *     summary: Migrar cotización a pedido
+ *     description: Ejecuta el SP `sp_cotizacion_migrar_a_pedido` y retorna el ID del pedido generado.
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/CotizacionMigrarPedidoRequest' }
+ *     responses:
+ *       '201':
+ *         description: Pedido creado
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/CotizacionMigrarPedidoResponse' }
+ *       '400': { description: Parámetros inválidos }
+ */
+router.post("/:id(\\d+)/pedido", ctrl.migrarAPedido);
 
 /**
  * @swagger

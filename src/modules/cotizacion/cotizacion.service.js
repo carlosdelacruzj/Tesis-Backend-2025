@@ -140,6 +140,18 @@ async function streamPdf({ id, res, body } = {}) {
   res.end(buffer);
 }
 
+async function migrarAPedido(id, { empleadoId, nombrePedido } = {}) {
+  const cotizacionId = assertPositiveInt(id, "id");
+  const empleado = assertPositiveInt(empleadoId, "empleadoId");
+  const pedidoNombre = nombrePedido == null ? null : String(nombrePedido);
+
+  return await repo.migrarAPedido({
+    cotizacionId,
+    empleadoId: empleado,
+    nombrePedido: pedidoNombre,
+  });
+}
+
 /** ====== REST no tocado ====== */
 async function list({ estado } = {}) {
   const rows = await repo.listAll({ estado });
@@ -184,38 +196,48 @@ async function list({ estado } = {}) {
   });
 }
 
+async function createPublic(payload = {}) {
+  if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
+  const { lead, cotizacion } = payload;
+  // Validaciones mínimas (el SP también valida)
+  assertString(lead?.nombre ?? "", "lead.nombre");
+  assertString(cotizacion?.tipoEvento ?? "", "cotizacion.tipoEvento");
+  assertDate(cotizacion?.fechaEvento, "cotizacion.fechaEvento");
+  return await repo.createPublic({ lead, cotizacion });
+}
+
+async function createAdmin(payload = {}) {
+  if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
+  return await repo.createAdmin(payload);
+}
+
+async function update(id, body = {}) {
+  const nId = assertPositiveInt(id, "id");
+  if (!body || typeof body !== "object") throw badRequest("Body inválido");
+  return await repo.updateAdmin(nId, body);
+}
+
+async function remove(id) {
+  const nId = assertPositiveInt(id, "id");
+  return await repo.deleteById(nId);
+}
+
+async function cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) {
+  const nId = assertPositiveInt(id, "id");
+  const nuevo = assertEstado(estadoNuevo);
+  const esperado = estadoEsperado == null ? null : assertEstado(estadoEsperado);
+  return await repo.cambiarEstado(nId, { estadoNuevo: nuevo, estadoEsperado: esperado });
+}
+
 
 module.exports = {
   list,
   findById,
   streamPdf,
-  // Nuevos métodos usados por el controller
-  async createPublic(payload = {}) {
-    if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
-    const { lead, cotizacion } = payload;
-    // Validaciones mínimas (el SP también valida)
-    assertString(lead?.nombre ?? "", "lead.nombre");
-    assertString(cotizacion?.tipoEvento ?? "", "cotizacion.tipoEvento");
-    assertDate(cotizacion?.fechaEvento, "cotizacion.fechaEvento");
-    return await repo.createPublic({ lead, cotizacion });
-  },
-  async createAdmin(payload = {}) {
-    if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
-    return await repo.createAdmin(payload);
-  },
-  async update(id, body = {}) {
-    const nId = assertPositiveInt(id, "id");
-    if (!body || typeof body !== "object") throw badRequest("Body inválido");
-    return await repo.updateAdmin(nId, body);
-  },
-  async remove(id) {
-    const nId = assertPositiveInt(id, "id");
-    return await repo.deleteById(nId);
-  },
-  async cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) {
-    const nId = assertPositiveInt(id, "id");
-    const nuevo = assertEstado(estadoNuevo);
-    const esperado = estadoEsperado == null ? null : assertEstado(estadoEsperado);
-    return await repo.cambiarEstado(nId, { estadoNuevo: nuevo, estadoEsperado: esperado });
-  },
+  migrarAPedido,
+  createPublic,
+  createAdmin,
+  update,
+  remove,
+  cambiarEstadoOptimista,
 };

@@ -49,17 +49,21 @@ async function findById(id) {
 }
 
 async function create(payload) {
-  ["nombre", "apellido", "correo", "celular", "doc", "direccion"].forEach(
+  ["nombre", "apellido", "correo", "celular", "documento", "direccion"].forEach(
     (f) => assertString(payload[f], f)
   );
 
   if (payload.autonomo != null) {
     const a = Number(payload.autonomo);
-    if (!Number.isFinite(a) || (a !== 0 && a !== 1)) {
-      const err = new Error("autonomo debe ser 0 o 1");
+    if (!Number.isFinite(a) || (a !== 1 && a !== 2)) {
+      const err = new Error("autonomo debe ser 1 o 2");
       err.status = 400;
       throw err;
     }
+  }
+
+  if (payload.cargo == null && payload.idCargo != null) {
+    payload.cargo = payload.idCargo;
   }
 
   if (payload.cargo != null) {
@@ -110,3 +114,4 @@ module.exports = {
   create,
   update,
 };
+
