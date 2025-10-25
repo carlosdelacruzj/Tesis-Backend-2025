@@ -12,6 +12,7 @@ async function listEquipos(req, res, next) {
     const hasFilters = Object.values(filters).some((v) => v != null);
     const data = hasFilters ? await service.listByFilters(filters) : await service.list();
     res.status(200).json(data);
+    
   } catch (err) {
     next(err);
   }
