@@ -67,6 +67,51 @@ router.get("/resumen", ctrl.summarizeEquipos);
 
 /**
  * @swagger
+ * /inventario/equipos/estados:
+ *   get:
+ *     tags: [inventario - equipos]
+ *     summary: Lista los estados disponibles para los equipos
+ *     responses:
+ *       "200":
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/EquipoEstado'
+ */
+router.get("/estados", ctrl.listEstadosEquipo);
+
+/**
+ * @swagger
+ * /inventario/equipos/{idEquipo}/estado:
+ *   patch:
+ *     tags: [inventario - equipos]
+ *     summary: Cambia el estado de un equipo
+ *     parameters:
+ *       - in: path
+ *         name: idEquipo
+ *         schema: { type: integer }
+ *         required: true
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EquipoEstadoUpdate'
+ *     responses:
+ *       "200":
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Equipo'
+ */
+router.patch("/:idEquipo/estado", ctrl.updateEstadoEquipo);
+
+/**
+ * @swagger
  * /inventario/equipos/{idEquipo}:
  *   get:
  *     tags: [inventario - equipos]

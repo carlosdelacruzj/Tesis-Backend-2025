@@ -81,22 +81,52 @@ async function remove(idEquipo) {
   return result.affectedRows > 0;
 }
 
+async function updateEstado(idEquipo, idEstado) {
+  const [result] = await pool.query(
+    `UPDATE T_Equipo
+     SET FK_EE_Cod = ?
+     WHERE PK_Eq_Cod = ?`,
+    [idEstado, idEquipo]
+  );
+  if (result.affectedRows === 0) {
+    return null;
+  }
+  return findById(idEquipo);
+}
+
 async function summarizeByModel() {
   const [rows] = await pool.query(
     `SELECT
-       mo.FK_TE_Cod AS idTipoEquipo,
+       te.PK_TE_Cod AS idTipoEquipo,
        te.TE_Nombre AS nombreTipoEquipo,
-       mo.FK_IMa_Cod AS idMarca,
+       ma.PK_IMa_Cod AS idMarca,
        ma.NMa_Nombre AS nombreMarca,
        mo.PK_IMo_Cod AS idModelo,
        mo.NMo_Nombre AS nombreModelo,
-       COUNT(*) AS cantidad
-     FROM T_Equipo e
-     INNER JOIN T_Modelo mo ON mo.PK_IMo_Cod = e.FK_IMo_Cod
-     INNER JOIN T_Marca ma ON ma.PK_IMa_Cod = mo.FK_IMa_Cod
-     INNER JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
-     GROUP BY mo.FK_TE_Cod, mo.FK_IMa_Cod, mo.PK_IMo_Cod
+       COUNT(e.PK_Eq_Cod) AS cantidad
+     FROM T_Tipo_Equipo te
+     LEFT JOIN T_Modelo mo ON mo.FK_TE_Cod = te.PK_TE_Cod
+     LEFT JOIN T_Marca ma ON ma.PK_IMa_Cod = mo.FK_IMa_Cod
+     LEFT JOIN T_Equipo e ON e.FK_IMo_Cod = mo.PK_IMo_Cod
+     GROUP BY
+       te.PK_TE_Cod,
+       te.TE_Nombre,
+       ma.PK_IMa_Cod,
+       ma.NMa_Nombre,
+       mo.PK_IMo_Cod,
+       mo.NMo_Nombre
      ORDER BY te.TE_Nombre, ma.NMa_Nombre, mo.NMo_Nombre`
+  );
+  return rows;
+}
+
+async function findEstados() {
+  const [rows] = await pool.query(
+    `SELECT
+       PK_EE_Cod AS idEstado,
+       EE_Nombre AS nombreEstado
+     FROM T_Estado_Equipo
+     ORDER BY EE_Nombre`
   );
   return rows;
 }
@@ -108,5 +138,7 @@ module.exports = {
   create,
   update,
   remove,
+  updateEstado,
   summarizeByModel,
+  findEstados,
 };

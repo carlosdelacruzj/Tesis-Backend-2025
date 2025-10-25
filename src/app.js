@@ -30,7 +30,7 @@ const origins = (process.env.CORS_ORIGINS || "http://localhost:4200")
 
 app.use(cors({
   origin: origins,
-  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   allowedHeaders: ["Content-Type", "Authorization", "x-api-key"],
   credentials: true,
 }));
@@ -60,6 +60,20 @@ const limiter = rateLimit({
     req.path === "/" ||
     req.path.startsWith("/api-doc") ||
     req.path === "/api-doc.json",
+  handler: (req, res, _next, options) => {
+    logger.warn({
+      ip: req.ip,
+      path: req.originalUrl,
+      rateLimit: req.rateLimit,
+    }, "Rate limit exceeded");
+    res.status(options.statusCode).json({
+      success: false,
+      message: "Demasiadas solicitudes, vuelve a intentar luego.",
+      limit: req.rateLimit?.limit ?? options.max,
+      remaining: req.rateLimit?.remaining ?? 0,
+      resetTime: req.rateLimit?.resetTime ?? null,
+    });
+  },
 });
 app.use(limiter);
 

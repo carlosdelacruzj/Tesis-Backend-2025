@@ -57,6 +57,24 @@
  *         idModelo: 6
  *         idEstado: 3
  *         serie: "SN-654321"
+ *
+ *     EquipoEstado:
+ *       type: object
+ *       properties:
+ *         idEstado: { type: integer }
+ *         nombreEstado: { type: string }
+ *       required: [idEstado, nombreEstado]
+ *       example:
+ *         idEstado: 1
+ *         nombreEstado: "Disponible"
+ *
+ *     EquipoEstadoUpdate:
+ *       type: object
+ *       required: [idEstado]
+ *       properties:
+ *         idEstado: { type: integer }
+ *       example:
+ *         idEstado: 2
  */
 
 module.exports = {};

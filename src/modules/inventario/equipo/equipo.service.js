@@ -131,6 +131,26 @@ async function summarize() {
   return repo.summarizeByModel();
 }
 
+async function listEstados() {
+  return repo.findEstados();
+}
+
+async function updateEstado(idEquipo, payload) {
+  const id = ensurePositiveInt(idEquipo, "idEquipo");
+  const idEstado = ensurePositiveInt(payload?.idEstado, "idEstado");
+  try {
+    const equipo = await repo.updateEstado(id, idEstado);
+    if (!equipo) {
+      const err = new Error("El equipo solicitado no existe.");
+      err.status = 404;
+      throw err;
+    }
+    return equipo;
+  } catch (err) {
+    handleRepositoryError(err);
+  }
+}
+
 module.exports = {
   list,
   listByFilters,
@@ -139,4 +159,6 @@ module.exports = {
   update,
   remove,
   summarize,
+  listEstados,
+  updateEstado,
 };

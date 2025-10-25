@@ -67,6 +67,26 @@ async function summarizeEquipos(_req, res, next) {
   }
 }
 
+// GET /inventario/equipos/estados
+async function listEstadosEquipo(_req, res, next) {
+  try {
+    const data = await service.listEstados();
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+// PATCH /inventario/equipos/:idEquipo/estado
+async function updateEstadoEquipo(req, res, next) {
+  try {
+    const data = await service.updateEstado(req.params.idEquipo, req.body);
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listEquipos,
   getEquipo,
@@ -74,4 +94,6 @@ module.exports = {
   updateEquipo,
   deleteEquipo,
   summarizeEquipos,
+  listEstadosEquipo,
+  updateEstadoEquipo,
 };
