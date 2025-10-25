@@ -187,29 +187,6 @@ async function stop(signal) {
   }
 }
 
-function printRoutes(stack, prefix = "") {
-  stack.forEach(layer => {
-    if (layer.route && layer.route.path) {
-      const methods = Object.keys(layer.route.methods)
-        .filter(m => layer.route.methods[m])
-        .map(m => m.toUpperCase())
-        .join(",");
-      console.log(`[ROUTE] ${methods} ${prefix}${layer.route.path}`);
-    } else if (layer.name === 'router' && layer.handle && layer.handle.stack) {
-      const src = layer.regexp?.source || "";
-      const seg = src
-        .replace('^\\','/')
-        .replace('\\/?(?=\\/|$)','')
-        .replace('\\/?$', '')
-        .replace('(?=\\/|$)', '');
-      printRoutes(layer.handle.stack, prefix + seg);
-    }
-  });
-}
-setTimeout(() => {
-
-}, 500);
-
 process.on("SIGINT", () => stop("SIGINT"));
 process.on("SIGTERM", () => stop("SIGTERM"));
 process.once("SIGUSR2", async () => { await stop("SIGUSR2"); process.kill(process.pid, "SIGUSR2"); });

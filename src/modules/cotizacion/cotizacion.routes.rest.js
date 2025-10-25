@@ -12,7 +12,6 @@ const router = Router();
  * Con /api/v1 delante, quedan:
  *   GET    /api/v1/cotizaciones
  *   GET    /api/v1/cotizaciones/:id
- *   GET    /api/v1/cotizaciones/:id/pdf
  *   POST   /api/v1/cotizaciones/:id/pdf
  *   POST   /api/v1/cotizaciones/:id/pedido
  *   POST   /api/v1/cotizaciones/public
@@ -75,29 +74,6 @@ router.get("/", ctrl.getAll);
  *       '404': { description: No encontrado }
  */
 router.get("/:id(\\d+)", ctrl.getById);
-
-/**
- * @swagger
- * /cotizaciones/{id}/pdf:
- *   get:
- *     tags: [cotizacion]
- *     summary: Descargar PDF de la cotización (stream)
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       '200':
- *         description: PDF generado
- *         content:
- *           application/pdf:
- *             schema:
- *               type: string
- *               format: binary
- *       '404': { description: No encontrado }
- */
-router.get("/:id(\\d+)/pdf", ctrl.downloadPdf);
 
 /**
  * @swagger

@@ -1,6 +1,4 @@
-const logger = require("../../utils/logger");
 const repo = require("./cotizacion.repository");
-const pool = require("../../db");
 const { generarCotizacionPdf } = require("../../pdf/cotizacion");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
@@ -9,15 +7,9 @@ const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 // ───────── utils ─────────
 function badRequest(message){ const err=new Error(message); err.status=400; return err; }
 function assertPositiveInt(v,f){ const n=Number(v); if(!Number.isInteger(n)||n<=0) throw badRequest(`${f} inválido`); return n; }
-function assertNonNegativeInt(v,f){ const n=Number(v); if(!Number.isInteger(n)||n<0) throw badRequest(`${f} inválido (debe ser entero ≥ 0)`); return n; }
-function assertNumberNonNeg(v,f){ const n=Number(v); if(!Number.isFinite(n)||n<0) throw badRequest(`${f} inválido (debe ser número ≥ 0)`); return Number(n.toFixed(2)); }
 function assertString(v,f){ if(typeof v!=="string"||!v.trim()) throw badRequest(`Campo '${f}' es requerido`); return v.trim(); }
-function cleanString(v){ if(v==null) return null; const t=String(v).trim(); return t===""?null:t; }
 function assertDate(v,f){ if(v==null) return null; if(typeof v!=="string"||!ISO_DATE.test(v)) throw badRequest(`Campo '${f}' debe ser YYYY-MM-DD`); return v; }
-function assertHoras(v){ if(v==null) return null; const n=Number(v); if(!Number.isFinite(n)||n<0) throw badRequest("horasEstimadas debe ser numérico positivo"); return Number(n.toFixed(1)); }
 function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(); if(!ESTADOS_VALIDOS.has(e)) throw badRequest(`estado inválido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`); return e; }
-function assertCurrency3(v,f){ const s=String(v||"").trim().toUpperCase(); if(!/^[A-Z]{3}$/.test(s)) throw badRequest(`Campo '${f}' debe ser un código de moneda ISO de 3 letras`); return s; }
-function assertArray(v,f){ if(!Array.isArray(v)) throw badRequest(`Campo '${f}' debe ser un arreglo`); return v; }
 
 // ───────── repo passthrough ─────────
 async function findById(id){
