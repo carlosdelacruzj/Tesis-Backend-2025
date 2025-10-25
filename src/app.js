@@ -193,8 +193,7 @@ function printRoutes(stack, prefix = "") {
   });
 }
 setTimeout(() => {
-  console.log("==== RUTAS REGISTRADAS ====");
-  printRoutes(app._router.stack);
+
 }, 500);
 
 process.on("SIGINT", () => stop("SIGINT"));

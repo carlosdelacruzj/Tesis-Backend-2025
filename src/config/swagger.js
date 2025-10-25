@@ -10,9 +10,7 @@ module.exports = {
         name: "delacruzcarlos1405@gmail.com",
       },
     },
-    servers: [
-      { url: "/api/v1" },
-    ],
+    servers: [{ url: "/api/v1" }],
     tags: [
       { name: "auth", description: "Autenticacion (desarrollo)" },
       { name: "cliente", description: "Gestion de clientes" },
@@ -27,6 +25,10 @@ module.exports = {
       { name: "contrato", description: "Gestion de contratos" },
       { name: "voucher", description: "Gestion de voucher" },
       { name: "pagos", description: "Gestion de pagos" },
+      { name: "inventario - marcas", description: "Gestion de marcas de inventario" },
+      { name: "inventario - modelos", description: "Gestion de modelos de inventario" },
+      { name: "inventario - equipos", description: "Gestion de equipos de inventario" },
+      { name: "inventario - tipos-equipo", description: "Gestion de tipos de equipo" },
     ],
     components: {
       securitySchemes: {
@@ -50,5 +52,6 @@ module.exports = {
     "src/modules/contrato/**/*.js",
     "src/modules/voucher/**/*.js",
     "src/modules/pagos/**/*.js",
+    "src/modules/inventario/**/*.js",
   ],
 };
