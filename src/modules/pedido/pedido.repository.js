@@ -74,6 +74,7 @@ async function getById(id) {
     nombrePedido: cab.nombrePedido,
     empleadoId: cab.empleadoId,
     fechaCreacion: toYMD(cab.fechaCreacion),
+    fechaEvento: toYMD(cab.fechaEvento),
     estadoPedidoId: cab.estadoPedidoId,
     estadoPagoId: cab.estadoPagoId,
     observaciones: cab.observaciones ?? null,
