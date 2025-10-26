@@ -70,6 +70,7 @@ async function getById(id) {
   const pedido = {
     id: cab.id,
     clienteId: cab.clienteId,
+    cotizacionId: cab.cotizacionId ?? null,
     nombrePedido: cab.nombrePedido,
     empleadoId: cab.empleadoId,
     fechaCreacion: toYMD(cab.fechaCreacion),
@@ -164,13 +165,14 @@ async function createComposite({ pedido, eventos, items }) {
     const [rPedido] = await conn.query(
       `
       INSERT INTO T_Pedido
-      (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod,P_Nombre_Pedido)
-      VALUES (?, ?, ?, ?, ?, ?,?)
+      (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         pedido.estadoPedidoId,
         clienteId,
         pedido.estadoPagoId,
+        pedido.cotizacionId,
         pedido.fechaCreacion,
         pedido.observaciones,
         pedido.empleadoId,
@@ -341,6 +343,10 @@ async function updateCompositeById(
     if (pedido?.nombrePedido != null) {
       updFields.push("P_Nombre_Pedido = ?");
       updParams.push(pedido.nombrePedido);
+    }
+    if (pedido?.cotizacionId != null) {
+      updFields.push("FK_Cot_Cod = ?");
+      updParams.push(pedido.cotizacionId);
     }
 
     if (updFields.length) {

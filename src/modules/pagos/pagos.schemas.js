@@ -67,6 +67,33 @@
  *         MetodoPago: "Yape/Plin"
  *         Link: "/uploads/vouchers/v_1005.jpg"
  *
+ *     Voucher:
+ *       type: object
+ *       properties:
+ *         id: { type: integer }
+ *         pedidoId: { type: integer }
+ *         monto: { type: number, format: double }
+ *         fecha: { type: string, format: date }
+ *         metodoPagoId: { type: integer }
+ *         metodoPagoNombre: { type: string, nullable: true }
+ *         estadoVoucherId: { type: integer }
+ *         estadoVoucherNombre: { type: string, nullable: true }
+ *         archivoNombre: { type: string, nullable: true }
+ *         archivoSize: { type: integer, nullable: true }
+ *         archivoMime: { type: string, nullable: true }
+ *       example:
+ *         id: 25
+ *         pedidoId: 12
+ *         monto: 450
+ *         fecha: "2025-09-25"
+ *         metodoPagoId: 2
+ *         metodoPagoNombre: "Transferencia"
+ *         estadoVoucherId: 2
+ *         estadoVoucherNombre: "Aprobado"
+ *         archivoNombre: "voucher-25.jpg"
+ *         archivoSize: 204800
+ *         archivoMime: "image/jpeg"
+ *
  *     PagoCreate:
  *       type: object
  *       required: [pedidoId, monto, metodoPagoId]
@@ -93,5 +120,24 @@
  *           type: string
  *           format: date
  *           description: Fecha del voucher (opcional)
+ *
+ *     PagoUpdate:
+ *       type: object
+ *       properties:
+ *         file:
+ *           type: string
+ *           format: binary
+ *           description: Nueva imagen del voucher (opcional)
+ *         monto:
+ *           type: number
+ *           format: double
+ *         metodoPagoId:
+ *           type: integer
+ *         estadoVoucherId:
+ *           type: integer
+ *         fecha:
+ *           type: string
+ *           format: date
+ *       description: Todos los campos son opcionales; si no se envían se conserva el valor actual.
  */
 module.exports = {};

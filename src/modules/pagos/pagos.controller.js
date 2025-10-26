@@ -1,5 +1,14 @@
 const service = require("./pagos.service");
 
+// GET /pagos
+async function getAllPagos(_req, res, next) {
+  try {
+    res.status(200).json(await service.listAllVouchers());
+  } catch (e) {
+    next(e);
+  }
+}
+
 // GET /pagos/pendientes
 async function getPendientes(_req, res, next) {
   try {
@@ -49,6 +58,15 @@ async function getVouchers(req, res, next) {
 async function getMetodos(_req, res, next) {
   try {
     res.status(200).json(await service.listMetodos());
+  } catch (e) {
+    next(e);
+  }
+}
+
+// GET /pagos/:id
+async function getPagoById(req, res, next) {
+  try {
+    res.status(200).json(await service.findVoucherById(req.params.id));
   } catch (e) {
     next(e);
   }
@@ -113,13 +131,37 @@ async function getVoucherImage(req, res, next) {
   }
 }
 
+// PUT /pagos/:id (multipart opcional)
+async function putPago(req, res, next) {
+  try {
+    const out = await service.updateVoucher(req.params.id, req.body || {}, req.file);
+    res.status(200).json(out);
+  } catch (e) {
+    next(e);
+  }
+}
+
+// DELETE /pagos/:id
+async function deletePago(req, res, next) {
+  try {
+    await service.deleteVoucher(req.params.id);
+    res.status(204).end();
+  } catch (e) {
+    next(e);
+  }
+}
+
 module.exports = {
+  getAllPagos,
   getPendientes,
   getParciales,
   getPagados,
   getResumen,
   getVouchers,
   getMetodos,
+  getPagoById,
   postPago,
   getVoucherImage,
+  putPago,
+  deletePago,
 };

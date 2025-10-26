@@ -19,6 +19,24 @@ const router = Router();
 
 /**
  * @swagger
+ * /pagos:
+ *   get:
+ *     tags: [pagos]
+ *     summary: Listar todos los vouchers registrados
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Voucher'
+ */
+router.get("/", ctrl.getAllPagos);
+
+/**
+ * @swagger
  * /pagos/pendientes:
  *   get:
  *     tags: [pagos]
@@ -113,6 +131,28 @@ router.post("/", upload.single("file"), ctrl.postPago);
 
 /**
  * @swagger
+ * /pagos/{id}:
+ *   get:
+ *     tags: [pagos]
+ *     summary: Obtener un voucher por id
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Voucher'
+ *       '404': { description: No encontrado }
+ */
+router.get("/:id(\\d+)", ctrl.getPagoById);
+
+/**
+ * @swagger
  * /pagos/{id}/imagen:
  *   get:
  *     tags: [pagos]
@@ -133,5 +173,51 @@ router.post("/", upload.single("file"), ctrl.postPago);
  *       '404': { description: No encontrado }
  */
 router.get("/:id/imagen", ctrl.getVoucherImage);
+
+/**
+ * @swagger
+ * /pagos/{id}:
+ *   put:
+ *     tags: [pagos]
+ *     summary: Actualizar un voucher (monto, metodo, estado, fecha, imagen)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             $ref: '#/components/schemas/PagoUpdate'
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Voucher'
+ *       '400': { description: Datos inválidos }
+ *       '404': { description: No encontrado }
+ */
+router.put("/:id(\\d+)", upload.single("file"), ctrl.putPago);
+
+/**
+ * @swagger
+ * /pagos/{id}:
+ *   delete:
+ *     tags: [pagos]
+ *     summary: Eliminar un voucher
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '204': { description: Eliminado }
+ *       '404': { description: No encontrado }
+ */
+router.delete("/:id(\\d+)", ctrl.deletePago);
 
 module.exports = router;

@@ -44,6 +44,10 @@ function validatePayload(payload) {
       ISO_DATE.test(pedido.fechaCreacion),
     "fechaCreacion debe ser YYYY-MM-DD"
   );
+  assert(
+    Number.isInteger(pedido.cotizacionId) && pedido.cotizacionId > 0,
+    "cotizacionId inválido"
+  );
   assert(Number.isInteger(pedido.estadoPedidoId), "estadoPedidoId inválido");
   assert(Number.isInteger(pedido.estadoPagoId), "estadoPagoId inválido");
 
@@ -138,6 +142,12 @@ function validateUpdatePayload(payload) {
     assert(Number.isInteger(pedido.estadoPedidoId), "estadoPedidoId inválido");
   if (pedido.estadoPagoId != null)
     assert(Number.isInteger(pedido.estadoPagoId), "estadoPagoId inválido");
+  if (pedido.cotizacionId != null) {
+    assert(
+      Number.isInteger(pedido.cotizacionId) && pedido.cotizacionId > 0,
+      "cotizacionId inválido"
+    );
+  }
 
   // eventos (opcional)
   if (ev !== undefined) {
@@ -240,6 +250,7 @@ async function createNewPedido(payload) {
     pedido: {
       ...payload.pedido,
       observaciones: (payload.pedido.observaciones || "").trim() || null,
+      cotizacionId: payload.pedido.cotizacionId,
     },
     eventos: payload.eventos.map((e, idx) => ({
       clientEventKey: e.clientEventKey ?? idx + 1, // fallback a índice base 1
@@ -298,6 +309,7 @@ async function updatePedidoById(payload) {
       estadoPagoId: pedido.estadoPagoId ?? null,
       nombrePedido: pedido.nombrePedido ?? null,
       observaciones: (pedido.observaciones ?? "").trim() || null,
+      cotizacionId: pedido.cotizacionId ?? null,
     },
     eventos: Array.isArray(ev)
       ? ev.map((e, idx) => ({
