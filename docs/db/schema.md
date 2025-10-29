@@ -613,6 +613,7 @@ Generado: 2025-10-26T00:14:28.341052
 |---|---|---|---|---|---|
 | `PK_Tipo_Emp_Cod` | `int` | NOT NULL |  | AUTO_INCREMENT |  |
 | `TiEm_Cargo` | `varchar(25)` | NULL | NULL |  |  |
+| `TiEm_PermiteLogin` | `tinyint unsigned` | NOT NULL | '0' |  | Indica si este tipo puede autenticarse |
 
 **Constraints**
 

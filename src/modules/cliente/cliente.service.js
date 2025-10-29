@@ -1,9 +1,13 @@
 // src/modules/cliente/cliente.service.js
 const repo = require("./cliente.repository");
+const {
+  buildInitialPassword,
+  hashPassword,
+} = require("../../utils/password");
 
-// aquí puedes validar/normalizar datos mínimamente
-function assertString(v, field) {
-  if (typeof v !== "string" || !v.trim()) {
+// Basic validation helpers
+function assertString(value, field) {
+  if (typeof value !== "string" || !value.trim()) {
     const err = new Error(`Campo '${field}' es requerido`);
     err.status = 400;
     throw err;
@@ -17,7 +21,7 @@ async function list() {
 async function findById(id) {
   const num = Number(id);
   if (!Number.isFinite(num) || num <= 0) {
-    const err = new Error("id inválido");
+    const err = new Error("id invalido");
     err.status = 400;
     throw err;
   }
@@ -40,12 +44,16 @@ async function findByDoc(doc) {
 }
 
 async function create(payload) {
-  // valida lo mínimo para no romper tu SP
+  // Minimal validation so we do not break the SP call
   ["nombre", "apellido", "correo", "numDoc", "celular", "direccion"].forEach(
-    (f) => assertString(payload[f], f)
+    (field) => assertString(payload[field], field)
   );
-  await repo.create(payload);
-  return { Status: "Registro exitoso" }; // igual que tu respuesta actual (201)
+
+  const plainPassword = buildInitialPassword(payload.nombre, payload.apellido);
+  const contrasenaHash = hashPassword(plainPassword);
+
+  await repo.create({ ...payload, contrasenaHash });
+  return { Status: "Registro exitoso" };
 }
 
 async function update(payload) {
@@ -58,7 +66,6 @@ async function update(payload) {
     throw err;
   }
 
-  // ⬇️ incluye direccion en la regla
   if (!correo && !celular && !direccion) {
     const err = new Error(
       "al menos uno de [correo, celular, direccion] es requerido"
@@ -71,9 +78,6 @@ async function update(payload) {
   return { Status: "Actualizacion exitosa" };
 }
 
-/* =========================
-   NUEVO: Autocomplete
-   ========================= */
 async function autocomplete({ query, limit = 10 }) {
   assertString(query, "query");
   const q = query.trim();
@@ -92,5 +96,5 @@ module.exports = {
   findByDoc,
   create,
   update,
-  autocomplete, // <-- exporta el nuevo método
+  autocomplete,
 };

@@ -1,5 +1,5 @@
 const { Router } = require("express");
-const jwt = require("jsonwebtoken");
+const ctrl = require("../modules/auth/auth.controller");
 
 const router = Router();
 
@@ -7,7 +7,7 @@ const router = Router();
  * @swagger
  * tags:
  *   - name: auth
- *     description: Autenticación (desarrollo)
+ *     description: Autenticacion
  */
 
 /**
@@ -15,17 +15,18 @@ const router = Router();
  * /auth/login:
  *   post:
  *     tags: [auth]
- *     summary: Login de prueba (dev)
- *     description: Emite un JWT de prueba (solo para desarrollo).
+ *     summary: Login de cliente
+ *     description: Valida correo y contrasena y devuelve un JWT.
  *     requestBody:
- *       required: false
+ *       required: true
  *       content:
  *         application/json:
  *           schema:
  *             type: object
+ *             required: [correo, contrasena]
  *             properties:
- *               userId: { type: integer, example: 1 }
- *               email:  { type: string, example: "demo@example.com" }
+ *               correo: { type: string, format: email, example: "carlos@example.com" }
+ *               contrasena: { type: string, format: password, example: "cardel123" }
  *     responses:
  *       '200':
  *         description: OK
@@ -35,12 +36,41 @@ const router = Router();
  *               type: object
  *               properties:
  *                 token: { type: string }
+ *                 usuario:
+ *                   type: object
+ *                   properties:
+ *                     id: { type: integer }
+ *                     clienteId: { type: integer, nullable: true }
+ *                     correo: { type: string }
+ *                     nombres: { type: string, nullable: true }
+ *                     apellidos: { type: string, nullable: true }
+ *       '400': { description: Request inválido }
+ *       '401': { description: Credenciales inválidas }
  */
-router.post("/login", (req, res) => {
-  const { userId = 1, email = "demo@example.com" } = req.body || {};
-  const payload = { sub: userId, email };
-  const token = jwt.sign(payload, process.env.JWT_SECRET || "my_secret_key", { expiresIn: "8h" });
-  res.json({ token });
-});
+router.post("/login", ctrl.login);
+
+/**
+ * @swagger
+ * /auth/password:
+ *   post:
+ *     tags: [auth]
+ *     summary: Establecer o actualizar contraseña
+ *     description: Genera y almacena el hash de una nueva contraseña para el usuario indicado.
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [correo, contrasena]
+ *             properties:
+ *               correo: { type: string, format: email, example: "carlos@example.com" }
+ *               contrasena: { type: string, format: password, example: "NuevaPassword123" }
+ *     responses:
+ *       '200': { description: Contraseña actualizada }
+ *       '400': { description: Datos inválidos }
+ *       '404': { description: Usuario no encontrado }
+ */
+router.post("/password", ctrl.setPassword);
 
 module.exports = router;

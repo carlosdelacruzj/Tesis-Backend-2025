@@ -46,15 +46,24 @@ async function autocomplete({ query, limit = 10 }) {
 }
 
 // --- Mutaciones ---
-async function create({ nombre, apellido, correo, numDoc, celular, direccion }) {
+async function create({
+  nombre,
+  apellido,
+  correo,
+  numDoc,
+  celular,
+  direccion,
+  contrasenaHash,
+}) {
   // Si tu SP hace SELECT del nuevo id, runCall() lo devolverá. Tu service hoy no lo usa.
-  await runCall("CALL SP_postCliente(?,?,?,?,?,?)", [
+  await runCall("CALL SP_postCliente(?,?,?,?,?,?,?)", [
     t(nombre),
     t(apellido),
     t(correo),
     t(numDoc),
     t(celular),
     t(direccion),
+    t(contrasenaHash),
   ]);
 }
 
