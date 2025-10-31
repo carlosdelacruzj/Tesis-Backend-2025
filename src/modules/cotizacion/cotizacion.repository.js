@@ -78,12 +78,13 @@ async function findByIdWithItems(id) {
 
   const str = Buffer.isBuffer(raw) ? raw.toString("utf8") : raw;
   const data = typeof str === "string" ? JSON.parse(str) : str;
+  if (data && !Array.isArray(data.eventos)) data.eventos = [];
 
-  return data || null; // { idCotizacion, lead, cotizacion, items: [...] }
+  return data || null; // { idCotizacion, lead, cotizacion, items: [...], eventos: [...] }
 }
 
 // ===================== CREAR (ADMIN) =====================
-async function createAdminV3({ cliente, lead, cotizacion, items = [] }) {
+async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = [] }) {
   const hasCliente = cliente && Number(cliente.id) > 0;
 
   // === map de items al contrato del SP (JSON) ===
@@ -105,6 +106,18 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [] }) {
     filmMin: n(it.filmMin),
   }));
 
+  const eventosMapped = Array.isArray(eventos)
+    ? eventos
+        .filter((evt) => evt && evt.fecha)
+        .map((evt) => ({
+          fecha: s(evt.fecha),
+          hora: s(evt.hora),
+          ubicacion: s(evt.ubicacion),
+          direccion: s(evt.direccion),
+          notas: s(evt.notas),
+        }))
+    : [];
+
   const params = [
     // 1) p_cliente_id (si viene >0, NO se crea lead)
     hasCliente ? n(cliente.id) : null,
@@ -122,11 +135,13 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [] }) {
     s(cotizacion?.estado ?? "Borrador"),
     // 12) items JSON
     itemsMapped.length ? JSON.stringify(itemsMapped) : null,
+    // 13) eventos JSON
+    eventosMapped.length ? JSON.stringify(eventosMapped) : null,
   ];
 
   try {
     const [rows0] = await callSP(
-      "CALL defaultdb.sp_cotizacion_crear_admin_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "CALL defaultdb.sp_cotizacion_crear_admin_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       params
     );
     const out = rows0?.[0] || {};
@@ -182,7 +197,7 @@ async function createPublic({ lead, cotizacion }) {
  * - cotizacion: campos parciales (mismos nombres que createAdmin.cotizacion)
  * - items: reemplaza TODO el set si se envía (mismo formato que en createAdmin)
  */
-async function updateAdmin(id, { cotizacion = {}, items } = {}) {
+async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
   const itemsMapped = Array.isArray(items)
     ? items.map((it) => ({
         idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
@@ -202,6 +217,18 @@ async function updateAdmin(id, { cotizacion = {}, items } = {}) {
       }))
     : null;
 
+  const eventosMapped = Array.isArray(eventos)
+    ? eventos
+        .filter((evt) => evt && evt.fecha)
+        .map((evt) => ({
+          fecha: s(evt.fecha),
+          hora: s(evt.hora),
+          ubicacion: s(evt.ubicacion),
+          direccion: s(evt.direccion),
+          notas: s(evt.notas),
+        }))
+    : null;
+
   const params = [
     Number(id),
     s(cotizacion.tipoEvento ?? null),
@@ -212,10 +239,11 @@ async function updateAdmin(id, { cotizacion = {}, items } = {}) {
     s(cotizacion.mensaje ?? null),
     s(cotizacion.estado ?? null),
     itemsMapped ? JSON.stringify(itemsMapped) : null,
+    eventosMapped ? JSON.stringify(eventosMapped) : null,
   ];
 
   await callSP(
-    "CALL defaultdb.sp_cotizacion_actualizar_admin(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "CALL defaultdb.sp_cotizacion_actualizar_admin(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     params
   );
   return { updated: true };

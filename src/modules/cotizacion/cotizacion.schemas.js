@@ -23,6 +23,17 @@
  *         trailerMin:           { type: integer, nullable: true, example: 2 }
  *         filmMin:              { type: integer, nullable: true, example: 0 }
  *
+ *     CotizacionEventoInput:
+ *       type: object
+ *       required: [fecha]
+ *       description: Fecha y ubicación opcional asociada a la cotización.
+ *       properties:
+ *         fecha:      { type: string, format: date, example: "2025-11-15" }
+ *         hora:       { type: string, format: time, nullable: true, example: "18:00:00" }
+ *         ubicacion:  { type: string, nullable: true, example: "Hotel Central" }
+ *         direccion:  { type: string, nullable: true, example: "Av. Principal 123" }
+ *         notas:      { type: string, nullable: true, example: "Ingreso por lobby" }
+ *
  *     # ===================== DETALLE (estructura cruda del SP) =====================
  *     CotizacionDetailSP:
  *       type: object
@@ -51,6 +62,18 @@
  *         items:
  *           type: array
  *           items: { $ref: '#/components/schemas/CotizacionItemSP' }
+ *         eventos:
+ *           type: array
+ *           description: "Fechas y ubicaciones calendarizadas para la cotización."
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:        { type: integer, example: 5 }
+ *               fecha:     { type: string, format: date, example: "2025-11-15" }
+ *               hora:      { type: string, format: time, nullable: true, example: "18:00:00" }
+ *               ubicacion: { type: string, nullable: true, example: "Hotel Central" }
+ *               direccion: { type: string, nullable: true, example: "Av. Principal 123" }
+ *               notas:     { type: string, nullable: true, example: "Ingreso por lobby" }
  *       example:
  *         idCotizacion: 1
  *         lead:
@@ -102,6 +125,19 @@
  *             fotosImpresas: null
  *             trailerMin: 2
  *             filmMin: 0
+ *         eventos:
+ *           - id: 9
+ *             fecha: "2025-11-15"
+ *             hora: "18:00:00"
+ *             ubicacion: "Hotel Central"
+ *             direccion: "Av. Principal 123"
+ *             notas: "Ingreso por lobby"
+ *           - id: 10
+ *             fecha: "2025-11-16"
+ *             hora: "12:00:00"
+ *             ubicacion: "Sesion en estudio"
+ *             direccion: "Calle 5 #222"
+ *             notas: null
  *
  *     # ===================== LISTADO (ACTUALIZADO SOLO LO NECESARIO) =====================
  *     CotizacionListItem:
@@ -247,6 +283,21 @@
  *               fotosImpresas:    { type: integer, nullable: true, example: 20 }
  *               trailerMin:       { type: integer, nullable: true, example: 0 }
  *               filmMin:          { type: integer, nullable: true, example: 0 }
+ *         eventos:
+ *           type: array
+ *           description: "Fechas y ubicaciones asociadas a la cotización."
+ *           items: { $ref: '#/components/schemas/CotizacionEventoInput' }
+ *           example:
+ *             - fecha: "2025-11-15"
+ *               hora: "18:00:00"
+ *               ubicacion: "Hotel Central"
+ *               direccion: "Av. Principal 123"
+ *               notas: "Ingreso por lobby"
+ *             - fecha: "2025-11-16"
+ *               hora: "12:00:00"
+ *               ubicacion: "Sesion en estudio"
+ *               direccion: "Calle 5 #222"
+ *               notas: null
  *
  *     # ===================== (NUEVO) RESPUESTA CREATE ADMIN V3 =====================
  *     CotizacionCreateAdminResponse:
@@ -276,7 +327,7 @@
  *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada] }
  *         items:
  *           type: array
- *           description: "Reemplaza TODO el set de ítems. Enviar [] para dejarlos vacíos. Omitir 'items' para no tocarlos."
+ *           description: "Reemplaza TODO el set de items. Enviar [] para dejarlos vacios. Omitir 'items' para no tocarlos."
  *           items:
  *             type: object
  *             properties:
@@ -292,6 +343,10 @@
  *               fotosImpresas:    { type: integer, nullable: true, example: 20 }
  *               trailerMin:       { type: integer, nullable: true, example: 0 }
  *               filmMin:          { type: integer, nullable: true, example: 0 }
+ *         eventos:
+ *           type: array
+ *           description: "Reemplaza todas las fechas asociadas. Omitir 'eventos' para dejarlas sin cambios."
+ *           items: { $ref: '#/components/schemas/CotizacionEventoInput' }
  *       example:
  *         cotizacion:
  *           idTipoEvento: 1
@@ -314,6 +369,12 @@
  *             fotosImpresas: 20
  *             trailerMin: 0
  *             filmMin: 0
+ *         eventos:
+ *           - fecha: "2025-11-15"
+ *             hora: "18:00:00"
+ *             ubicacion: "Hotel Central"
+ *             direccion: "Av. Principal 123"
+ *             notas: "Ingreso por lobby"
  *
  *     # ===================== (NUEVO) CAMBIO DE ESTADO CON CONCURRENCIA =====================
  *     CotizacionEstadoUpdateOptimista:

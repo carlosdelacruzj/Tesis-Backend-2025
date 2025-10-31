@@ -1,5 +1,7 @@
 // src/modules/cliente/cliente.service.js
 const repo = require("./cliente.repository");
+const pedidoRepo = require("../pedido/pedido.repository");
+const cotizacionRepo = require("../cotizacion/cotizacion.repository");
 const {
   buildInitialPassword,
   hashPassword,
@@ -90,6 +92,29 @@ async function autocomplete({ query, limit = 10 }) {
   return repo.autocomplete({ query: q, limit: lim });
 }
 
+async function listPedidosByCliente(id) {
+  const num = Number(id);
+  if (!Number.isFinite(num) || num <= 0) {
+    const err = new Error("idCliente invalido");
+    err.status = 400;
+    throw err;
+  }
+  return pedidoRepo.getByClienteId(num);
+}
+
+async function listCotizacionesByCliente(id, estado) {
+  const num = Number(id);
+  if (!Number.isFinite(num) || num <= 0) {
+    const err = new Error("idCliente invalido");
+    err.status = 400;
+    throw err;
+  }
+  const filtroEstado =
+    typeof estado === "string" && estado.trim() ? estado.trim() : null;
+  const rows = await cotizacionRepo.listByClienteId(num, { estado: filtroEstado });
+  return rows;
+}
+
 module.exports = {
   list,
   findById,
@@ -97,4 +122,6 @@ module.exports = {
   create,
   update,
   autocomplete,
+  listPedidosByCliente,
+  listCotizacionesByCliente,
 };

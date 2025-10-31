@@ -486,6 +486,29 @@ Generado: 2025-10-26T00:14:28.341052
 
 ---
 
+## `T_CotizacionEvento`
+
+| Column | Type | Null | Default | Extra | Comment |
+|---|---|---|---|---|---|
+| `PK_CotE_Cod` | `int` | NOT NULL |  | AUTO_INCREMENT |  |
+| `FK_Cot_Cod` | `int` | NOT NULL |  |  |  |
+| `CotE_Fecha` | `date` | NOT NULL |  |  |  |
+| `CotE_Hora` | `time` | NULL | NULL |  |  |
+| `CotE_Ubicacion` | `varchar(100)` | NULL | NULL |  |  |
+| `CotE_Direccion` | `varchar(150)` | NULL | NULL |  |  |
+| `CotE_Notas` | `varchar(255)` | NULL | NULL |  |  |
+
+**Constraints**
+
+- Primary key: `PK_CotE_Cod`
+- Foreign key `FK_CotizacionEvento_Cotizacion`: (`FK_Cot_Cod`) -> `T_Cotizacion` (`PK_Cot_Cod`)
+
+**Indexes**
+
+- INDEX `FK_CotizacionEvento_Cotizacion` (`FK_Cot_Cod`)
+
+---
+
 
 ## `T_PedidoServicio`
 

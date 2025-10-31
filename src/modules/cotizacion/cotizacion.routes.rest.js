@@ -173,7 +173,8 @@ router.post("/public", ctrl.createPublic);
  *     summary: Crear cotización (flujo admin/backoffice)
  *     description: |
  *       Prioriza **cliente**: si `cliente.id > 0`, no se crea lead.
- *       Si no se envía `cliente.id`, se crea un **lead** con los datos proporcionados.
+ *       Si no se envia `cliente.id`, se crea un **lead** con los datos proporcionados.
+ *       Puedes adjuntar `eventos` para registrar fechas y ubicaciones asociadas.
  *     requestBody:
  *       required: true
  *       content:
@@ -205,7 +206,7 @@ router.post("/admin", ctrl.createAdmin);
  * /cotizaciones/{id}:
  *   put:
  *     tags: [cotizacion]
- *     summary: Actualizar cotización (cabecera y/o ítems)
+ *     summary: Actualizar cotizacion (cabecera, items y eventos)
  *     parameters:
  *       - in: path
  *         name: id

@@ -53,6 +53,14 @@ async function getAll() {
   return runCall("CALL SP_getAllPedido()");
 }
 
+async function getByClienteId(clienteId) {
+  const [rows] = await pool.query(
+    "CALL sp_pedido_listar_por_cliente(?)",
+    [Number(clienteId)]
+  );
+  return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
+}
+
 async function getIndex() {
   return runCall("CALL SP_getIndexPedido()");
 }
@@ -562,6 +570,7 @@ async function updateCompositeById(
 module.exports = {
   // consultas
   getAll,
+  getByClienteId,
   getIndex,
   getById,
   getLastEstado,

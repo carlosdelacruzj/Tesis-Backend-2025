@@ -37,6 +37,59 @@ router.get("/buscar", ctrl.buscarClientes);
 
 /**
  * @swagger
+ * /clientes/by-doc/{doc}:
+ *   get:
+ *     tags: [cliente]
+ *     summary: Obtener cliente por documento
+ *     parameters:
+ *       - in: path
+ *         name: doc
+ *         required: true
+ *         schema: { type: string }
+ *     responses: { '200': { description: OK } }
+ */
+router.get("/by-doc/:doc", ctrl.getDataCliente);
+
+/**
+ * @swagger
+ * /clientes/{id}/pedidos:
+ *   get:
+ *     tags: [cliente]
+ *     summary: Listar pedidos del cliente
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200': { description: OK }
+ *       '400': { description: Parámetros inválidos }
+ */
+router.get("/:id/pedidos", ctrl.getPedidosCliente);
+
+/**
+ * @swagger
+ * /clientes/{id}/cotizaciones:
+ *   get:
+ *     tags: [cliente]
+ *     summary: Listar cotizaciones del cliente
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: query
+ *         name: estado
+ *         required: false
+ *         schema: { type: string }
+ *     responses:
+ *       '200': { description: OK }
+ *       '400': { description: Parámetros inválidos }
+ */
+router.get("/:id/cotizaciones", ctrl.getCotizacionesCliente);
+
+/**
+ * @swagger
  * /clientes/{id}:
  *   get:
  *     tags: [cliente]
@@ -51,21 +104,6 @@ router.get("/buscar", ctrl.buscarClientes);
  *       '404': { description: No encontrado }
  */
 router.get("/:id", ctrl.getByIdCliente);
-
-/**
- * @swagger
- * /clientes/by-doc/{doc}:
- *   get:
- *     tags: [cliente]
- *     summary: Obtener cliente por documento
- *     parameters:
- *       - in: path
- *         name: doc
- *         required: true
- *         schema: { type: string }
- *     responses: { '200': { description: OK } }
- */
-router.get("/by-doc/:doc", ctrl.getDataCliente);
 
 /**
  * @swagger

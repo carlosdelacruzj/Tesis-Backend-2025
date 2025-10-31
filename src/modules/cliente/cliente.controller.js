@@ -69,6 +69,25 @@ async function buscarClientes(req, res, next) {
   }
 }
 
+async function getPedidosCliente(req, res, next) {
+  try {
+    const data = await service.listPedidosByCliente(req.params.id);
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getCotizacionesCliente(req, res, next) {
+  try {
+    const estado = typeof req.query?.estado === "string" ? req.query.estado : null;
+    const data = await service.listCotizacionesByCliente(req.params.id, estado);
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAllCliente,
   getByIdCliente,
@@ -76,4 +95,6 @@ module.exports = {
   postCliente,
   putClienteById,
   buscarClientes, // <-- export nuevo
+  getPedidosCliente,
+  getCotizacionesCliente,
 };

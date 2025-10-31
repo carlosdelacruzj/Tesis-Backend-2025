@@ -16,6 +16,7 @@ async function findById(id){
   const n = assertPositiveInt(id,"id");
   const data = await repo.findByIdWithItems(n);
   if(!data){ const err=new Error(`Cotización ${n} no encontrada`); err.status=404; throw err; }
+  if(!Array.isArray(data.eventos)) data.eventos = [];
   return data;
 }
 
@@ -27,6 +28,7 @@ async function streamPdf({ id, res, body } = {}) {
 
   const detail = await repo.findByIdWithItems(cotizacionId);
   if (!detail) { const err = new Error(`Cotización ${cotizacionId} no encontrada`); err.status = 404; throw err; }
+  if (!Array.isArray(detail.eventos)) detail.eventos = [];
 
   // Normaliza items según esquema actual del SP
   const rawItems = Array.isArray(detail.items) ? detail.items : [];
@@ -200,12 +202,16 @@ async function createPublic(payload = {}) {
 
 async function createAdmin(payload = {}) {
   if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
+  if (payload.eventos != null && !Array.isArray(payload.eventos))
+    throw badRequest("Campo 'eventos' debe ser un arreglo");
   return await repo.createAdmin(payload);
 }
 
 async function update(id, body = {}) {
   const nId = assertPositiveInt(id, "id");
   if (!body || typeof body !== "object") throw badRequest("Body inválido");
+  if (body.eventos != null && !Array.isArray(body.eventos))
+    throw badRequest("Campo 'eventos' debe ser un arreglo");
   return await repo.updateAdmin(nId, body);
 }
 
