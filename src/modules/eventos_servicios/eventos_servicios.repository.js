@@ -1,53 +1,237 @@
 const pool = require("../../db");
 
-// CALL → primer recordset
+// Ejecuta un CALL y devuelve el primer recordset en forma de arreglo
 async function runCall(sql, params = []) {
   const [rows] = await pool.query(sql, params);
   return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
 }
 
-const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
+const trimOrNull = (value) =>
+  typeof value === "string" ? value.trim() || null : value ?? null;
 
-// Listado con filtros (usa el SP de 2 parámetros: evento & servicio)
+const isNullishOrBlank = (value) =>
+  value == null || (typeof value === "string" && value.trim() === "");
+
+function parseJSONColumn(raw, fallback = []) {
+  if (raw == null) return Array.isArray(fallback) ? fallback : [];
+  try {
+    const parsed = typeof raw === "string" ? JSON.parse(raw) : raw;
+    return Array.isArray(parsed) ? parsed : Array.isArray(fallback) ? fallback : [];
+  } catch {
+    return Array.isArray(fallback) ? fallback : [];
+  }
+}
+
+function normalizeStaff(detalle = [], fallbackTotal = null) {
+  const detalleNorm = detalle.map((item = {}) => ({
+    rol: item?.rol ?? null,
+    cantidad:
+      item?.cantidad != null && Number.isFinite(Number(item.cantidad))
+        ? Number(item.cantidad)
+        : 0,
+  }));
+
+  const total = fallbackTotal != null && Number.isFinite(Number(fallbackTotal))
+    ? Number(fallbackTotal)
+    : detalleNorm.reduce((acc, item) => acc + (item.cantidad || 0), 0);
+
+  return { total, detalle: detalleNorm };
+}
+
+function normalizeRow(row = {}) {
+  const staffDetalle = parseJSONColumn(row.staffDetalle);
+  const equiposDetalle = parseJSONColumn(row.equipos).map((eq = {}) => ({
+    tipoEquipoId:
+      eq?.tipoEquipoId != null && Number.isFinite(Number(eq.tipoEquipoId))
+        ? Number(eq.tipoEquipoId)
+        : null,
+    tipoEquipo: eq?.tipoEquipo ?? null,
+    cantidad:
+      eq?.cantidad != null && Number.isFinite(Number(eq.cantidad))
+        ? Number(eq.cantidad)
+        : null,
+    notas: eq?.notas ?? null,
+  }));
+
+  return {
+    id: row.idEventoServicio ?? row.id ?? null,
+    titulo: row.titulo ?? row.ExS_Titulo ?? null,
+    categoria: row.categoria ?? row.ExS_Categoria ?? null,
+    evento: {
+      id: row.idEvento ?? row.PK_E_Cod ?? null,
+      nombre: row.evento ?? row.E_Nombre ?? null,
+    },
+    servicio: {
+      id: row.idServicio ?? row.PK_S_Cod ?? null,
+      nombre: row.servicio ?? row.S_Nombre ?? null,
+    },
+    precio:
+      row.precio != null && Number.isFinite(Number(row.precio))
+        ? Number(row.precio)
+        : null,
+    descripcion: row.descripcion ?? row.ExS_Descripcion ?? null,
+    horas:
+      row.horas != null && Number.isFinite(Number(row.horas))
+        ? Number(row.horas)
+        : null,
+    fotosImpresas:
+      row.fotosImpresas != null && Number.isFinite(Number(row.fotosImpresas))
+        ? Number(row.fotosImpresas)
+        : null,
+    trailerMin:
+      row.trailerMin != null && Number.isFinite(Number(row.trailerMin))
+        ? Number(row.trailerMin)
+        : null,
+    filmMin:
+      row.filmMin != null && Number.isFinite(Number(row.filmMin))
+        ? Number(row.filmMin)
+        : null,
+    staff: normalizeStaff(staffDetalle, row.staffTotal),
+    equipos: equiposDetalle,
+  };
+}
+
+function toStaffJSON(staff = [], allowEmpty = false) {
+  if (!Array.isArray(staff) || staff.length === 0) {
+    return allowEmpty && Array.isArray(staff) ? "[]" : null;
+  }
+  const cleaned = staff
+    .map((item = {}) => ({
+      rol: typeof item.rol === "string" ? item.rol.trim() : null,
+      cantidad:
+        item.cantidad != null && Number.isFinite(Number(item.cantidad))
+          ? Number(item.cantidad)
+          : 0,
+    }))
+    .filter((item) => item.rol);
+  if (cleaned.length) return JSON.stringify(cleaned);
+  return allowEmpty ? "[]" : null;
+}
+
+function toEquiposJSON(equipos = [], allowEmpty = false) {
+  if (!Array.isArray(equipos) || equipos.length === 0) {
+    return allowEmpty && Array.isArray(equipos) ? "[]" : null;
+  }
+  const cleaned = equipos
+    .map((item = {}) => ({
+      tipoEquipoId:
+        item.tipoEquipoId != null && Number.isFinite(Number(item.tipoEquipoId))
+          ? Number(item.tipoEquipoId)
+          : null,
+      cantidad:
+        item.cantidad != null && Number.isFinite(Number(item.cantidad))
+          ? Number(item.cantidad)
+          : 1,
+      notas:
+        typeof item.notas === "string" && item.notas.trim()
+          ? item.notas.trim()
+          : null,
+    }))
+    .filter((item) => item.tipoEquipoId != null);
+  if (cleaned.length) return JSON.stringify(cleaned);
+  return allowEmpty ? "[]" : null;
+}
+
+// Listado con filtros (usa el SP con filtros opcionales)
 async function getAll({ evento = null, servicio = null } = {}) {
-  const pEvento = evento != null && String(evento).trim() !== "" ? Number(evento) : null;
-  const pServ   = servicio != null && String(servicio).trim() !== "" ? Number(servicio) : null;
-  return runCall("CALL SP_getAllServiciosByEventoServ(?, ?)", [pEvento, pServ]);
+  const pEvento =
+    evento != null && String(evento).trim() !== "" ? Number(evento) : null;
+  const pServicio =
+    servicio != null && String(servicio).trim() !== "" ? Number(servicio) : null;
+
+  const rows = await runCall("CALL SP_getAllServiciosByEventoServ(?, ?)", [
+    pEvento,
+    pServicio,
+  ]);
+
+  return Array.isArray(rows) ? rows.map((row) => normalizeRow(row)) : [];
 }
 
 // Detalle por id (PK_ExS_Cod)
 async function getById(id) {
-  return runCall("CALL SP_getEventoxServicioById(?)", [Number(id)]);
+  const rows = await runCall("CALL SP_getEventoxServicioById(?)", [Number(id)]);
+  if (!Array.isArray(rows) || rows.length === 0) return [];
+  if (rows.length === 1) return [normalizeRow(rows[0])];
+  return rows.map((row) => normalizeRow(row));
 }
 
-// Crear
-async function create({ servicio, evento, precio, descripcion, titulo }) {
-  const pServ = Number(servicio);
-  const pEvt  = Number(evento);
-  const pPrec = precio == null || String(precio).trim() === "" ? null : Number(precio);
-  const pDesc = t(descripcion);
-  const pTit  = t(titulo);
+// Crear un evento-servicio (paquete)
+async function create({
+  servicio,
+  evento,
+  precio,
+  descripcion,
+  titulo,
+  categoria,
+  horas,
+  fotosImpresas,
+  trailerMin,
+  filmMin,
+  staff,
+  equipos,
+}) {
+  const params = [
+    Number(servicio),
+    Number(evento),
+    isNullishOrBlank(precio) ? null : Number(precio),
+    trimOrNull(descripcion),
+    trimOrNull(titulo),
+    trimOrNull(categoria),
+    isNullishOrBlank(horas) ? null : Number(horas),
+    isNullishOrBlank(fotosImpresas) ? null : Number(fotosImpresas),
+    isNullishOrBlank(trailerMin) ? null : Number(trailerMin),
+    isNullishOrBlank(filmMin) ? null : Number(filmMin),
+    toStaffJSON(staff),
+    toEquiposJSON(equipos),
+  ];
 
-  const rs = await runCall("CALL SP_postEventoxServicio(?,?,?,?,?)", [
-    pServ, pEvt, pPrec, pDesc, pTit,
-  ]);
+  const rs = await runCall(
+    "CALL SP_postEventoxServicio(?,?,?,?,?,?,?,?,?,?,?,?)",
+    params
+  );
 
-  // Muchos SP devuelven el nuevo ID como primer row con PK_ExS_Cod
-  const insertedId = Array.isArray(rs) && rs[0] && rs[0].PK_ExS_Cod != null
-    ? rs[0].PK_ExS_Cod
-    : undefined;
+  const insertedId =
+    Array.isArray(rs) && rs[0] && rs[0].PK_ExS_Cod != null ? rs[0].PK_ExS_Cod : undefined;
 
   return { insertedId };
 }
 
-// Actualizar (firma según tu SP: servicio, precio, concepto, id)
-async function updateById({ id, servicio, precio, concepto }) {
-  const pId   = Number(id);
-  const pServ = servicio == null || String(servicio).trim() === "" ? null : Number(servicio);
-  const pPrec = precio   == null || String(precio).trim()   === "" ? null : Number(precio);
-  const pConc = concepto == null || String(concepto).trim() === "" ? null : String(concepto);
+// Actualizar un evento-servicio
+async function updateById({
+  id,
+  servicio,
+  evento,
+  precio,
+  descripcion,
+  titulo,
+  categoria,
+  horas,
+  fotosImpresas,
+  trailerMin,
+  filmMin,
+  staff,
+  equipos,
+}) {
+  const params = [
+    Number(id),
+    isNullishOrBlank(servicio) ? null : Number(servicio),
+    isNullishOrBlank(evento) ? null : Number(evento),
+    isNullishOrBlank(precio) ? null : Number(precio),
+    trimOrNull(descripcion),
+    trimOrNull(titulo),
+    trimOrNull(categoria),
+    isNullishOrBlank(horas) ? null : Number(horas),
+    isNullishOrBlank(fotosImpresas) ? null : Number(fotosImpresas),
+    isNullishOrBlank(trailerMin) ? null : Number(trailerMin),
+    isNullishOrBlank(filmMin) ? null : Number(filmMin),
+    staff === undefined ? null : toStaffJSON(staff, true),
+    equipos === undefined ? null : toEquiposJSON(equipos, true),
+  ];
 
-  await runCall("CALL SP_putByIdEventoxServicio(?,?,?,?)", [pServ, pPrec, pConc, pId]);
+  await runCall(
+    "CALL SP_putByIdEventoxServicio(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    params
+  );
 }
 
 module.exports = { getAll, getById, create, updateById };

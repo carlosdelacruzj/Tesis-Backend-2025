@@ -3,17 +3,56 @@
  * @swagger
  * components:
  *   schemas:
+ *     EventoServicioStaffItem:
+ *       type: object
+ *       properties:
+ *         rol:
+ *           type: string
+ *           example: Fotógrafo
+ *         cantidad:
+ *           type: integer
+ *           example: 2
+ *
+ *     EventoServicioEquipoItem:
+ *       type: object
+ *       properties:
+ *         tipoEquipoId:
+ *           type: integer
+ *           example: 3
+ *         tipoEquipo:
+ *           type: string
+ *           example: Cámara DSLR
+ *         cantidad:
+ *           type: integer
+ *           example: 2
+ *         notas:
+ *           type: string
+ *           nullable: true
+ *           example: Con baterías adicionales
+ *
  *     EventoServicio:
  *       type: object
  *       properties:
  *         id:
  *           type: integer
  *           description: PK_ExS_Cod
- *         servicio:
- *           type: integer
- *           description: PK_S_Cod
+ *         titulo:
+ *           type: string
+ *           description: Nombre comercial del paquete
+ *         categoria:
+ *           type: string
+ *           nullable: true
+ *           description: Agrupador opcional (p. ej. Básico, Premium)
  *         evento:
- *           type: integer
+ *           type: object
+ *           properties:
+ *             id: { type: integer, description: PK_E_Cod }
+ *             nombre: { type: string, nullable: true }
+ *         servicio:
+ *           type: object
+ *           properties:
+ *             id: { type: integer, description: PK_S_Cod }
+ *             nombre: { type: string, nullable: true }
  *         precio:
  *           type: number
  *           format: float
@@ -21,17 +60,50 @@
  *         descripcion:
  *           type: string
  *           nullable: true
- *           description: ExS_Descripcion
- *         titulo:
- *           type: string
+ *         horas:
+ *           type: number
+ *           format: float
  *           nullable: true
+ *         fotosImpresas:
+ *           type: integer
+ *           nullable: true
+ *         trailerMin:
+ *           type: integer
+ *           nullable: true
+ *         filmMin:
+ *           type: integer
+ *           nullable: true
+ *         staff:
+ *           type: object
+ *           properties:
+ *             total:
+ *               type: integer
+ *             detalle:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/EventoServicioStaffItem' }
+ *         equipos:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/EventoServicioEquipoItem' }
  *       example:
- *         id: 1
- *         servicio: 2
- *         evento: 5
- *         precio: 199.99
- *         descripcion: Cobertura extendida con álbum
- *         titulo: Pack Premium
+ *         id: 17
+ *         titulo: Cobertura Fotografía Premium
+ *         categoria: Premium
+ *         evento: { id: 5, nombre: "Boda" }
+ *         servicio: { id: 2, nombre: "Fotografía" }
+ *         precio: 1200
+ *         descripcion: Cobertura completa con álbum y preboda
+ *         horas: 10
+ *         fotosImpresas: 40
+ *         trailerMin: 0
+ *         filmMin: 0
+ *         staff:
+ *           total: 3
+ *           detalle:
+ *             - { rol: "Fotógrafo", cantidad: 2 }
+ *             - { rol: "Asistente", cantidad: 1 }
+ *         equipos:
+ *           - { tipoEquipoId: 3, tipoEquipo: "Cámara DSLR", cantidad: 2 }
+ *           - { tipoEquipoId: 7, tipoEquipo: "Dron", cantidad: 1, notas: "Operador certificado" }
  *
  *     EventoServicioCreate:
  *       type: object
@@ -42,6 +114,12 @@
  *           description: FK -> PK_S_Cod
  *         evento:
  *           type: integer
+ *         titulo:
+ *           type: string
+ *           nullable: true
+ *         categoria:
+ *           type: string
+ *           nullable: true
  *         precio:
  *           type: number
  *           format: float
@@ -49,34 +127,71 @@
  *         descripcion:
  *           type: string
  *           nullable: true
- *         titulo:
- *           type: string
+ *         horas:
+ *           type: number
+ *           format: float
  *           nullable: true
+ *         fotosImpresas:
+ *           type: integer
+ *           nullable: true
+ *         trailerMin:
+ *           type: integer
+ *           nullable: true
+ *         filmMin:
+ *           type: integer
+ *           nullable: true
+ *         staff:
+ *           type: array
+ *           description: Distribución del personal requerido
+ *           items: { $ref: '#/components/schemas/EventoServicioStaffItem' }
+ *         equipos:
+ *           type: array
+ *           description: Equipos necesarios por tipo
+ *           items: { $ref: '#/components/schemas/EventoServicioEquipoItem' }
  *       example:
  *         servicio: 2
  *         evento: 5
- *         precio: 150.0
- *         descripcion: Cobertura básica
- *         titulo: Pack Básico
+ *         titulo: Cobertura Fotografía Básica
+ *         categoria: Standard
+ *         precio: 850
+ *         descripcion: Cobertura de ceremonia y recepción
+ *         horas: 6
+ *         staff:
+ *           - { rol: "Fotógrafo", cantidad: 1 }
+ *           - { rol: "Asistente", cantidad: 1 }
+ *         equipos:
+ *           - { tipoEquipoId: 3, cantidad: 1 }
  *
  *     EventoServicioUpdate:
  *       type: object
- *       description: Campos opcionales; al menos uno requerido.
+ *       description: Enviar solo los campos que se desean modificar.
  *       properties:
- *         servicio:
- *           type: integer
- *         precio:
- *           type: number
- *           format: float
- *         concepto:
- *           type: string
- *           description: ExS_Descripcion
- *       anyOf:
- *         - required: [servicio]
- *         - required: [precio]
- *         - required: [concepto]
+ *         servicio: { type: integer }
+ *         evento: { type: integer }
+ *         titulo: { type: string, nullable: true }
+ *         categoria: { type: string, nullable: true }
+ *         precio: { type: number, format: float, nullable: true }
+ *         descripcion: { type: string, nullable: true }
+ *         horas: { type: number, format: float, nullable: true }
+ *         fotosImpresas: { type: integer, nullable: true }
+ *         trailerMin: { type: integer, nullable: true }
+ *         filmMin: { type: integer, nullable: true }
+ *         staff:
+ *           type: array
+ *           nullable: true
+ *           description: Reemplaza la distribución completa; enviar [] para dejarlo sin personal.
+ *           items: { $ref: '#/components/schemas/EventoServicioStaffItem' }
+ *         equipos:
+ *           type: array
+ *           nullable: true
+ *           description: Reemplaza los equipos asociados; enviar [] para quitar todos los equipos.
+ *           items: { $ref: '#/components/schemas/EventoServicioEquipoItem' }
  *       example:
- *         precio: 220.5
- *         concepto: Actualización de precio y concepto
+ *         titulo: Cobertura Fotografía Premium
+ *         precio: 1250
+ *         staff:
+ *           - { rol: "Fotógrafo", cantidad: 2 }
+ *           - { rol: "Asistente", cantidad: 2 }
+ *         equipos: []
  */
 module.exports = {};

@@ -11,7 +11,11 @@
  *           example: 1
  *         nombre:
  *           type: string
- *           example: "Matrimonio - Sesión Fotográfica"
+ *           example: "Boda"
+ *         iconUrl:
+ *           type: string
+ *           nullable: true
+ *           example: "assets/images/boda.jpg"
  *       required: [id, nombre]
  *
  *     EventoCreate:
@@ -20,7 +24,11 @@
  *       properties:
  *         nombre:
  *           type: string
- *           example: "Boda - Cobertura completa"
+ *           example: "Boda"
+ *         iconUrl:
+ *           type: string
+ *           nullable: true
+ *           example: "assets/images/boda.jpg"
  *
  *     EventoUpdate:
  *       type: object
@@ -28,9 +36,14 @@
  *       properties:
  *         nombre:
  *           type: string
- *           example: "Boda - Sesión + Recepción"
+ *           example: "Boda Gala"
+ *         iconUrl:
+ *           type: string
+ *           nullable: true
+ *           example: "assets/images/boda-gala.jpg"
  *       anyOf:
  *         - required: [nombre]
+ *         - required: [iconUrl]
  *
  *     Error:
  *       type: object

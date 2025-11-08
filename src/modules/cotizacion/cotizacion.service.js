@@ -1,5 +1,6 @@
 const repo = require("./cotizacion.repository");
 const { generarCotizacionPdf } = require("../../pdf/cotizacion");
+const { generarCotizacionPdfV2 } = require("../../pdf/cotizacion_v2");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -17,13 +18,72 @@ async function findById(id){
   const data = await repo.findByIdWithItems(n);
   if(!data){ const err=new Error(`Cotización ${n} no encontrada`); err.status=404; throw err; }
   if(!Array.isArray(data.eventos)) data.eventos = [];
+  if(Array.isArray(data.items)){
+    data.items = data.items.map((it)=>{
+      if(!it||typeof it!=="object") return it;
+      return {
+        ...it,
+        eventoId: it.eventoId==null||it.eventoId===""?null:it.eventoId,
+        servicioId: it.servicioId==null||it.servicioId===""?null:it.servicioId,
+      };
+    });
+  }
   return data;
 }
 
 // ───────── STREAM PDF ─────────
-function toBullets(desc){ if(!desc) return []; return String(desc).split(/\r?\n|●|- |•|·|\u2022|\. /).map(s=>s.trim()).filter(Boolean); }
+function toBullets(desc) {
+  if (!desc) return [];
+  return String(desc)
+    .split(/\r?\n|●|- |•|·|\u2022|\. /)
+    .map((s) => s.trim())
+    .filter(Boolean);
+}
 
-async function streamPdf({ id, res, body } = {}) {
+function formatDateDetail(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  return new Intl.DateTimeFormat("es-PE", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).format(date);
+}
+
+function formatDateLong(value) {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return String(value);
+  const parts = new Intl.DateTimeFormat("es-PE", {
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  }).formatToParts(date);
+  const day = parts.find((p) => p.type === "day")?.value;
+  const month = parts.find((p) => p.type === "month")?.value;
+  const year = parts.find((p) => p.type === "year")?.value;
+  if (!day || !month || !year) {
+    return new Intl.DateTimeFormat("es-PE", {
+      day: "numeric",
+      month: "long",
+      year: "numeric",
+    }).format(date);
+  }
+  const prettyMonth = month.charAt(0).toUpperCase() + month.slice(1);
+  return `${prettyMonth} ${day}, ${year}`;
+}
+
+function uniqueJoin(values = [], joiner = " - ") {
+  const uniq = [];
+  for (const raw of values) {
+    const str = String(raw ?? "").trim();
+    if (str && !uniq.includes(str)) uniq.push(str);
+  }
+  return uniq.join(joiner);
+}
+
+async function streamPdf({ id, res, body, query } = {}) {
   const cotizacionId = assertPositiveInt(id, "id");
 
   const detail = await repo.findByIdWithItems(cotizacionId);
@@ -126,8 +186,230 @@ async function streamPdf({ id, res, body } = {}) {
   }
 
   const selecciones = { foto, video, extrasFoto, extrasVideo };
+  const locaciones = Array.isArray(detail.eventos)
+    ? detail.eventos
+        .filter(Boolean)
+        .map((evt) => ({
+          fecha: evt.fecha ?? evt.eventoFecha ?? null,
+          hora: evt.hora ?? evt.eventoHora ?? null,
+          ubicacion: evt.ubicacion ?? evt.lugar ?? null,
+          direccion: evt.direccion ?? null,
+          notas: evt.notas ?? null,
+        }))
+    : [];
 
-  const buffer = await generarCotizacionPdf({ cabecera, selecciones });
+  const versionToken = String(
+    (query && (query.version ?? query.pdfVersion))
+      ?? (body && (body.pdfVersion ?? body.version))
+      ?? ""
+  ).trim().toLowerCase();
+  let useV2 = true;
+  if (versionToken) {
+    if (["v1", "legacy", "classic", "old"].includes(versionToken)) {
+      useV2 = false;
+    } else if (["v2", "new", "testing"].includes(versionToken)) {
+      useV2 = true;
+    }
+  }
+
+  let buffer;
+  if (useV2) {
+    const clean = (arr = []) =>
+      arr
+        .map((text) => (typeof text === "string" ? text : text != null ? String(text) : ""))
+        .map((text) => text.trim())
+        .filter(Boolean);
+
+    const describeItem = (it = {}) => {
+      const qty = Number(it.cantidad);
+      const qtyPrefix = Number.isFinite(qty) && qty > 0 ? (qty === 1 ? "1 " : `${qty} `) : "";
+      const baseTitulo = it.titulo || "Servicio";
+      const base = `${qtyPrefix}${baseTitulo}`.trim();
+      const meta = [];
+      if (it.horas != null && it.horas !== "") meta.push(`${it.horas} h`);
+      if (it.personal != null && it.personal !== "") {
+        const count = Number(it.personal);
+        const label = Number.isFinite(count)
+          ? `${count} ${count === 1 ? "persona" : "personas"}`
+          : `Personal: ${it.personal}`;
+        meta.push(label);
+      }
+      const metaTxt = meta.length ? ` (${meta.join(" • ")})` : "";
+      const note = it.notas ? ` — ${it.notas}` : "";
+      return `${base}${metaTxt}${note}`.trim();
+    };
+
+    const allFotoItems = [...foto, ...extrasFoto];
+    const allVideoItems = [...video, ...extrasVideo];
+
+    const fotoRecursos = clean(allFotoItems.map(describeItem));
+    const fotoLocaciones = (() => {
+      const lines = [];
+      const eventos = locaciones.length ? locaciones : [{
+        fecha: cabecera.fechaEvento ?? null,
+        hora: null,
+        ubicacion: cabecera.lugar ?? null,
+        direccion: null,
+        notas: null,
+      }];
+      eventos.filter(Boolean).forEach((loc) => {
+        if (loc.fecha) {
+          const fechaTxt = formatDateDetail(loc.fecha);
+          const horaTxt = loc.hora ? ` ${loc.hora}` : "";
+          lines.push(`Fecha: ${fechaTxt}${horaTxt}`);
+        }
+        if (loc.ubicacion) lines.push(`Lugar: ${loc.ubicacion}`);
+        if (loc.direccion) lines.push(`Dirección: ${loc.direccion}`);
+        if (loc.notas) lines.push(`Notas: ${loc.notas}`);
+      });
+      return clean(lines);
+    })();
+    const fotoProducto = (() => {
+      const bullets = clean(
+        allFotoItems.flatMap((it) => [
+          ...toBullets(it.descripcion),
+          ...toBullets(it.notas),
+        ])
+      );
+      return bullets.length ? bullets : ["Entrega según detalle del servicio fotográfico."];
+    })();
+
+    const videoEquipos = clean(
+      allVideoItems.flatMap((it) => [
+        describeItem(it),
+        ...toBullets(it.descripcion),
+      ])
+    );
+    const videoPersonal = clean(
+      allVideoItems.flatMap((it) => {
+        if (it.personal == null || it.personal === "") return [];
+        const count = Number(it.personal);
+        if (Number.isFinite(count)) {
+          return [`${count} ${count === 1 ? "integrante" : "integrantes"}`];
+        }
+        return [`Personal: ${it.personal}`];
+      })
+    );
+    const videoLocaciones = fotoLocaciones.length ? fotoLocaciones : clean([cabecera.lugar]);
+    const videoProducto = (() => {
+      const bullets = clean(
+        allVideoItems.flatMap((it) => [
+          ...toBullets(it.notas),
+          ...toBullets(it.descripcion),
+        ])
+      );
+      return bullets.length ? bullets : ["Producto final según alcance del servicio de video."];
+    })();
+
+    const sumImporte = (items = []) =>
+      items.reduce((acc, it) => {
+        const qty = Number(it.cantidad ?? 1);
+        const precio = Number(it.precioUnitario ?? 0);
+        if (Number.isFinite(qty) && Number.isFinite(precio)) {
+          return acc + qty * precio;
+        }
+        return acc;
+      }, 0);
+    const totalFoto = sumImporte(foto) + sumImporte(extrasFoto);
+    const totalVideo = sumImporte(video) + sumImporte(extrasVideo);
+    const monedaFoto = foto.find((it) => it.moneda)?.moneda
+      ?? extrasFoto.find((it) => it.moneda)?.moneda
+      ?? "USD";
+    const monedaVideo = video.find((it) => it.moneda)?.moneda
+      ?? extrasVideo.find((it) => it.moneda)?.moneda
+      ?? "USD";
+
+    const totalesData = [];
+    if (totalFoto > 0) {
+      totalesData.push({
+        label: "Total, por el servicio fotografía",
+        amount: totalFoto,
+        currency: monedaFoto,
+      });
+    }
+    if (totalVideo > 0) {
+      totalesData.push({
+        label: "Total, por el servicio video",
+        amount: totalVideo,
+        currency: monedaVideo,
+      });
+    }
+    totalesData.push("Precios expresados en dólares no incluye el IGV (18%)");
+
+    const fechasEvento = locaciones.map((loc) => formatDateDetail(loc.fecha)).filter(Boolean);
+    if (!fechasEvento.length && cabecera.fechaEvento) fechasEvento.push(formatDateDetail(cabecera.fechaEvento));
+    const lugaresEvento = locaciones.map((loc) => loc.ubicacion).filter(Boolean);
+    if (!lugaresEvento.length && cabecera.lugar) lugaresEvento.push(cabecera.lugar);
+
+    const cabeceraV2 = {
+      cliente:
+        body?.clienteNombre
+        ?? detail.cliente?.nombre
+        ?? detail.clienteNombre
+        ?? detail.company?.razonSocial
+        ?? cabecera.atencion
+        ?? "Cliente",
+      atencion:
+        body?.atencionNombre
+        ?? cabecera.atencion
+        ?? detail.contacto?.nombre
+        ?? "Cliente",
+      evento: body?.eventoNombre ?? cabecera.evento ?? "Evento",
+      eventoDetalle: uniqueJoin(
+        [
+          uniqueJoin(fechasEvento, " y "),
+          uniqueJoin(lugaresEvento, ", "),
+        ].filter(Boolean),
+        " – "
+      ),
+    };
+
+    const despedidaTexto =
+      body?.pdfDespedida
+      ?? body?.despedida
+      ?? detail.cotizacion?.mensajeDespedida
+      ?? "Sin otro en particular nos despedimos agradeciendo de antemano por la confianza recibida.";
+
+    const fechaFirmado =
+      body?.pdfFecha
+      ?? body?.fechaTexto
+      ?? formatDateLong(cabecera.createdAt || new Date());
+
+    const firmaNombre =
+      body?.pdfFirma
+      ?? body?.firmaNombre
+      ?? detail.company?.representante
+      ?? "Edwin De La Cruz";
+
+    const footerInfo = {};
+    const footerLine1 = body?.footer?.line1 ?? detail.company?.footerLinea1;
+    const footerLine2 = body?.footer?.line2 ?? detail.company?.footerLinea2;
+    if (footerLine1) footerInfo.line1 = footerLine1;
+    if (footerLine2) footerInfo.line2 = footerLine2;
+
+    buffer = await generarCotizacionPdfV2({
+      cabecera: cabeceraV2,
+      fotografia: {
+        recursos: fotoRecursos,
+        locaciones: fotoLocaciones,
+        productoFinal: fotoProducto,
+      },
+      video: {
+        equiposFilmacion: videoEquipos,
+        personal: videoPersonal,
+        locaciones: videoLocaciones,
+        productoFinal: videoProducto,
+      },
+      totales: totalesData,
+      despedida: despedidaTexto,
+      fechaTexto: fechaFirmado,
+      firmaNombre,
+      footer: footerInfo,
+    });
+  } else {
+    buffer = await generarCotizacionPdf({ cabecera, selecciones, locaciones });
+  }
+
   res.status(200);
   res.setHeader("Content-Type", "application/pdf");
   res.setHeader("Content-Disposition", `inline; filename="cotizacion_${cotizacionId}.pdf"`);

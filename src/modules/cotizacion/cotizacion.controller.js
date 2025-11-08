@@ -66,6 +66,7 @@ async function downloadPdf(req, res, next) {
     await svc.streamPdf({
       id: req.params.id,
       res,
+      query: req.query || {},
       body: req.body || {},     // 👈 aquí va el logo/firma/equipo que viene del front
     });
     logger.info(

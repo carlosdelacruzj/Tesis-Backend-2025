@@ -90,6 +90,8 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = 
   // === map de items al contrato del SP (JSON) ===
   const itemsMapped = (items || []).map((it) => ({
     idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
+    eventoId: it.eventoId ?? null,
+    servicioId: it.servicioId ?? null,
     // el SP acepta nombre o titulo -> mandamos nombre si existe, si no titulo
     nombre: s(it.nombre ?? it.titulo),
     descripcion: s(it.descripcion),
@@ -201,6 +203,8 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
   const itemsMapped = Array.isArray(items)
     ? items.map((it) => ({
         idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
+        eventoId: it.eventoId ?? null,
+        servicioId: it.servicioId ?? null,
         nombre: s(it.nombre ?? it.titulo),
         descripcion: s(it.descripcion),
         moneda: s((it.moneda || "USD").toUpperCase()),

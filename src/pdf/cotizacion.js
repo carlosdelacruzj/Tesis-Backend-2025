@@ -13,6 +13,38 @@ function asRawBase64(s) {
   const m = String(s).match(/^data:.*;base64,(.*)$/i);
   return m ? m[1] : String(s);
 }
+function toCamelCaseName(value) {
+  if (!value) return "";
+  const parts = String(value)
+    .trim()
+    .split(/[^A-Za-z0-9ÁÉÍÓÚÜÑáéíóúüñ]+/)
+    .filter(Boolean);
+  if (!parts.length) return "";
+  return parts
+    .map((part) => {
+      const lower = part.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join("");
+}
+const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
+const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
+function formatDateHuman(value) {
+  if (!value) return "";
+  const str = String(value);
+  if (ISO_DATE_RE.test(str)) {
+    const [y, m, d] = str.split("-");
+    return `${d}/${m}/${y}`;
+  }
+  const date = new Date(str);
+  return Number.isNaN(date.getTime()) ? str : date.toLocaleDateString("es-PE");
+}
+function formatTimeHuman(value) {
+  if (!value) return "";
+  const str = String(value);
+  if (TIME_RE.test(str)) return str.slice(0, 5);
+  return str;
+}
 
 /** === Tamaños (ajusta SIZE_OPTION_TEXT a 11 si quieres -1pt) === */
 const SIZE_OPTION = 13;       // "Opción X."
@@ -196,8 +228,57 @@ function setupFooter(doc) {
   doc.on("pageAdded", footer);
 }
 
+function renderLocations(doc, locaciones = []) {
+  const data = ensureArray(locaciones).filter(Boolean);
+  if (!data.length) return;
+
+  const left = doc.page.margins.left;
+  doc.x = left;
+  doc.font("Helvetica-Bold").fontSize(12).text("3.-  ", { continued: true });
+  doc.text("Locaciones", { underline: true });
+  doc.moveDown(0.8);
+
+  doc.font("Helvetica").fontSize(SIZE_OPTION_TEXT);
+  data.forEach((loc, idx) => {
+    const fecha = formatDateHuman(loc.fecha);
+    const hora = formatTimeHuman(loc.hora);
+    const fechaHora = [fecha, hora].filter(Boolean).join(" • ");
+    const ubicacionRaw = loc.ubicacion || loc.lugar || "";
+    const ubicacion = toCamelCaseName(ubicacionRaw);
+    const direccion = loc.direccion || "";
+
+    doc.x = left;
+    const heading = ubicacion ? `${ubicacion}` : `Locación ${idx + 1}`;
+    doc.font("Helvetica-Bold").fontSize(SIZE_OPTION).text(heading);
+    doc.moveDown(0.2);
+
+    doc.font("Helvetica").fontSize(SIZE_OPTION_TEXT);
+    if (fechaHora) {
+      doc.x = left;
+      doc.text(`-  ${fechaHora}`);
+    }
+    if (ubicacion) {
+      doc.x = left;
+      doc.text(`-  Ubicación: ${ubicacion}`);
+    }
+    if (direccion) {
+      doc.x = left;
+      doc.text(`-  Dirección: ${direccion}`);
+    }
+    if (loc.notas) {
+      doc.x = left;
+      doc.font("Helvetica-Oblique").text(`* Notas: ${loc.notas}`);
+      doc.font("Helvetica").fontSize(SIZE_OPTION_TEXT);
+    }
+
+    if (idx !== data.length - 1) doc.moveDown(0.6);
+  });
+
+  doc.moveDown(0.8);
+}
+
 /** ================== API principal ================== */
-function generarCotizacionPdf({ cabecera = {}, selecciones = {} }) {
+function generarCotizacionPdf({ cabecera = {}, selecciones = {}, locaciones = [] }) {
   const {
     atencion, evento, fechaEvento, lugar,
     logoBase64, firmaBase64, videoEquipo, createdAt
@@ -248,6 +329,9 @@ function generarCotizacionPdf({ cabecera = {}, selecciones = {} }) {
     const videoTitleRight = videoEquipo ? `Servicio de filmación — ${videoEquipo}` : "Servicio de filmación";
     renderCategory(doc, "2.-  ", videoTitleRight, video);
     renderExtras(doc, "Eventos Adicionales (Video)", extrasVideo);
+
+    // Locaciones calendarizadas
+    renderLocations(doc, locaciones);
 
     // Firma + Fecha
     renderSignAndDate(doc, { createdAt, firmaBase64 });

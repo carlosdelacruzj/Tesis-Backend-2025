@@ -106,6 +106,8 @@ Generado: 2025-10-26T00:14:28.341052
 | `PK_CotServ_Cod` | `int` | NOT NULL |  | AUTO_INCREMENT |  |
 | `FK_Cot_Cod` | `int` | NOT NULL |  |  |  |
 | `FK_ExS_Cod` | `int` | NULL | NULL |  |  |
+| `CS_EventoId` | `int` | NULL | NULL |  |  |
+| `CS_ServicioId` | `int` | NULL | NULL |  |  |
 | `CS_Nombre` | `varchar(120)` | NOT NULL |  |  |  |
 | `CS_Descripcion` | `varchar(1000)` | NULL | NULL |  |  |
 | `CS_Moneda` | `char(3)` | NOT NULL | 'USD' |  |  |
@@ -299,10 +301,11 @@ Generado: 2025-10-26T00:14:28.341052
 | `PK_ExS_Cod` | `int` | NOT NULL |  | AUTO_INCREMENT |  |
 | `PK_S_Cod` | `int` | NOT NULL |  |  |  |
 | `PK_E_Cod` | `int` | NOT NULL |  |  |  |
-| `ExS_Precio` | `int` | NULL | NULL |  |  |
+| `ExS_Titulo` | `varchar(120)` | NOT NULL |  |  |  |
+| `ExS_Categoria` | `varchar(30)` | NULL | NULL |  |  |
+| `ExS_Precio` | `decimal(10,2)` | NULL | NULL |  |  |
 | `ExS_Descripcion` | `varchar(100)` | NULL | NULL |  |  |
 | `ExS_Horas` | `decimal(4,1)` | NULL | NULL |  |  |
-| `ExS_Staff` | `smallint` | NULL | NULL |  |  |
 | `ExS_FotosImpresas` | `int` | NULL | NULL |  |  |
 | `ExS_TrailerMin` | `int` | NULL | NULL |  |  |
 | `ExS_FilmMin` | `int` | NULL | NULL |  |  |
@@ -321,17 +324,54 @@ Generado: 2025-10-26T00:14:28.341052
 ---
 
 
+## `T_EventoServicioStaff`
+
+| Column | Type | Null | Default | Extra | Comment |
+|---|---|---|---|---|---|
+| `PK_ExS_Staff_Cod` | `int` | NOT NULL |  | AUTO_INCREMENT |  |
+| `FK_ExS_Cod` | `int` | NOT NULL |  |  |  |
+| `Staff_Rol` | `varchar(40)` | NOT NULL |  |  |  |
+| `Staff_Cantidad` | `smallint unsigned` | NOT NULL | '0' |  |  |
+
+**Constraints**
+
+- Primary key: `PK_ExS_Staff_Cod`
+- Foreign key `fk_exs_staff_exs`: (`FK_ExS_Cod`) → `T_EventoServicio` (`PK_ExS_Cod`)
+
+---
+
+
+## `T_EventoServicioEquipo`
+
+| Column | Type | Null | Default | Extra | Comment |
+|---|---|---|---|---|---|
+| `PK_ExS_Equipo_Cod` | `int` | NOT NULL |  | AUTO_INCREMENT |  |
+| `FK_ExS_Cod` | `int` | NOT NULL |  |  |  |
+| `FK_TE_Cod` | `int` | NOT NULL |  |  |  |
+| `Cantidad` | `smallint unsigned` | NOT NULL | '1' |  |  |
+| `Notas` | `varchar(150)` | NULL | NULL |  |  |
+
+**Constraints**
+
+- Primary key: `PK_ExS_Equipo_Cod`
+- Foreign key `fk_exs_equipo_exs`: (`FK_ExS_Cod`) → `T_EventoServicio` (`PK_ExS_Cod`)
+- Foreign key `fk_exs_equipo_tipo`: (`FK_TE_Cod`) → `T_Tipo_Equipo` (`PK_TE_Cod`)
+
+---
+
+
 ## `T_Eventos`
 
 | Column | Type | Null | Default | Extra | Comment |
 |---|---|---|---|---|---|
 | `PK_E_Cod` | `int` | NOT NULL |  | AUTO_INCREMENT |  |
-| `E_Nombre` | `varchar(25)` | NULL | NULL |  |  |
+| `E_Nombre` | `varchar(25)` | NOT NULL |  |  |  |
 | `E_IconUrl` | `varchar(500)` | NULL | NULL |  |  |
 
 **Constraints**
 
 - Primary key: `PK_E_Cod`
+- UNIQUE `uq_eventos_nombre` (`E_Nombre`)
 
 ---
 
@@ -599,11 +639,12 @@ Generado: 2025-10-26T00:14:28.341052
 | Column | Type | Null | Default | Extra | Comment |
 |---|---|---|---|---|---|
 | `PK_S_Cod` | `int` | NOT NULL |  | AUTO_INCREMENT |  |
-| `S_Nombre` | `varchar(25)` | NULL | NULL |  |  |
+| `S_Nombre` | `varchar(25)` | NOT NULL |  |  |  |
 
 **Constraints**
 
 - Primary key: `PK_S_Cod`
+- UNIQUE `uq_servicios_nombre` (`S_Nombre`)
 
 ---
 

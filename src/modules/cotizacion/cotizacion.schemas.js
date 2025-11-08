@@ -1,15 +1,18 @@
-/**
+﻿/**
  * @swagger
  * components:
  *   schemas:
  *     # ===================== ITEMS (estructura cruda del SP) =====================
  *     CotizacionItemSP:
  *       type: object
+ *       description: "Salida directa del SP; incluye CS_EventoId y CS_ServicioId como referencias opcionales."
  *       properties:
  *         idCotizacionServicio: { type: integer, example: 2 }
  *         idEventoServicio:     { type: integer, example: 13 }
+ *         eventoId:             { type: integer, nullable: true, example: 1, description: "ID del evento referenciado (solo informativo)" }
+ *         servicioId:           { type: integer, nullable: true, example: 7, description: "ID del servicio referenciado (solo informativo)" }
  *         nombre:               { type: string, example: "Video Trailer" }
- *         descripcion:          { type: string, nullable: true, example: "Trailer cinematográfico" }
+ *         descripcion:          { type: string, nullable: true, example: "Trailer cinematogrÃ¡fico" }
  *         moneda:               { type: string, example: "USD" }
  *         precioUnit:           { type: number, format: float, example: 350.0 }
  *         cantidad:             { type: number, format: float, example: 1.0 }
@@ -26,7 +29,7 @@
  *     CotizacionEventoInput:
  *       type: object
  *       required: [fecha]
- *       description: Fecha y ubicación opcional asociada a la cotización.
+ *       description: Fecha y ubicaciÃ³n opcional asociada a la cotizaciÃ³n.
  *       properties:
  *         fecha:      { type: string, format: date, example: "2025-11-15" }
  *         hora:       { type: string, format: time, nullable: true, example: "18:00:00" }
@@ -64,7 +67,7 @@
  *           items: { $ref: '#/components/schemas/CotizacionItemSP' }
  *         eventos:
  *           type: array
- *           description: "Fechas y ubicaciones calendarizadas para la cotización."
+ *           description: "Fechas y ubicaciones calendarizadas para la cotizaciÃ³n."
  *           items:
  *             type: object
  *             properties:
@@ -95,15 +98,17 @@
  *         items:
  *           - idCotizacionServicio: 1
  *             idEventoServicio: 11
- *             nombre: "Cobertura Fotografía"
- *             descripcion: "Sesión completa con álbum"
+ *             eventoId: 1
+ *             servicioId: 7
+ *             nombre: "Cobertura FotografÃ­a"
+ *             descripcion: "SesiÃ³n completa con Ã¡lbum"
  *             moneda: "USD"
  *             precioUnit: 800.0
  *             cantidad: 1.0
  *             descuento: 0.0
  *             recargo: 0.0
  *             subtotal: 800.0
- *             notas: "Incluye sesión pre-boda"
+ *             notas: "Incluye sesiÃ³n pre-boda"
  *             horas: 6.0
  *             personal: 2
  *             fotosImpresas: 20
@@ -111,8 +116,10 @@
  *             filmMin: 0
  *           - idCotizacionServicio: 2
  *             idEventoServicio: 13
+ *             eventoId: 2
+ *             servicioId: 8
  *             nombre: "Video Trailer"
- *             descripcion: "Trailer cinematográfico"
+ *             descripcion: "Trailer cinematogrÃ¡fico"
  *             moneda: "USD"
  *             precioUnit: 350.0
  *             cantidad: 1.0
@@ -143,7 +150,7 @@
  *     CotizacionListItem:
  *       type: object
  *       properties:
- *         id:             { type: integer, description: "ID unificado de cotización (mapeado desde idCotizacion)" }
+ *         id:             { type: integer, description: "ID unificado de cotizaciÃ³n (mapeado desde idCotizacion)" }
  *         estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada] }
  *         fechaCreacion:  { type: string, format: date-time }
  *         eventoId:       { type: integer, nullable: true, example: 1, description: "Mapeado desde idTipoEvento" }
@@ -178,13 +185,13 @@
  *           contacto:
  *             id: 101
  *             origen: "CLIENTE"
- *             nombre: "Ana Pérez"
+ *             nombre: "Ana PÃ©rez"
  *             celular: "999888777"
  *         - id: 41
  *           estado: "Enviada"
  *           fechaCreacion: "2025-10-11T10:19:21.000Z"
  *           eventoId: 2
- *           tipoEvento: "Cumpleaños"
+ *           tipoEvento: "CumpleaÃ±os"
  *           fechaEvento: "2025-10-25"
  *           lugar: "Miraflores"
  *           horasEstimadas: 6
@@ -196,7 +203,7 @@
  *             nombre: "Carlos"
 *             celular: "999663047"
 *
- *     # ===================== MIGRACIÓN A PEDIDO =====================
+ *     # ===================== MIGRACIÃ“N A PEDIDO =====================
  *     CotizacionMigrarPedidoRequest:
  *       type: object
  *       required: [empleadoId]
@@ -234,7 +241,7 @@
  *             fechaEvento:    { type: string, format: date, example: "2025-10-20" }
  *             lugar:          { type: string, example: "Cusco" }
  *             horasEstimadas: { type: number, format: float, example: 8 }
- *             mensaje:        { type: string, example: "Cobertura básica" }
+ *             mensaje:        { type: string, example: "Cobertura bÃ¡sica" }
  *
  *     # ===================== (ACTUALIZADO) CREATE ADMIN (v3 compatible) =====================
  *     CotizacionCreateAdmin:
@@ -242,7 +249,8 @@
  *       required: [cotizacion]
  *       description: |
  *         Prioriza **cliente**: si `cliente.id > 0`, no se crea lead.
- *         Si no se envía `cliente.id`, se creará un **lead** con los datos de `lead`.
+ *         Si no se envÃ­a `cliente.id`, se crearÃ¡ un **lead** con los datos de `lead`.
+ *         Nuevo: en cada item puedes enviar opcionalmente `eventoId` y `servicioId`; se guardan solo como referencia.
  *       properties:
  *         cliente:
  *           type: object
@@ -267,13 +275,15 @@
  *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada], example: "Borrador" }
  *         items:
  *           type: array
- *           description: "Ítems con claves en UI; el backend los normaliza al JSON del SP"
+ *           description: "Ãtems con claves en UI; el backend los normaliza al JSON del SP"
  *           items:
  *             type: object
  *             properties:
  *               idEventoServicio: { type: integer, nullable: true, example: 11 }
- *               titulo:           { type: string, example: "Cobertura Fotografía" }
- *               descripcion:      { type: string, nullable: true, example: "Sesión completa con álbum" }
+ *               eventoId:         { type: integer, nullable: true, example: 1, description: "ID del evento asociado (solo informativo)" }
+ *               servicioId:       { type: integer, nullable: true, example: 7, description: "ID del servicio asociado (solo informativo)" }
+ *               titulo:           { type: string, example: "Cobertura FotografÃ­a" }
+ *               descripcion:      { type: string, nullable: true, example: "SesiÃ³n completa con Ã¡lbum" }
  *               moneda:           { type: string, example: "USD" }
  *               precioUnitario:   { type: number, format: float, example: 800 }
  *               cantidad:         { type: number, format: float, example: 1 }
@@ -285,7 +295,7 @@
  *               filmMin:          { type: integer, nullable: true, example: 0 }
  *         eventos:
  *           type: array
- *           description: "Fechas y ubicaciones asociadas a la cotización."
+ *           description: "Fechas y ubicaciones asociadas a la cotizaciÃ³n."
  *           items: { $ref: '#/components/schemas/CotizacionEventoInput' }
  *           example:
  *             - fecha: "2025-11-15"
@@ -332,8 +342,10 @@
  *             type: object
  *             properties:
  *               idEventoServicio: { type: integer, nullable: true, example: 11 }
- *               titulo:           { type: string, example: "Cobertura Fotografía" }
- *               descripcion:      { type: string, nullable: true, example: "Sesión completa" }
+ *               eventoId:         { type: integer, nullable: true, example: 1, description: "ID del evento asociado (solo informativo)" }
+ *               servicioId:       { type: integer, nullable: true, example: 7, description: "ID del servicio asociado (solo informativo)" }
+ *               titulo:           { type: string, example: "Cobertura FotografÃ­a" }
+ *               descripcion:      { type: string, nullable: true, example: "SesiÃ³n completa" }
  *               moneda:           { type: string, example: "USD" }
  *               precioUnitario:   { type: number, format: float, example: 800 }
  *               cantidad:         { type: number, format: float, example: 1 }
@@ -358,8 +370,10 @@
  *           estado: "Enviada"
  *         items:
  *           - idEventoServicio: 11
- *             titulo: "Cobertura Fotografía"
- *             descripcion: "Sesión completa con álbum + preboda"
+ *             eventoId: 1
+ *             servicioId: 7
+ *             titulo: "Cobertura FotografÃ­a"
+ *             descripcion: "SesiÃ³n completa con Ã¡lbum + preboda"
  *             moneda: "USD"
  *             precioUnitario: 900
  *             cantidad: 1
