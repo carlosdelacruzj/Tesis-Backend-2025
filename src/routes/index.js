@@ -13,7 +13,6 @@ router.use(
 );
 router.use("/cotizaciones", require("../modules/cotizacion/cotizacion.routes.rest"));
 router.use("/leads", require("../modules/lead/lead.routes.rest"));
-router.use("/equipo", require("../modules/equipo/equipo.routes.rest"));
 router.use(
   "/inventario/marcas",
   require("../modules/inventario/marca/marca.routes.rest")

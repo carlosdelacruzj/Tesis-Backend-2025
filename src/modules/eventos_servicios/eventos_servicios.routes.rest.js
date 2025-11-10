@@ -6,7 +6,7 @@ const router = Router();
  * @swagger
  * /eventos_servicios:
  *   get:
- *     tags: [eventos_servicios]
+ *     tags: [eventos - servicios]
  *     summary: Lista la relación evento-servicio (con filtros opcionales)
  *     parameters:
  *       - in: query
@@ -27,7 +27,7 @@ router.get("/", ctrl.getAll);
  * @swagger
  * /eventos_servicios/{id}:
  *   get:
- *     tags: [eventos_servicios]
+ *     tags: [eventos - servicios]
  *     summary: Obtener un evento-servicio por ID
  *     parameters:
  *       - in: path
@@ -44,7 +44,7 @@ router.get("/:id", ctrl.getById);
  * @swagger
  * /eventos_servicios:
  *   post:
- *     tags: [eventos_servicios]
+ *     tags: [eventos - servicios]
  *     summary: Crear relación evento-servicio
  *     requestBody:
  *       required: true
@@ -59,7 +59,7 @@ router.post("/", ctrl.create);
  * @swagger
  * /eventos_servicios/{id}:
  *   put:
- *     tags: [eventos_servicios]
+ *     tags: [eventos - servicios]
  *     summary: Actualizar relación evento-servicio
  *     parameters:
  *       - in: path

@@ -107,7 +107,7 @@
  *
  *     EventoServicioCreate:
  *       type: object
- *       required: [servicio, evento]
+ *       required: [servicio, evento, staff, equipos]
  *       properties:
  *         servicio:
  *           type: integer
@@ -142,10 +142,12 @@
  *           nullable: true
  *         staff:
  *           type: array
+ *           minItems: 1
  *           description: Distribución del personal requerido
  *           items: { $ref: '#/components/schemas/EventoServicioStaffItem' }
  *         equipos:
  *           type: array
+ *           minItems: 1
  *           description: Equipos necesarios por tipo
  *           items: { $ref: '#/components/schemas/EventoServicioEquipoItem' }
  *       example:
@@ -178,13 +180,13 @@
  *         filmMin: { type: integer, nullable: true }
  *         staff:
  *           type: array
- *           nullable: true
- *           description: Reemplaza la distribución completa; enviar [] para dejarlo sin personal.
+ *           minItems: 1
+ *           description: Reemplaza la distribución completa; se requiere al menos un elemento.
  *           items: { $ref: '#/components/schemas/EventoServicioStaffItem' }
  *         equipos:
  *           type: array
- *           nullable: true
- *           description: Reemplaza los equipos asociados; enviar [] para quitar todos los equipos.
+ *           minItems: 1
+ *           description: Reemplaza los equipos asociados; se requiere al menos un elemento.
  *           items: { $ref: '#/components/schemas/EventoServicioEquipoItem' }
  *       example:
  *         titulo: Cobertura Fotografía Premium

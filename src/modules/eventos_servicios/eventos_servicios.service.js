@@ -147,6 +147,13 @@ async function create(payload = {}) {
   const staffList = normalizeStaffInput(staff);
   const equiposList = normalizeEquiposInput(equipos);
 
+  if (!staffList.length) {
+    badRequest("staff debe contener al menos un elemento");
+  }
+  if (!equiposList.length) {
+    badRequest("equipos debe contener al menos un elemento");
+  }
+
   const { insertedId } = await repo.create({
     servicio,
     evento,
@@ -215,6 +222,19 @@ async function update(payload = {}) {
 
   const staffList = normalizeStaffInput(staff, { allowUndefined: true });
   const equiposList = normalizeEquiposInput(equipos, { allowUndefined: true });
+
+  if (staffList === undefined) {
+    badRequest("staff es requerido");
+  }
+  if (staffList !== undefined && !staffList.length) {
+    badRequest("staff debe contener al menos un elemento");
+  }
+  if (equiposList === undefined) {
+    badRequest("equipos es requerido");
+  }
+  if (equiposList !== undefined && !equiposList.length) {
+    badRequest("equipos debe contener al menos un elemento");
+  }
 
   await repo.updateById({
     id,
