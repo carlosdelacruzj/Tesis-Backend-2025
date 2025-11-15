@@ -31,6 +31,36 @@ function ensureOptionalInteger(value, field) {
   return n;
 }
 
+function ensureOptionalPositiveInteger(value, field) {
+  if (value == null || value === "") return null;
+  const n = Number(value);
+  if (!Number.isInteger(n) || n <= 0) {
+    badRequest(`${field} debe ser un entero positivo`);
+  }
+  return n;
+}
+
+function normalizeOptionalBooleanFlag(value, field) {
+  if (value === undefined || value === null || value === "") return null;
+  if (
+    value === true ||
+    value === 1 ||
+    value === "1" ||
+    String(value).toLowerCase() === "true"
+  ) {
+    return 1;
+  }
+  if (
+    value === false ||
+    value === 0 ||
+    value === "0" ||
+    String(value).toLowerCase() === "false"
+  ) {
+    return 0;
+  }
+  badRequest(`${field} debe ser booleano`);
+}
+
 function normalizeStaffInput(staff, { allowUndefined = false } = {}) {
   if (staff === undefined) return allowUndefined ? undefined : [];
   if (staff === null) return [];
@@ -123,10 +153,11 @@ async function create(payload = {}) {
   const {
     servicio,
     evento,
+    categoriaId,
+    esAddon,
     precio,
     descripcion,
     titulo,
-    categoria,
     horas,
     fotosImpresas,
     trailerMin,
@@ -143,6 +174,8 @@ async function create(payload = {}) {
   const fotosNum = ensureOptionalInteger(fotosImpresas, "fotosImpresas");
   const trailerNum = ensureOptionalInteger(trailerMin, "trailerMin");
   const filmNum = ensureOptionalInteger(filmMin, "filmMin");
+  const categoriaIdNum = ensureOptionalPositiveInteger(categoriaId, "categoriaId");
+  const esAddonFlag = normalizeOptionalBooleanFlag(esAddon, "esAddon");
 
   const staffList = normalizeStaffInput(staff);
   const equiposList = normalizeEquiposInput(equipos);
@@ -157,10 +190,11 @@ async function create(payload = {}) {
   const { insertedId } = await repo.create({
     servicio,
     evento,
+    categoriaId: categoriaIdNum,
+    esAddon: esAddonFlag,
     precio: precioNum,
     descripcion,
     titulo,
-    categoria,
     horas: horasNum,
     fotosImpresas: fotosNum,
     trailerMin: trailerNum,
@@ -177,10 +211,11 @@ async function update(payload = {}) {
     id,
     servicio,
     evento,
+    categoriaId,
+    esAddon,
     precio,
     descripcion,
     titulo,
-    categoria,
     horas,
     fotosImpresas,
     trailerMin,
@@ -194,10 +229,11 @@ async function update(payload = {}) {
   const fields = [
     servicio,
     evento,
+    categoriaId,
+    esAddon,
     precio,
     descripcion,
     titulo,
-    categoria,
     horas,
     fotosImpresas,
     trailerMin,
@@ -219,6 +255,8 @@ async function update(payload = {}) {
   const fotosNum = ensureOptionalInteger(fotosImpresas, "fotosImpresas");
   const trailerNum = ensureOptionalInteger(trailerMin, "trailerMin");
   const filmNum = ensureOptionalInteger(filmMin, "filmMin");
+  const categoriaIdNum = ensureOptionalPositiveInteger(categoriaId, "categoriaId");
+  const esAddonFlag = normalizeOptionalBooleanFlag(esAddon, "esAddon");
 
   const staffList = normalizeStaffInput(staff, { allowUndefined: true });
   const equiposList = normalizeEquiposInput(equipos, { allowUndefined: true });
@@ -240,10 +278,11 @@ async function update(payload = {}) {
     id,
     servicio,
     evento,
+    categoriaId: categoriaIdNum,
+    esAddon: esAddonFlag,
     precio: precioNum,
     descripcion,
     titulo,
-    categoria,
     horas: horasNum,
     fotosImpresas: fotosNum,
     trailerMin: trailerNum,
@@ -255,4 +294,8 @@ async function update(payload = {}) {
   return { Status: "Actualización exitosa" };
 }
 
-module.exports = { list, findById, create, update };
+async function listCategorias() {
+  return repo.listCategorias();
+}
+
+module.exports = { list, findById, create, update, listCategorias };

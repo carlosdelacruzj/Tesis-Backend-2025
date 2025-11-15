@@ -16,12 +16,12 @@ const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
 
 // --- Consultas ---
 async function getAll() {
-  return runCall("CALL SP_getAllClientes()");
+  return runCall("CALL sp_cliente_listar()");
 }
 
 async function getById(id) {
   try {
-    return await runCall("CALL SP_getByIdCliente(?)", [id]);
+    return await runCall("CALL sp_cliente_obtener(?)", [id]);
   } catch (err) {
     err.message = `[cliente.repo] getById: ${err.message}`;
     throw err;
@@ -29,7 +29,7 @@ async function getById(id) {
 }
 
 async function getByDoc(doc) {
-  return runCall("CALL SP_getDataCliente(?)", [doc]);
+  return runCall("CALL sp_cliente_buscar_por_documento(?)", [doc]);
 }
 
 /**
@@ -42,7 +42,7 @@ async function autocomplete({ query, limit = 10 }) {
   const q = t(query);
   if (!q || q.length < 2) return []; // evita llamadas innecesarias
   const lim = Number.isFinite(limit) ? Number(limit) : 10;
-  return runCall("CALL SP_autocompleteClientes(?, ?)", [q, lim]);
+  return runCall("CALL sp_cliente_autocompletar(?, ?)", [q, lim]);
 }
 
 // --- Mutaciones ---
@@ -56,7 +56,7 @@ async function create({
   contrasenaHash,
 }) {
   // Si tu SP hace SELECT del nuevo id, runCall() lo devolverá. Tu service hoy no lo usa.
-  await runCall("CALL SP_postCliente(?,?,?,?,?,?,?)", [
+  await runCall("CALL sp_cliente_crear(?,?,?,?,?,?,?)", [
     t(nombre),
     t(apellido),
     t(correo),
@@ -68,7 +68,7 @@ async function create({
 }
 
 async function updateById({ idCliente, correo, celular, direccion }) {
-  await runCall("CALL SP_putClienteById(?,?,?,?)", [
+  await runCall("CALL sp_cliente_actualizar(?,?,?,?)", [
     Number(idCliente),
     t(correo),
     t(celular),

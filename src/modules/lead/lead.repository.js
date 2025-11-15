@@ -8,7 +8,7 @@ const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
 
 /**
  * Convierte un lead en cliente invocando el SP:
- *   sp_lead_convertir_a_cliente(
+ *   sp_lead_convertir_cliente(
  *     IN p_lead_id, IN p_correo, IN p_celular, IN p_nombre, IN p_apellido,
  *     IN p_num_doc, IN p_direccion, IN p_tipo_cliente, IN p_estado_cliente,
  *     OUT o_usuario_id, OUT o_cliente_id, OUT o_usuario_accion, OUT o_cliente_accion
@@ -57,7 +57,7 @@ async function convertirACliente({
 
     // Ejecuta el SP (misma conexión para conservar @vars)
     await conn.query(
-      "CALL sp_lead_convertir_a_cliente(?,?,?,?,?,?,?,?,?, @o_usuario_id, @o_cliente_id, @o_usuario_accion, @o_cliente_accion)",
+      "CALL sp_lead_convertir_cliente(?,?,?,?,?,?,?,?,?, @o_usuario_id, @o_cliente_id, @o_usuario_accion, @o_cliente_accion)",
       [
         Number(leadId),
         t(correo),

@@ -39,10 +39,21 @@
  *         titulo:
  *           type: string
  *           description: Nombre comercial del paquete
- *         categoria:
+ *         categoriaId:
+ *           type: integer
+ *           nullable: true
+ *           description: FK a T_EventoServicioCategoria
+ *         categoriaNombre:
  *           type: string
  *           nullable: true
- *           description: Agrupador opcional (p. ej. Básico, Premium)
+ *           description: Nombre de la categoría asociada
+ *         categoriaTipo:
+ *           type: string
+ *           nullable: true
+ *           description: Tipo de la categoría (PAQUETE / ADDON)
+ *         esAddon:
+ *           type: boolean
+ *           description: Indica si el evento-servicio es un complemento
  *         evento:
  *           type: object
  *           properties:
@@ -87,7 +98,10 @@
  *       example:
  *         id: 17
  *         titulo: Cobertura Fotografía Premium
- *         categoria: Premium
+ *         categoriaId: 3
+ *         categoriaNombre: Premium
+ *         categoriaTipo: PAQUETE
+ *         esAddon: false
  *         evento: { id: 5, nombre: "Boda" }
  *         servicio: { id: 2, nombre: "Fotografía" }
  *         precio: 1200
@@ -105,6 +119,21 @@
  *           - { tipoEquipoId: 3, tipoEquipo: "Cámara DSLR", cantidad: 2 }
  *           - { tipoEquipoId: 7, tipoEquipo: "Dron", cantidad: 1, notas: "Operador certificado" }
  *
+ *     EventoServicioCategoria:
+ *       type: object
+ *       properties:
+ *         id:
+ *           type: integer
+ *         nombre:
+ *           type: string
+ *         tipo:
+ *           type: string
+ *           enum: [PAQUETE, ADDON]
+ *       example:
+ *         id: 2
+ *         nombre: Deluxe
+ *         tipo: PAQUETE
+ *
  *     EventoServicioCreate:
  *       type: object
  *       required: [servicio, evento, staff, equipos]
@@ -117,8 +146,11 @@
  *         titulo:
  *           type: string
  *           nullable: true
- *         categoria:
- *           type: string
+ *         categoriaId:
+ *           type: integer
+ *           nullable: true
+ *         esAddon:
+ *           type: boolean
  *           nullable: true
  *         precio:
  *           type: number
@@ -154,7 +186,8 @@
  *         servicio: 2
  *         evento: 5
  *         titulo: Cobertura Fotografía Básica
- *         categoria: Standard
+ *         categoriaId: 1
+ *         esAddon: false
  *         precio: 850
  *         descripcion: Cobertura de ceremonia y recepción
  *         horas: 6
@@ -171,7 +204,8 @@
  *         servicio: { type: integer }
  *         evento: { type: integer }
  *         titulo: { type: string, nullable: true }
- *         categoria: { type: string, nullable: true }
+ *         categoriaId: { type: integer, nullable: true }
+ *         esAddon: { type: boolean, nullable: true }
  *         precio: { type: number, format: float, nullable: true }
  *         descripcion: { type: string, nullable: true }
  *         horas: { type: number, format: float, nullable: true }

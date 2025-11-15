@@ -10,24 +10,24 @@ const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
 
 // Lecturas
 async function getAll() {
-  return runCall("CALL SP_getAllEmpleados()");
+  return runCall("CALL sp_empleado_listar()");
 }
 
 async function getList() {
-  return runCall("CALL SP_getAllEmpleadosList()");
+  return runCall("CALL sp_empleado_listar_catalogo()");
 }
 
 async function getDisponiblesByProyecto(idProyecto) {
-  return runCall("CALL SP_getAllEmpleadosDisponible(?)", [Number(idProyecto)]);
+  return runCall("CALL sp_empleado_listar_disponibles(?)", [Number(idProyecto)]);
 }
 
 async function getCargos() {
-  return runCall("CALL SP_getAllCargo()");
+  return runCall("CALL sp_empleado_cargo_listar()");
 }
 
 async function getById(id) {
   try {
-    return await runCall("CALL SP_getEmpleadoByID(?)", [Number(id)]);
+    return await runCall("CALL sp_empleado_obtener(?)", [Number(id)]);
   } catch (err) {
     err.message = `[empleado.repo] getById: ${err.message}`;
     throw err;
@@ -36,7 +36,7 @@ async function getById(id) {
 
 // Escrituras
 async function create({ nombre, apellido, correo, celular, documento, direccion, autonomo, cargo }) {
-  await runCall("CALL SP_postEmpleado(?,?,?,?,?,?,?,?)", [
+  await runCall("CALL sp_empleado_crear(?,?,?,?,?,?,?,?)", [
     t(nombre),
     t(apellido),
     t(correo),
@@ -50,7 +50,7 @@ async function create({ nombre, apellido, correo, celular, documento, direccion,
 
 async function updateById({ idEmpleado, celular, correo, direccion, estado }) {
   // Firma del SP (según legacy): (ID, Celular, Correo, Direccion, Estado)
-  await runCall("CALL SP_putEmpleadoById(?,?,?,?,?)", [
+  await runCall("CALL sp_empleado_actualizar(?,?,?,?,?)", [
     Number(idEmpleado),
     t(celular),
     t(correo),

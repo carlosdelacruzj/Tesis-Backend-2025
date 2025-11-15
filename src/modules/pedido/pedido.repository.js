@@ -38,7 +38,7 @@ async function runCall(sql, params = []) {
   return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
 }
 
-// Para SPs que devuelven MÚLTIPLES result sets (como SP_getByIDPedido)
+// Para SPs que devuelven MÚLTIPLES result sets (como sp_pedido_obtener)
 async function runCallMulti(sql, params = []) {
   const [rows] = await pool.query(sql, params);
   // mysql2 entrega: [rows1, rows2, rows3, OkPacket, OkPacket, ...]
@@ -50,24 +50,24 @@ async function runCallMulti(sql, params = []) {
 // Consultas / Procedures existentes
 // ------------------------------
 async function getAll() {
-  return runCall("CALL SP_getAllPedido()");
+  return runCall("CALL sp_pedido_listar()");
 }
 
 async function getByClienteId(clienteId) {
   const [rows] = await pool.query(
-    "CALL sp_pedido_listar_por_cliente(?)",
+    "CALL sp_pedido_listar_por_cliente_detalle(?)",
     [Number(clienteId)]
   );
   return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
 }
 
 async function getIndex() {
-  return runCall("CALL SP_getIndexPedido()");
+  return runCall("CALL sp_pedido_obtener_siguiente_id()");
 }
 
 async function getById(id) {
   // OJO: nombre del SP exacto (ID en mayúscula)
-  const sets = await runCallMulti("CALL SP_getByIDPedido(?)", [id]);
+  const sets = await runCallMulti("CALL sp_pedido_obtener(?)", [id]);
 
   const cab = sets[0]?.[0] || null;
   const eventos = sets[1] || [];
@@ -130,7 +130,7 @@ async function getById(id) {
 }
 
 async function getLastEstado() {
-  const result = await runCall("CALL SP_getLastEstadoPedido()");
+  const result = await runCall("CALL sp_pedido_estado_obtener_ultimo()");
   return result[0] || null;
 }
 
@@ -563,7 +563,7 @@ async function updateCompositeById(
 //     empleado,
 //     estadoPago,
 //   ];
-//   const result = await runCall("CALL SP_putByIdPedido(?,?,?,?,?,?,?)", params);
+//   const result = await runCall("CALL sp_pedido_actualizar(?,?,?,?,?,?,?)", params);
 //   return result[0];
 // }
 

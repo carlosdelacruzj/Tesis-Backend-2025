@@ -17,7 +17,7 @@ const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
 // Lecturas
 async function getAll() {
   // SP existente: devuelve { id, nombre }
-  return runCall("CALL SP_getAllServicios()");
+  return runCall("CALL sp_servicio_listar()");
 }
 
 async function getById(id) {

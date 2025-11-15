@@ -15,7 +15,7 @@ const t = (value) =>
   typeof value === "string" ? value.trim() || null : value ?? null;
 
 async function getAll() {
-  return runCall("CALL SP_getAllEventos()");
+  return runCall("CALL sp_evento_listar()");
 }
 
 async function getById(id) {

@@ -119,7 +119,7 @@ router.post("/:id(\\d+)/pdf", ctrl.downloadPdf);
  *   post:
  *     tags: [cotizacion]
  *     summary: Migrar cotización a pedido
- *     description: Ejecuta el SP `sp_cotizacion_migrar_a_pedido` y retorna el ID del pedido generado.
+ *     description: Ejecuta el SP `sp_cotizacion_convertir_a_pedido` y retorna el ID del pedido generado.
  *     parameters:
  *       - in: path
  *         name: id

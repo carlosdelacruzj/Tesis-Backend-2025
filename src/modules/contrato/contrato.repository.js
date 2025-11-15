@@ -6,11 +6,11 @@ async function runCall(sql, params = []) {
 }
 
 async function getAll() {
-  return runCall("CALL SP_getAllContratos()");
+  return runCall("CALL sp_contrato_listar()");
 }
 
 async function getAllByPedido(pedidoId) {
-  return runCall("CALL SP_getAllContratosByPedido(?)", [Number(pedidoId)]);
+  return runCall("CALL sp_contrato_listar_por_pedido(?)", [Number(pedidoId)]);
 }
 
 module.exports = { getAll, getAllByPedido };

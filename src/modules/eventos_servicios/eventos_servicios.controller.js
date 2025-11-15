@@ -17,6 +17,13 @@ async function getById(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function getCategorias(req, res, next) {
+  try {
+    const data = await service.listCategorias();
+    res.status(200).json(data);
+  } catch (err) { next(err); }
+}
+
 // POST /eventos_servicios
 async function create(req, res, next) {
   try {
@@ -34,4 +41,4 @@ async function update(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getAll, getById, create, update };
+module.exports = { getAll, getById, getCategorias, create, update };

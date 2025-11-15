@@ -7,26 +7,26 @@ async function runCall(sql, params = []) {
 
 // === Listados por estado de pago ===
 async function listPendientes() {
-  return runCall("CALL SP_getPedidosPendientes()");
+  return runCall("CALL sp_pedido_saldo_listar_pendientes()");
 }
 async function listParciales() {
-  return runCall("CALL SP_getPedidosParciales()");
+  return runCall("CALL sp_pedido_saldo_listar_parciales()");
 }
 async function listPagados() {
-  return runCall("CALL SP_getPedidosPagados()");
+  return runCall("CALL sp_pedido_saldo_listar_pagados()");
 }
 
 // === Resumen y vouchers por pedido ===
 async function getResumenByPedido(pedidoId) {
-  return runCall("CALL SP_getResumenPagoPedido(?)", [Number(pedidoId)]);
+  return runCall("CALL sp_pedido_pago_resumen(?)", [Number(pedidoId)]);
 }
 async function listVouchersByPedido(pedidoId) {
-  return runCall("CALL SP_getVouchersByPedido(?)", [Number(pedidoId)]);
+  return runCall("CALL sp_voucher_listar_por_pedido_detalle(?)", [Number(pedidoId)]);
 }
 
 // === Catálogos ===
 async function listMetodos() {
-  return runCall("CALL SP_getAllMetodoPago()");
+  return runCall("CALL sp_metodo_pago_listar()");
 }
 
 // === Crear voucher ===
@@ -42,7 +42,7 @@ async function insertVoucher({
   nombre,
   size,
 }) {
-  return runCall("CALL SP_postVoucher(?,?,?,?,?,?,?,?,?)", [
+  return runCall("CALL sp_voucher_crear(?,?,?,?,?,?,?,?,?)", [
     monto,
     metodoPagoId,
     estadoVoucherId,

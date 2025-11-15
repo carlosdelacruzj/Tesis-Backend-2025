@@ -9,24 +9,24 @@ const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
 
 // --- Consultas ---
 async function getPedidosByEstado(idEstado) {
-  return runCall("CALL SP_getAllPedidoVoucher(?)", [Number(idEstado)]);
+  return runCall("CALL sp_voucher_listar_ultimos_por_estado(?)", [Number(idEstado)]);
 }
 async function getAllByPedido(idPedido) {
-  return runCall("CALL SP_getAllVoucherByPedido(?)", [Number(idPedido)]);
+  return runCall("CALL sp_voucher_listar_por_pedido(?)", [Number(idPedido)]);
 }
 async function getByPedido(idPedido) {
-  return runCall("CALL SP_getVoucherByPedido(?)", [Number(idPedido)]);
+  return runCall("CALL sp_voucher_obtener_por_pedido(?)", [Number(idPedido)]);
 }
 async function getMetodosPago() {
-  return runCall("CALL SP_getAllMetodoPago()");
+  return runCall("CALL sp_metodo_pago_listar()");
 }
 async function getEstados() {
-  return runCall("CALL SP_getAllEstadoVoucher()");
+  return runCall("CALL sp_voucher_estado_listar()");
 }
 
 // --- Mutaciones ---
 async function create({ monto, metodoPago, estadoVoucher, imagen, idPedido }) {
-  await runCall("CALL SP_postVoucher(?,?,?,?,?)", [
+  await runCall("CALL sp_voucher_crear(?,?,?,?,?)", [
     Number(monto),
     Number(metodoPago),
     Number(estadoVoucher),

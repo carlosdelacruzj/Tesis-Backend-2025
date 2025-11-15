@@ -16,7 +16,7 @@ const s = (v) => (v == null ? null : String(v));
 // ===================== LISTAR =====================
 // repo.cotizacion.js (función listAll)
 async function listAll({ estado } = {}) {
-  const spRes = await callSP("CALL defaultdb.sp_cotizacion_listar()");
+  const spRes = await callSP("CALL defaultdb.sp_cotizacion_listar_general()");
 
   // Normaliza posibles formas del resultado de CALL
   let rows;
@@ -62,7 +62,7 @@ async function listAll({ estado } = {}) {
 // ===================== OBTENER (JSON) =====================
 async function findByIdWithItems(id) {
   const [rows0] = await callSP(
-    "CALL defaultdb.sp_cotizacion_obtener_json_por_id(?)",
+    "CALL defaultdb.sp_cotizacion_obtener_json(?)",
     [Number(id)]
   );
   if (!rows0 || !rows0.length) return null;
@@ -143,7 +143,7 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = 
 
   try {
     const [rows0] = await callSP(
-      "CALL defaultdb.sp_cotizacion_crear_admin_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "CALL defaultdb.sp_cotizacion_admin_crear_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       params
     );
     const out = rows0?.[0] || {};
@@ -186,7 +186,7 @@ async function createPublic({ lead, cotizacion }) {
     s(cotizacion?.mensaje),
   ];
   const [rows0] = await callSP(
-    "CALL defaultdb.sp_cotizacion_crear_publica(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "CALL defaultdb.sp_cotizacion_publica_crear(?, ?, ?, ?, ?, ?, ?, ?, ?)",
     params
   );
   // SP retorna una fila con { lead_id, cotizacion_id }
@@ -247,7 +247,7 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
   ];
 
   await callSP(
-    "CALL defaultdb.sp_cotizacion_actualizar_admin(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "CALL defaultdb.sp_cotizacion_admin_actualizar(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     params
   );
   return { updated: true };
@@ -297,7 +297,7 @@ async function deleteById(id) {
 // cotizacion.repository.js
 async function cambiarEstado(id, { estadoNuevo, estadoEsperado = null } = {}) {
   const [res] = await pool.query(
-    "CALL defaultdb.sp_cotizacion_cambiar_estado(?,?,?)",
+    "CALL defaultdb.sp_cotizacion_estado_actualizar(?,?,?)",
     [
       Number(id),
       String(estadoNuevo),
@@ -328,7 +328,7 @@ async function migrarAPedido({ cotizacionId, empleadoId, nombrePedido = null } =
 
     await conn.query("SET @pedidoId = NULL");
     await conn.query(
-      "CALL defaultdb.sp_cotizacion_migrar_a_pedido(?, ?, ?, @pedidoId)",
+      "CALL defaultdb.sp_cotizacion_convertir_a_pedido(?, ?, ?, @pedidoId)",
       params
     );
 

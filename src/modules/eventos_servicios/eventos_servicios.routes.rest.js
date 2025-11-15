@@ -25,6 +25,23 @@ router.get("/", ctrl.getAll);
 
 /**
  * @swagger
+ * /eventos_servicios/categorias:
+ *   get:
+ *     tags: [eventos - servicios]
+ *     summary: Lista las categorías disponibles para evento-servicio
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/EventoServicioCategoria' }
+ */
+router.get("/categorias", ctrl.getCategorias);
+
+/**
+ * @swagger
  * /eventos_servicios/{id}:
  *   get:
  *     tags: [eventos - servicios]

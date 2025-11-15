@@ -7,7 +7,7 @@ const router = Router();
  * /leads/{id}/convertir-a-cliente:
  *   post:
  *     tags: [lead]
- *     summary: Convierte un lead en cliente usando el SP sp_lead_convertir_a_cliente
+ *     summary: Convierte un lead en cliente usando el SP sp_lead_convertir_cliente
  *     parameters:
  *       - in: path
  *         name: id

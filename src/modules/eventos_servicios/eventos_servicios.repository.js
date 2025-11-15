@@ -56,7 +56,19 @@ function normalizeRow(row = {}) {
   return {
     id: row.idEventoServicio ?? row.id ?? null,
     titulo: row.titulo ?? row.ExS_Titulo ?? null,
-    categoria: row.categoria ?? row.ExS_Categoria ?? null,
+    categoriaId:
+      row.categoriaId != null
+        ? Number(row.categoriaId)
+        : row.FK_ESC_Cod != null
+        ? Number(row.FK_ESC_Cod)
+        : null,
+    categoriaNombre: row.categoriaNombre ?? row.ESC_Nombre ?? null,
+    categoriaTipo: row.categoriaTipo ?? row.ESC_Tipo ?? null,
+    esAddon: row.esAddon != null
+      ? Boolean(row.esAddon)
+      : row.ExS_EsAddon != null
+      ? Boolean(row.ExS_EsAddon)
+      : false,
     evento: {
       id: row.idEvento ?? row.PK_E_Cod ?? null,
       nombre: row.evento ?? row.E_Nombre ?? null,
@@ -139,7 +151,7 @@ async function getAll({ evento = null, servicio = null } = {}) {
   const pServicio =
     servicio != null && String(servicio).trim() !== "" ? Number(servicio) : null;
 
-  const rows = await runCall("CALL SP_getAllServiciosByEventoServ(?, ?)", [
+  const rows = await runCall("CALL sp_evento_servicio_listar(?, ?)", [
     pEvento,
     pServicio,
   ]);
@@ -149,7 +161,7 @@ async function getAll({ evento = null, servicio = null } = {}) {
 
 // Detalle por id (PK_ExS_Cod)
 async function getById(id) {
-  const rows = await runCall("CALL SP_getEventoxServicioById(?)", [Number(id)]);
+  const rows = await runCall("CALL sp_evento_servicio_obtener(?)", [Number(id)]);
   if (!Array.isArray(rows) || rows.length === 0) return [];
   if (rows.length === 1) return [normalizeRow(rows[0])];
   return rows.map((row) => normalizeRow(row));
@@ -159,10 +171,11 @@ async function getById(id) {
 async function create({
   servicio,
   evento,
+  categoriaId,
+  esAddon,
   precio,
   descripcion,
   titulo,
-  categoria,
   horas,
   fotosImpresas,
   trailerMin,
@@ -173,10 +186,11 @@ async function create({
   const params = [
     Number(servicio),
     Number(evento),
+    isNullishOrBlank(categoriaId) ? null : Number(categoriaId),
+    esAddon == null ? null : Number(esAddon ? 1 : 0),
     isNullishOrBlank(precio) ? null : Number(precio),
     trimOrNull(descripcion),
     trimOrNull(titulo),
-    trimOrNull(categoria),
     isNullishOrBlank(horas) ? null : Number(horas),
     isNullishOrBlank(fotosImpresas) ? null : Number(fotosImpresas),
     isNullishOrBlank(trailerMin) ? null : Number(trailerMin),
@@ -186,7 +200,7 @@ async function create({
   ];
 
   const rs = await runCall(
-    "CALL SP_postEventoxServicio(?,?,?,?,?,?,?,?,?,?,?,?)",
+    "CALL sp_evento_servicio_crear(?,?,?,?,?,?,?,?,?,?,?,?,?)",
     params
   );
 
@@ -201,10 +215,11 @@ async function updateById({
   id,
   servicio,
   evento,
+  categoriaId,
+  esAddon,
   precio,
   descripcion,
   titulo,
-  categoria,
   horas,
   fotosImpresas,
   trailerMin,
@@ -216,10 +231,11 @@ async function updateById({
     Number(id),
     isNullishOrBlank(servicio) ? null : Number(servicio),
     isNullishOrBlank(evento) ? null : Number(evento),
+    isNullishOrBlank(categoriaId) ? null : Number(categoriaId),
+    esAddon == null ? null : Number(esAddon ? 1 : 0),
     isNullishOrBlank(precio) ? null : Number(precio),
     trimOrNull(descripcion),
     trimOrNull(titulo),
-    trimOrNull(categoria),
     isNullishOrBlank(horas) ? null : Number(horas),
     isNullishOrBlank(fotosImpresas) ? null : Number(fotosImpresas),
     isNullishOrBlank(trailerMin) ? null : Number(trailerMin),
@@ -229,9 +245,22 @@ async function updateById({
   ];
 
   await runCall(
-    "CALL SP_putByIdEventoxServicio(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+    "CALL sp_evento_servicio_actualizar(?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
     params
   );
 }
 
-module.exports = { getAll, getById, create, updateById };
+async function listCategorias() {
+  const [rows] = await pool.query(
+    `SELECT
+       PK_ESC_Cod AS id,
+       ESC_Nombre AS nombre,
+       ESC_Tipo AS tipo
+     FROM T_EventoServicioCategoria
+     WHERE ESC_Activo = 1
+     ORDER BY ESC_Tipo, ESC_Nombre`
+  );
+  return rows;
+}
+
+module.exports = { getAll, getById, create, updateById, listCategorias };
