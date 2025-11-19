@@ -9,7 +9,14 @@ const router = Router();
  *   get:
  *     tags: [empleado]
  *     summary: Listar empleados
- *     responses: { '200': { description: OK } }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Empleado' }
  */
 router.get("/", ctrl.getAll);
 
@@ -19,7 +26,14 @@ router.get("/", ctrl.getAll);
  *   get:
  *     tags: [empleado]
  *     summary: Listado simple de empleados (select/options)
- *     responses: { '200': { description: OK } }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Empleado' }
  */
 router.get("/lista", ctrl.getList);
 
@@ -34,7 +48,14 @@ router.get("/lista", ctrl.getList);
  *         name: idProyecto
  *         required: true
  *         schema: { type: integer }
- *     responses: { '200': { description: OK } }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Empleado' }
  */
 router.get("/disponibles/:idProyecto", ctrl.getDisponibles);
 
@@ -44,7 +65,14 @@ router.get("/disponibles/:idProyecto", ctrl.getDisponibles);
  *   get:
  *     tags: [empleado]
  *     summary: Listar cargos
- *     responses: { '200': { description: OK } }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Cargo' }
  */
 router.get("/cargos", ctrl.getCargos);
 
@@ -60,7 +88,13 @@ router.get("/cargos", ctrl.getCargos);
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/Empleado' }
  *       '404': { description: No encontrado }
  */
 router.get("/:id", ctrl.getById);
@@ -76,7 +110,17 @@ router.get("/:id", ctrl.getById);
  *       content:
  *         application/json:
  *           schema: { $ref: '#/components/schemas/EmpleadoCreate' }
- *     responses: { '201': { description: Creado } }
+ *     responses:
+ *       '201':
+ *         description: Creado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 Status:
+ *                   type: string
+ *                   example: Registro exitoso
  */
 router.post("/", ctrl.create);
 
@@ -96,7 +140,17 @@ router.post("/", ctrl.create);
  *       content:
  *         application/json:
  *           schema: { $ref: '#/components/schemas/EmpleadoUpdate' }
- *     responses: { '200': { description: Actualizado } }
+ *     responses:
+ *       '200':
+ *         description: Actualizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 Status:
+ *                   type: string
+ *                   example: Actualizacion exitosa
  */
 router.put("/:id", ctrl.update);
 

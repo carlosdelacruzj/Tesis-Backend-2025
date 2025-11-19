@@ -125,15 +125,6 @@ BEGIN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'SERVICIO_NO_EXISTE';
     END IF;
 
-    IF EXISTS (
-        SELECT 1
-        FROM T_EventoServicio
-        WHERE PK_E_Cod = p_evento
-          AND PK_S_Cod = p_servicio
-    ) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'EVENTO_SERVICIO_DUPLICADO';
-    END IF;
-
     IF p_categoria_id IS NOT NULL AND
        NOT EXISTS (
            SELECT 1
@@ -376,16 +367,6 @@ BEGIN
               AND ESC_Activo = 1
        ) THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'CATEGORIA_NO_EXISTE';
-    END IF;
-
-    IF EXISTS (
-        SELECT 1
-        FROM T_EventoServicio
-        WHERE PK_E_Cod = v_evento
-          AND PK_S_Cod = v_servicio
-          AND PK_ExS_Cod <> p_id
-    ) THEN
-        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'EVENTO_SERVICIO_DUPLICADO';
     END IF;
 
     SET v_titulo = COALESCE(NULLIF(TRIM(p_titulo), ''),
@@ -998,6 +979,7 @@ BEGIN
     e.Em_Autonomo                             AS autonomo,
     e.FK_Tipo_Emp_Cod                         AS idCargo,
     te.TiEm_Cargo                             AS cargo,
+    te.TiEm_OperativoCampo                    AS esOperativoCampo,
     e.FK_Estado_Emp_Cod                       AS idEstado,
     ee.EsEm_Nombre                            AS estado
   FROM T_Empleados e
@@ -2240,7 +2222,60 @@ BEGIN
                    'personal',             s.CS_Staff,
                    'fotosImpresas',        s.CS_FotosImpresas,
                    'trailerMin',           s.CS_TrailerMin,
-                   'filmMin',              s.CS_FilmMin
+                   'filmMin',              s.CS_FilmMin,
+                   'eventoServicio',
+                   CASE
+                     WHEN s.FK_ExS_Cod IS NULL THEN NULL
+                     ELSE (
+                       SELECT JSON_OBJECT(
+                         'id',               exs.PK_ExS_Cod,
+                         'servicioId',       exs.PK_S_Cod,
+                         'servicioNombre',   srv.S_Nombre,
+                         'eventoId',         exs.PK_E_Cod,
+                         'eventoNombre',     evt.E_Nombre,
+                         'categoriaId',      exs.FK_ESC_Cod,
+                         'categoriaNombre',  cat.ESC_Nombre,
+                         'categoriaTipo',    cat.ESC_Tipo,
+                         'titulo',           exs.ExS_Titulo,
+                         'esAddon',          exs.ExS_EsAddon,
+                         'precio',           exs.ExS_Precio,
+                         'descripcion',      exs.ExS_Descripcion,
+                         'horas',            exs.ExS_Horas,
+                         'fotosImpresas',    exs.ExS_FotosImpresas,
+                         'trailerMin',       exs.ExS_TrailerMin,
+                         'filmMin',          exs.ExS_FilmMin,
+                         'staff', COALESCE((
+                           SELECT JSON_ARRAYAGG(
+                                    JSON_OBJECT(
+                                      'rol',      st.Staff_Rol,
+                                      'cantidad', st.Staff_Cantidad
+                                    )
+                                  )
+                           FROM defaultdb.T_EventoServicioStaff st
+                           WHERE st.FK_ExS_Cod = exs.PK_ExS_Cod
+                         ), JSON_ARRAY()),
+                         'equipos', COALESCE((
+                           SELECT JSON_ARRAYAGG(
+                                    JSON_OBJECT(
+                                      'tipoEquipoId',  eq.FK_TE_Cod,
+                                      'tipoEquipo',    te.TE_Nombre,
+                                      'cantidad',      eq.Cantidad,
+                                      'notas',         eq.Notas
+                                    )
+                                  )
+                           FROM defaultdb.T_EventoServicioEquipo eq
+                           JOIN defaultdb.T_Tipo_Equipo te ON te.PK_TE_Cod = eq.FK_TE_Cod
+                           WHERE eq.FK_ExS_Cod = exs.PK_ExS_Cod
+                         ), JSON_ARRAY())
+                       )
+                       FROM defaultdb.T_EventoServicio exs
+                       LEFT JOIN defaultdb.T_Servicios srv ON srv.PK_S_Cod = exs.PK_S_Cod
+                       LEFT JOIN defaultdb.T_Eventos   evt ON evt.PK_E_Cod = exs.PK_E_Cod
+                       LEFT JOIN defaultdb.T_EventoServicioCategoria cat ON cat.PK_ESC_Cod = exs.FK_ESC_Cod
+                       WHERE exs.PK_ExS_Cod = s.FK_ExS_Cod
+                       LIMIT 1
+                     )
+                   END
                  )
                )
         FROM defaultdb.T_CotizacionServicio s
@@ -2322,7 +2357,8 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_empleado_cargo_listar"()
 BEGIN
   SELECT
     te.PK_Tipo_Emp_Cod AS idCargo,
-    te.TiEm_Cargo     AS cargoNombre
+    te.TiEm_Cargo     AS cargoNombre,
+    te.TiEm_OperativoCampo AS esOperativoCampo
   FROM T_Tipo_Empleado te
   ORDER BY te.TiEm_Cargo;
 END ;;
@@ -2409,6 +2445,7 @@ BEGIN
     e.Em_Autonomo                             AS autonomo,
     e.FK_Tipo_Emp_Cod                         AS idCargo,
     te.TiEm_Cargo                             AS cargo,
+    te.TiEm_OperativoCampo                    AS esOperativoCampo,
     e.FK_Estado_Emp_Cod                       AS idEstado,
     ee.EsEm_Nombre                            AS estado
   FROM T_Empleados e
@@ -2434,9 +2471,11 @@ BEGIN
     u.U_Apellido             AS apellido,
     u.U_Celular              AS celular,
     e.Em_Autonomo            AS autonomo,
-    e.FK_Tipo_Emp_Cod        AS idTipoEmpleado
+    e.FK_Tipo_Emp_Cod        AS idTipoEmpleado,
+    te.TiEm_OperativoCampo   AS esOperativoCampo
   FROM T_Empleados e
   JOIN T_Usuario   u ON u.PK_U_Cod = e.FK_U_Cod
+  JOIN T_Tipo_Empleado te ON te.PK_Tipo_Emp_Cod = e.FK_Tipo_Emp_Cod
   WHERE NOT EXISTS (
     SELECT 1
     FROM T_RecursosxProyecto rxp
@@ -2464,9 +2503,11 @@ BEGIN
     u.U_Numero_Documento AS documento,
     u.U_Direccion    AS direccion,
     e.Em_Autonomo    AS autonomo,          -- 'SI' / 'NO'
-    e.FK_Tipo_Emp_Cod AS idCargo
+    e.FK_Tipo_Emp_Cod AS idCargo,
+    te.TiEm_OperativoCampo AS esOperativoCampo
   FROM T_Empleados e
   JOIN T_Usuario   u ON u.PK_U_Cod = e.FK_U_Cod
+  JOIN T_Tipo_Empleado te ON te.PK_Tipo_Emp_Cod = e.FK_Tipo_Emp_Cod
   ORDER BY e.PK_Em_Cod;
 END ;;
 DELIMITER ;

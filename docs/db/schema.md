@@ -116,6 +116,7 @@ Catálogo de tipos de empleado / cargo.
 - `PK_Tipo_Emp_Cod` int, PK, AUTO_INCREMENT  
 - `TiEm_Cargo` varchar(25), NULL  
 - `TiEm_PermiteLogin` tinyint(1), NOT NULL, DEFAULT 0  
+- `TiEm_OperativoCampo` tinyint(1), NOT NULL, DEFAULT 0  -- nuevo flag para indicar si el cargo participa en eventos/campo  
 
 **Índices / constraints**
 - PK: (`PK_Tipo_Emp_Cod`)  

@@ -25,6 +25,42 @@
  *         fotosImpresas:        { type: integer, nullable: true, example: null }
  *         trailerMin:           { type: integer, nullable: true, example: 2 }
  *         filmMin:              { type: integer, nullable: true, example: 0 }
+ *         eventoServicio:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             id:             { type: integer, example: 13 }
+ *             servicioId:     { type: integer, example: 3 }
+ *             servicioNombre: { type: string, example: "Fotografía Premium" }
+ *             eventoId:       { type: integer, example: 1 }
+ *             eventoNombre:   { type: string, example: "Boda" }
+ *             categoriaId:    { type: integer, nullable: true, example: 2 }
+*             categoriaNombre: { type: string, nullable: true, example: "Paquetes Deluxe" }
+ *             categoriaTipo:  { type: string, nullable: true, example: "PAQUETE" }
+ *             titulo:         { type: string, example: "Cobertura Completa" }
+ *             esAddon:        { type: integer, enum: [0,1], example: 0 }
+ *             precio:         { type: number, format: float, nullable: true, example: 1200.0 }
+ *             descripcion:    { type: string, nullable: true, example: "Incluye álbum." }
+ *             horas:          { type: number, format: float, nullable: true, example: 8.0 }
+ *             fotosImpresas:  { type: integer, nullable: true, example: 30 }
+ *             trailerMin:     { type: integer, nullable: true, example: 2 }
+ *             filmMin:        { type: integer, nullable: true, example: 0 }
+ *             staff:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   rol:      { type: string, example: "Fotógrafo" }
+ *                   cantidad: { type: integer, example: 2 }
+ *             equipos:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   tipoEquipoId: { type: integer, example: 3 }
+ *                   tipoEquipo:   { type: string, example: "Cámara DSLR" }
+ *                   cantidad:     { type: integer, example: 2 }
+ *                   notas:        { type: string, nullable: true, example: "Baterías extra" }
  *
  *     CotizacionEventoInput:
  *       type: object
@@ -100,7 +136,7 @@
  *             idEventoServicio: 11
  *             eventoId: 1
  *             servicioId: 7
- *             nombre: "Cobertura FotografÃ­a"
+ *             nombre: "Cobertura Fotografía"
  *             descripcion: "SesiÃ³n completa con Ã¡lbum"
  *             moneda: "USD"
  *             precioUnit: 800.0
@@ -114,6 +150,17 @@
  *             fotosImpresas: 20
  *             trailerMin: 0
  *             filmMin: 0
+ *             eventoServicio:
+ *               id: 11
+ *               servicioNombre: "Fotografía Premium"
+ *               eventoNombre: "Boda"
+ *               categoriaNombre: "Paquetes Deluxe"
+ *               staff:
+ *                 - rol: "Fotógrafo"
+ *                   cantidad: 2
+ *               equipos:
+ *                 - tipoEquipo: "Cámara DSLR"
+ *                   cantidad: 2
  *           - idCotizacionServicio: 2
  *             idEventoServicio: 13
  *             eventoId: 2

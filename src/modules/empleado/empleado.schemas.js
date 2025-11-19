@@ -15,6 +15,10 @@
  *         autonomo:   { type: integer, nullable: true, description: "0 = no, 1 = sí" }
  *         cargo:      { type: integer, nullable: true }
  *         estado:     { type: integer, nullable: true }
+ *         esOperativoCampo:
+ *           type: integer
+ *           enum: [0,1]
+ *           description: 1 si el cargo del empleado participa en eventos/campo
  *       required: [idEmpleado, nombre]
  *       example:
  *         idEmpleado: 10
@@ -27,6 +31,7 @@
  *         autonomo: 0
  *         cargo: 2
  *         estado: 1
+ *         esOperativoCampo: 1
  *
  *     EmpleadoCreate:
  *       type: object
@@ -71,9 +76,14 @@
  *       type: object
  *       properties:
  *         idCargo: { type: integer }
- *         nombre:  { type: string }
+ *         cargoNombre: { type: string }
+ *         esOperativoCampo:
+ *           type: integer
+ *           enum: [0,1]
+ *           description: 1 si el cargo está habilitado para trabajo de campo
  *       example:
  *         idCargo: 2
- *         nombre: "Fotógrafo"
+ *         cargoNombre: "Fotógrafo"
+ *         esOperativoCampo: 1
  */
 module.exports = {};

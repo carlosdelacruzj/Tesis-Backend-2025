@@ -25,6 +25,7 @@ async function findById(id){
         ...it,
         eventoId: it.eventoId==null||it.eventoId===""?null:it.eventoId,
         servicioId: it.servicioId==null||it.servicioId===""?null:it.servicioId,
+        eventoServicio: it.eventoServicio ?? null,
       };
     });
   }
