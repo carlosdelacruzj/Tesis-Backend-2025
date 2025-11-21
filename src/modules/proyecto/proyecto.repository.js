@@ -6,68 +6,70 @@ async function runCall(sql, params = []) {
 }
 
 /* Proyecto */
-function getAllProyecto() {
+async function getAllProyecto() {
   return runCall("CALL sp_proyecto_listar()");
 }
-function getByIdProyecto(id) {
+
+async function getByIdProyecto(id) {
   return runCall("CALL sp_proyecto_obtener(?)", [Number(id)]);
 }
-function postProyecto({ proyecto_nombre, codigo_pedido, fecha_inicio_edicion }) {
-  return runCall("CALL sp_proyecto_crear(?,?,?)", [
-    proyecto_nombre?.trim() ?? null,
-    Number(codigo_pedido),
+
+async function postProyecto(payload) {
+  const {
+    proyecto_nombre,
+    codigo_pedido,
     fecha_inicio_edicion,
-  ]);
-}
-function putProyectoById({ finFecha, multimedia, edicion, enlace, id }) {
-  return runCall("CALL sp_proyecto_actualizar(?,?,?,?,?)", [
-    finFecha ?? null,
-    Number(multimedia),
-    Number(edicion),
+    estado,
+    responsableId,
+    notas,
+    enlace,
+    fecha_fin_edicion,
+    multimedia,
+    edicion,
+  } = payload;
+  return runCall("CALL sp_proyecto_crear(?,?,?,?,?,?,?,?,?,?)", [
+    proyecto_nombre ?? null,
+    Number(codigo_pedido),
+    estado ?? 1,
+    responsableId ?? null,
+    fecha_inicio_edicion ?? null,
+    fecha_fin_edicion ?? null,
     enlace ?? null,
+    notas ?? null,
+    multimedia ?? null,
+    edicion ?? null,
+  ]);
+}
+
+async function putProyectoById(payload) {
+  const {
+    id,
+    nombre,
+    fecha_inicio_edicion,
+    fecha_fin_edicion,
+    estado,
+    responsableId,
+    notas,
+    enlace,
+    multimedia,
+    edicion,
+  } = payload;
+  return runCall("CALL sp_proyecto_actualizar(?,?,?,?,?,?,?,?,?,?)", [
     Number(id),
+    nombre ?? null,
+    fecha_inicio_edicion ?? null,
+    fecha_fin_edicion ?? null,
+    estado ?? null,
+    responsableId ?? null,
+    notas ?? null,
+    enlace ?? null,
+    multimedia ?? null,
+    edicion ?? null,
   ]);
 }
 
-/* Pedidos */
-function getAllPedidosContratado() {
-  return runCall("CALL sp_pedido_listar_contratados()");
-}
-
-/* Asignaciones */
-function getAllAsignarEquipos() {
-  return runCall("CALL sp_proyecto_asignacion_personal_listar()"); // ✅ sin id
-}
-function getAsignarEquiposById(id) {
-  return runCall("CALL sp_proyecto_asignacion_personal_obtener(?)", [Number(id)]);
-}
-function postAsignarPersonalEquipo({ proyecto, empleado, equipos }) {
-  return runCall("CALL sp_proyecto_asignacion_personal_crear(?,?,?)", [
-    Number(proyecto),
-    Number(empleado),
-    (typeof equipos === "string" ? equipos.trim() : null),
-  ]);
-}
-function putByIdAsignarPersonalEquipo({ id, empleado, equipo }) {
-  return runCall("CALL sp_proyecto_asignacion_personal_actualizar(?,?,?)", [
-    Number(id),
-    Number(empleado),
-    (typeof equipo === "string" ? equipo.trim() : null),
-  ]);
-}
-function deleteAsignarEquipoById(id) {
-  return runCall("CALL sp_proyecto_asignacion_personal_eliminar(?)", [Number(id)]);
-}
-
-/* Util */
-function getAllEquiposFiltrados({ fecha, proyecto, idTipoEquipo }) {
-  const f = fecha ? String(fecha).slice(0, 10) : null;
-  const p = proyecto != null ? Number(proyecto) : null;
-  const t = idTipoEquipo != null ? Number(idTipoEquipo) : null;
-  return runCall("CALL sp_equipo_listar_filtrados(?,?,?)", [f, p, t]);
-}
-function getAllEventosProyectoById(id) {
-  return runCall("CALL sp_proyecto_evento_listar(?)", [Number(id)]);
+async function deleteProyecto(id) {
+  return runCall("CALL sp_proyecto_eliminar(?)", [Number(id)]);
 }
 
 module.exports = {
@@ -75,12 +77,5 @@ module.exports = {
   getByIdProyecto,
   postProyecto,
   putProyectoById,
-  getAllPedidosContratado,
-  getAllAsignarEquipos,
-  getAsignarEquiposById,
-  postAsignarPersonalEquipo,
-  putByIdAsignarPersonalEquipo,
-  deleteAsignarEquipoById,
-  getAllEquiposFiltrados,
-  getAllEventosProyectoById,
+  deleteProyecto,
 };
