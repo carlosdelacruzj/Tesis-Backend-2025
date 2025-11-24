@@ -1,5 +1,6 @@
 // services/pedido.service.js
 const repo = require("./pedido.repository");
+const eventoServicioRepo = require("../eventos_servicios/eventos_servicios.repository");
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HMS = /^\d{2}:\d{2}(:\d{2})?$/;
@@ -352,6 +353,64 @@ async function updatePedidoById(payload) {
   return { status: "Actualización exitosa", ...result };
 }
 
+// Requerimientos (personal/equipos) por pedido basados en T_EventoServicio
+async function getRequerimientos(pedidoId) {
+  const id = assertPositiveNumber(pedidoId, "pedidoId");
+  const data = await repo.getById(id);
+  if (!data) {
+    const e = new Error("Pedido no encontrado");
+    e.status = 404;
+    throw e;
+  }
+
+  const { pedido, items = [] } = data;
+  const exsIds = [
+    ...new Set(
+      items
+        .map((it) => (it.exsId != null ? Number(it.exsId) : null))
+        .filter((n) => Number.isFinite(n) && n > 0)
+    ),
+  ];
+
+  const totPersonal = new Map();
+  const totEquipos = new Map();
+
+  for (const exsId of exsIds) {
+    const detailArr = await eventoServicioRepo.getById(exsId);
+    const detail = Array.isArray(detailArr) ? detailArr[0] : null;
+    if (!detail) continue;
+
+    for (const p of detail.staff?.detalle || []) {
+      const rol = p.rol || "Sin rol";
+      const qty = Number(p.cantidad || 0) || 0;
+      totPersonal.set(rol, (totPersonal.get(rol) || 0) + qty);
+    }
+
+    for (const eq of detail.equipos || []) {
+      const key = eq.tipoEquipoId || `tipo:${eq.tipoEquipo || "desconocido"}`;
+      const prev =
+        totEquipos.get(key) || {
+          tipoEquipoId: eq.tipoEquipoId ?? null,
+          tipoEquipo: eq.tipoEquipo ?? null,
+          cantidad: 0,
+        };
+      prev.cantidad += Number(eq.cantidad || 0) || 0;
+      totEquipos.set(key, prev);
+    }
+  }
+
+  return {
+    pedidoId: pedido.id,
+    totales: {
+      personal: Array.from(totPersonal.entries()).map(([rol, cantidad]) => ({
+        rol,
+        cantidad,
+      })),
+      equipos: Array.from(totEquipos.values()),
+    },
+  };
+}
+
 module.exports = {
   listAllPedidos,
   listIndexPedidos,
@@ -359,4 +418,5 @@ module.exports = {
   findLastEstadoPedido,
   createNewPedido,
   updatePedidoById,
+  getRequerimientos,
 };

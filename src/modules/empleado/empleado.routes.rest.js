@@ -22,10 +22,10 @@ router.get("/", ctrl.getAll);
 
 /**
  * @swagger
- * /empleados/lista:
+ * /empleados/operativos:
  *   get:
  *     tags: [empleado]
- *     summary: Listado simple de empleados (select/options)
+ *     summary: Empleados operativos de campo y activos (minimal)
  *     responses:
  *       '200':
  *         description: OK
@@ -33,31 +33,20 @@ router.get("/", ctrl.getAll);
  *           application/json:
  *             schema:
  *               type: array
- *               items: { $ref: '#/components/schemas/Empleado' }
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   empleadoId: { type: integer }
+ *                   usuarioId: { type: integer }
+ *                   nombre: { type: string }
+ *                   apellido: { type: string }
+ *                   cargoId: { type: integer }
+ *                   cargo: { type: string }
+ *                   estadoId: { type: integer }
+ *                   estado: { type: string }
+ *                   operativoCampo: { type: boolean }
  */
-router.get("/lista", ctrl.getList);
-
-/**
- * @swagger
- * /empleados/disponibles/{idProyecto}:
- *   get:
- *     tags: [empleado]
- *     summary: Empleados disponibles por proyecto
- *     parameters:
- *       - in: path
- *         name: idProyecto
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       '200':
- *         description: OK
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items: { $ref: '#/components/schemas/Empleado' }
- */
-router.get("/disponibles/:idProyecto", ctrl.getDisponibles);
+router.get("/operativos", ctrl.getOperativos);
 
 /**
  * @swagger
@@ -92,9 +81,7 @@ router.get("/cargos", ctrl.getCargos);
  *         description: OK
  *         content:
  *           application/json:
- *             schema:
- *               type: array
- *               items: { $ref: '#/components/schemas/Empleado' }
+ *             schema: { $ref: '#/components/schemas/Empleado' }
  *       '404': { description: No encontrado }
  */
 router.get("/:id", ctrl.getById);

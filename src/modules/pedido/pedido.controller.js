@@ -28,6 +28,15 @@ async function getPedidoById(req, res, next) {
   }
 }
 
+async function getRequerimientos(req, res, next) {
+  try {
+    const data = await service.getRequerimientos(req.params.id);
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getLastEstadoPedido(_req, res, next) {
   try {
     const data = await service.findLastEstadoPedido();
@@ -72,6 +81,7 @@ module.exports = {
   getAllPedido,
   getIndexPedido,
   getPedidoById,
+  getRequerimientos,
   getLastEstadoPedido,
   createPedido,
   updatePedido,

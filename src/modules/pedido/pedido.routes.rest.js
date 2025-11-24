@@ -27,6 +27,23 @@ router.get("/index", ctrl.getIndexPedido);
 
 /**
  * @swagger
+ * /pedido/{id}/requerimientos:
+ *   get:
+ *     tags: [pedido]
+ *     summary: Requerimientos de personal y equipos por pedido
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200': { description: OK }
+ *       '404': { description: No encontrado }
+ */
+router.get("/:id/requerimientos", ctrl.getRequerimientos);
+
+/**
+ * @swagger
  * /pedido/{id}:
  *   get:
  *     tags: [pedido]

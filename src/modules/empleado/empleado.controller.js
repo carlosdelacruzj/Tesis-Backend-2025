@@ -9,18 +9,10 @@ async function getAll(_req, res, next) {
   } catch (err) { next(err); }
 }
 
-// GET /empleados/lista
-async function getList(_req, res, next) {
+// GET /empleados/operativos
+async function getOperativos(_req, res, next) {
   try {
-    const data = await service.listSimple();
-    res.status(200).json(data);
-  } catch (err) { next(err); }
-}
-
-// GET /empleados/disponibles/:idProyecto
-async function getDisponibles(req, res, next) {
-  try {
-    const data = await service.listDisponibles(req.params.idProyecto);
+    const data = await service.listOperativos();
     res.status(200).json(data);
   } catch (err) { next(err); }
 }
@@ -60,8 +52,7 @@ async function update(req, res, next) {
 
 module.exports = {
   getAll,
-  getList,
-  getDisponibles,
+  getOperativos,
   getCargos,
   getById,
   create,

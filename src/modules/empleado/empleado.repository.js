@@ -13,16 +13,31 @@ async function getAll() {
   return runCall("CALL sp_empleado_listar()");
 }
 
-async function getList() {
-  return runCall("CALL sp_empleado_listar_catalogo()");
-}
-
-async function getDisponiblesByProyecto(idProyecto) {
-  return runCall("CALL sp_empleado_listar_disponibles(?)", [Number(idProyecto)]);
-}
-
 async function getCargos() {
   return runCall("CALL sp_empleado_cargo_listar()");
+}
+
+async function getOperativosActivos() {
+  const [rows] = await pool.query(
+    `SELECT
+       em.PK_Em_Cod          AS empleadoId,
+       u.PK_U_Cod            AS usuarioId,
+       u.U_Nombre            AS nombre,
+       u.U_Apellido          AS apellido,
+       te.PK_Tipo_Emp_Cod    AS cargoId,
+       te.TiEm_Cargo         AS cargo,
+       em.FK_Estado_Emp_Cod  AS estadoId,
+       ee.EsEm_Nombre        AS estadoNombre,
+       te.TiEm_OperativoCampo AS operativoCampo
+     FROM T_Empleados em
+     JOIN T_Usuario u        ON u.PK_U_Cod = em.FK_U_Cod
+     JOIN T_Tipo_Empleado te ON te.PK_Tipo_Emp_Cod = em.FK_Tipo_Emp_Cod
+     LEFT JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = em.FK_Estado_Emp_Cod
+     WHERE te.TiEm_OperativoCampo = 1
+       AND em.FK_Estado_Emp_Cod = 1
+     ORDER BY te.PK_Tipo_Emp_Cod, u.U_Nombre, u.U_Apellido`
+  );
+  return rows;
 }
 
 async function getById(id) {
@@ -61,9 +76,8 @@ async function updateById({ idEmpleado, celular, correo, direccion, estado }) {
 
 module.exports = {
   getAll,
-  getList,
-  getDisponiblesByProyecto,
   getCargos,
+  getOperativosActivos,
   getById,
   create,
   updateById,

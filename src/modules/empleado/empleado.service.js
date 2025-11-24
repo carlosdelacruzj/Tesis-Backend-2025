@@ -13,22 +13,23 @@ async function list() {
   return repo.getAll();
 }
 
-async function listSimple() {
-  return repo.getList();
-}
-
-async function listDisponibles(idProyecto) {
-  const num = Number(idProyecto);
-  if (!Number.isFinite(num) || num <= 0) {
-    const err = new Error("idProyecto inválido");
-    err.status = 400;
-    throw err;
-  }
-  return repo.getDisponiblesByProyecto(num);
-}
-
 async function listCargos() {
   return repo.getCargos();
+}
+
+async function listOperativos() {
+  const rows = await repo.getOperativosActivos();
+  return rows.map((r) => ({
+    empleadoId: r.empleadoId,
+    usuarioId: r.usuarioId,
+    nombre: r.nombre,
+    apellido: r.apellido,
+    cargoId: r.cargoId,
+    cargo: r.cargo,
+    estadoId: r.estadoId,
+    estado: r.estadoNombre,
+    operativoCampo: !!r.operativoCampo,
+  }));
 }
 
 async function findById(id) {
@@ -40,12 +41,13 @@ async function findById(id) {
   }
 
   const data = await repo.getById(num);
-  if (!data || data.length === 0) {
+  if (!data || (Array.isArray(data) && data.length === 0)) {
     const err = new Error(`Empleado con id ${num} no encontrado`);
     err.status = 404;
     throw err;
   }
-  return data;
+  const row = Array.isArray(data) ? data[0] : data;
+  return row;
 }
 
 async function create(payload) {
@@ -107,11 +109,9 @@ async function update(payload) {
 
 module.exports = {
   list,
-  listSimple,
-  listDisponibles,
+  listOperativos,
   listCargos,
   findById,
   create,
   update,
 };
-

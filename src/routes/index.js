@@ -31,7 +31,6 @@ router.use(
 );
 router.use("/pedido", require("../modules/pedido/pedido.routes.rest"));
 router.use("/proyecto", require("../modules/proyecto/proyecto.routes.rest"));
-router.use("/contrato", require("../modules/contrato/contrato.routes.rest"));
 router.use("/voucher", require("../modules/voucher/voucher.routes.rest"));
 router.use("/pagos", require("../modules/pagos/pagos.routes.rest"));
 

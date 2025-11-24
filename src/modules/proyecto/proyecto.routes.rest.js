@@ -30,10 +30,25 @@ router.post("/", ctrl.postProyecto);
 
 /**
  * @swagger
- * /proyecto:
+ * /proyecto/estados:
+ *   get:
+ *     tags: [proyecto]
+ *     summary: Listar estados de proyecto
+ *     responses: { '200': { description: OK } }
+ */
+router.get("/estados", ctrl.getEstados);
+
+/**
+ * @swagger
+ * /proyecto/{id}:
  *   put:
  *     tags: [proyecto]
  *     summary: Actualizar proyecto
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
  *     requestBody:
  *       required: true
  *       content:
@@ -41,7 +56,7 @@ router.post("/", ctrl.postProyecto);
  *           schema: { $ref: '#/components/schemas/ProyectoUpdate' }
  *     responses: { '200': { description: Actualizado } }
  */
-router.put("/", ctrl.putProyecto);
+router.put("/:id(\\d+)", ctrl.putProyecto);
 
 /**
  * @swagger
