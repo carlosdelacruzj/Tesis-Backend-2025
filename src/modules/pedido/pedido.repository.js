@@ -4,12 +4,18 @@ const pool = require("../../db");
 // ------------------------------
 // Helpers de formato
 // ------------------------------
+const ISO_DATE_ONLY = /^(\d{4}-\d{2}-\d{2})/;
 const toYMD = (v) => {
   if (!v) return null;
+  if (typeof v === "string") {
+    const m = v.trim().match(ISO_DATE_ONLY);
+    if (m) return m[1]; // evita new Date("YYYY-MM-DD") que resta 1 día en TZ negativas
+  }
   const d = new Date(v);
-  const mm = String(d.getMonth() + 1).padStart(2, "0");
-  const dd = String(d.getDate()).padStart(2, "0");
-  return `${d.getFullYear()}-${mm}-${dd}`;
+  if (Number.isNaN(d.getTime())) return null;
+  const mm = String(d.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(d.getUTCDate()).padStart(2, "0");
+  return `${d.getUTCFullYear()}-${mm}-${dd}`;
 };
 const toHMS = (v) => {
   if (!v) return null;

@@ -16,6 +16,11 @@
  *         idEstado: { type: integer }
  *         nombreEstado: { type: string }
  *         serie: { type: string, maxLength: 64 }
+ *         proyectosAfectados:
+ *           type: array
+ *           description: Solo se incluye al cambiar a estado inhabilitante (mantenimiento/baja)
+ *           items:
+ *             $ref: '#/components/schemas/EquipoProyectoAfectado'
  *       required: [idEquipo, idModelo, idEstado]
  *       example:
  *         idEquipo: 101
@@ -29,6 +34,50 @@
  *         idEstado: 2
  *         nombreEstado: "En uso"
  *         serie: "SN-1234567890"
+ *         proyectosAfectados: []
+ *
+ *     EquipoProyectoAfectado:
+ *       type: object
+ *       properties:
+ *         proyectoId: { type: integer }
+ *         nombreProyecto: { type: string, nullable: true }
+ *         fechaInicio: { type: string, format: date }
+ *         fechaFin: { type: string, format: date }
+ *         empleadoId: { type: integer, nullable: true }
+ *         empleadoNombre: { type: string, nullable: true }
+ *         nota: { type: string, nullable: true }
+ *       required: [proyectoId, fechaInicio, fechaFin]
+ *       example:
+ *         proyectoId: 101
+ *         nombreProyecto: "Cobertura Evento"
+ *         fechaEventoInicio: "2024-07-20"
+ *         fechaInicio: "2024-07-20"
+ *         fechaFin: "2024-07-21"
+ *         empleadoId: 7
+ *         empleadoNombre: "Ana Pérez"
+ *         nota: "Asignación cancelada por mantenimiento"
+ *
+ *     EquipoResumen:
+ *       type: object
+ *       properties:
+ *         idTipoEquipo: { type: integer }
+ *         nombreTipoEquipo: { type: string }
+ *         idMarca: { type: integer }
+ *         nombreMarca: { type: string }
+ *         idModelo: { type: integer }
+ *         nombreModelo: { type: string }
+ *         cantidad: { type: integer, description: "Total sin incluir equipos dados de baja" }
+ *         disponibles: { type: integer, description: "Cantidad en estado Disponible" }
+ *       required: [idTipoEquipo, idMarca, idModelo, cantidad, disponibles]
+ *       example:
+ *         idTipoEquipo: 1
+ *         nombreTipoEquipo: "Cámara"
+ *         idMarca: 3
+ *         nombreMarca: "Canon"
+ *         idModelo: 5
+ *         nombreModelo: "EOS R5"
+ *         cantidad: 10
+ *         disponibles: 7
  *
  *     EquipoCreate:
  *       type: object

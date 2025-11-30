@@ -85,19 +85,19 @@
  *             nombre:    { type: string, example: "carlos" }
  *             celular:   { type: string, example: "999663047" }
  *             origen:    { type: string, example: "Tiktok" }
- *             fechaCrea: { type: string, example: "2025-10-10 14:43:59.000000" }
+ *             fechaCrea: { type: string, format: date, example: "2025-10-10" }
  *         cotizacion:
  *           type: object
  *           properties:
  *             tipoEvento:     { type: string, example: "Boda" }
  *             idTipoEvento:   { type: integer, example: 1 }
- *             fechaEvento:    { type: string, example: "2025-10-20" }
+ *             fechaEvento:    { type: string, format: date, example: "2025-10-20" }
  *             lugar:          { type: string, example: "Cusco - Catedral" }
  *             horasEstimadas: { type: number, format: float, example: 8.0 }
  *             mensaje:        { type: string, example: "Agregar paquete premium" }
  *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada], example: "Enviada" }
  *             total:          { type: number, format: float, example: 1150.0 }
- *             fechaCreacion:  { type: string, example: "2025-10-10 14:43:59.000000" }
+ *             fechaCreacion:  { type: string, format: date, example: "2025-10-10" }
  *         items:
  *           type: array
  *           items: { $ref: '#/components/schemas/CotizacionItemSP' }
@@ -120,7 +120,7 @@
  *           nombre: "carlos"
  *           origen: "Tiktok"
  *           celular: "999663047"
- *           fechaCrea: "2025-10-10 14:43:59.000000"
+ *           fechaCrea: "2025-10-10"
  *         cotizacion:
  *           tipoEvento: "Boda"
  *           idTipoEvento: 1
@@ -130,7 +130,7 @@
  *           mensaje: "Agregar paquete premium"
  *           estado: "Enviada"
  *           total: 1150.0
- *           fechaCreacion: "2025-10-10 14:43:59.000000"
+ *           fechaCreacion: "2025-10-10"
  *         items:
  *           - idCotizacionServicio: 1
  *             idEventoServicio: 11
@@ -199,7 +199,7 @@
  *       properties:
  *         id:             { type: integer, description: "ID unificado de cotizaciÃ³n (mapeado desde idCotizacion)" }
  *         estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada] }
- *         fechaCreacion:  { type: string, format: date-time }
+ *         fechaCreacion:  { type: string, format: date, description: "YYYY-MM-DD" }
  *         eventoId:       { type: integer, nullable: true, example: 1, description: "Mapeado desde idTipoEvento" }
  *         tipoEvento:     { type: string }
  *         fechaEvento:    { type: string, format: date, nullable: true }
@@ -218,13 +218,13 @@
 *     CotizacionList:
 *       type: array
 *       items: { $ref: '#/components/schemas/CotizacionListItem' }
- *       example:
- *         - id: 42
- *           estado: "Borrador"
- *           fechaCreacion: "2025-10-12T14:43:59.000Z"
- *           eventoId: 1
- *           tipoEvento: "Boda"
- *           fechaEvento: "2025-10-20"
+*       example:
+*         - id: 42
+*           estado: "Borrador"
+*           fechaCreacion: "2025-10-12"
+*           eventoId: 1
+*           tipoEvento: "Boda"
+*           fechaEvento: "2025-10-20"
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: 8
  *           mensaje: "Paquete premium"
@@ -234,12 +234,12 @@
  *             origen: "CLIENTE"
  *             nombre: "Ana PÃ©rez"
  *             celular: "999888777"
- *         - id: 41
- *           estado: "Enviada"
- *           fechaCreacion: "2025-10-11T10:19:21.000Z"
- *           eventoId: 2
- *           tipoEvento: "CumpleaÃ±os"
- *           fechaEvento: "2025-10-25"
+*         - id: 41
+*           estado: "Enviada"
+*           fechaCreacion: "2025-10-11"
+*           eventoId: 2
+*           tipoEvento: "CumpleaÃ±os"
+*           fechaEvento: "2025-10-25"
  *           lugar: "Miraflores"
  *           horasEstimadas: 6
  *           mensaje: "Agregar trailer"
@@ -467,10 +467,10 @@
  *         detalle:
  *           id: 6
  *           estado: "Enviada"
- *           fechaCreacion: "2025-10-11T10:19:21.000Z"
+ *           fechaCreacion: "2025-10-11"
  *           eventoId: 1
  *           tipoEvento: "Boda"
- *           fechaEvento: "2025-10-20T05:00:00.000Z"
+ *           fechaEvento: "2025-10-20"
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: "8.0"
  *           mensaje: "Agregar paquete premium"
@@ -480,7 +480,7 @@
  *             nombre: "carlos"
  *             celular: "999663047"
  *             origen: "Tiktok"
- *             fechaCreacion: "2025-10-10T19:43:59.000Z"
+ *             fechaCreacion: "2025-10-10"
  */
 
 module.exports = {};

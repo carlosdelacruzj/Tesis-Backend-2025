@@ -1,6 +1,10 @@
 // src/modules/inventario/equipo/equipo.repository.js
 const pool = require("../../../db");
 
+// Estado 'De baja' (no se contabiliza en resúmenes)
+const ESTADO_BAJA_ID = 13;
+const ESTADO_DISPONIBLE_ID = 10;
+
 const baseSelect = `SELECT
     e.PK_Eq_Cod AS idEquipo,
     e.Eq_Fecha_Ingreso AS fechaIngreso,
@@ -94,6 +98,27 @@ async function updateEstado(idEquipo, idEstado) {
   return findById(idEquipo);
 }
 
+// Cambia estado a inhabilitado y limpia asignaciones futuras del equipo
+async function inhabilitarEquipo(idEquipo, idEstado, fechaHoy) {
+  const [rows] = await pool.query("CALL sp_equipo_inhabilitar(?,?,?)", [
+    idEquipo,
+    idEstado,
+    fechaHoy,
+  ]);
+  const proyectosAfectados =
+    Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : [];
+  const equipo = await findById(idEquipo);
+  return { equipo, proyectosAfectados };
+}
+
+async function listProyectosAfectados(idEquipo, fechaDesde) {
+  const [rows] = await pool.query("CALL sp_equipo_proyectos_afectados(?,?)", [
+    idEquipo,
+    fechaDesde,
+  ]);
+  return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : [];
+}
+
 async function summarizeByModel() {
   const [rows] = await pool.query(
     `SELECT
@@ -103,11 +128,14 @@ async function summarizeByModel() {
        ma.NMa_Nombre AS nombreMarca,
        mo.PK_IMo_Cod AS idModelo,
        mo.NMo_Nombre AS nombreModelo,
-       COUNT(e.PK_Eq_Cod) AS cantidad
+       COUNT(e.PK_Eq_Cod) AS cantidad,
+       CAST(SUM(CASE WHEN e.FK_EE_Cod = ? THEN 1 ELSE 0 END) AS UNSIGNED) AS disponibles
      FROM T_Tipo_Equipo te
      LEFT JOIN T_Modelo mo ON mo.FK_TE_Cod = te.PK_TE_Cod
      LEFT JOIN T_Marca ma ON ma.PK_IMa_Cod = mo.FK_IMa_Cod
-     LEFT JOIN T_Equipo e ON e.FK_IMo_Cod = mo.PK_IMo_Cod
+     LEFT JOIN T_Equipo e
+            ON e.FK_IMo_Cod = mo.PK_IMo_Cod
+           AND e.FK_EE_Cod <> ?
      GROUP BY
        te.PK_TE_Cod,
        te.TE_Nombre,
@@ -115,7 +143,8 @@ async function summarizeByModel() {
        ma.NMa_Nombre,
        mo.PK_IMo_Cod,
        mo.NMo_Nombre
-     ORDER BY te.TE_Nombre, ma.NMa_Nombre, mo.NMo_Nombre`
+     ORDER BY te.TE_Nombre, ma.NMa_Nombre, mo.NMo_Nombre`,
+    [ESTADO_DISPONIBLE_ID, ESTADO_BAJA_ID]
   );
   return rows;
 }
@@ -139,6 +168,8 @@ module.exports = {
   update,
   remove,
   updateEstado,
+  inhabilitarEquipo,
+  listProyectosAfectados,
   summarizeByModel,
   findEstados,
 };

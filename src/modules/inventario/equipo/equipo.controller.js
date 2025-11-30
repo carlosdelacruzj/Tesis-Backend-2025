@@ -88,6 +88,16 @@ async function updateEstadoEquipo(req, res, next) {
   }
 }
 
+// GET /inventario/equipos/:idEquipo/proyectos-afectados
+async function listProyectosAfectados(req, res, next) {
+  try {
+    const data = await service.listProyectosAfectados(req.params.idEquipo, req.query);
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   listEquipos,
   getEquipo,
@@ -97,4 +107,5 @@ module.exports = {
   summarizeEquipos,
   listEstadosEquipo,
   updateEstadoEquipo,
+  listProyectosAfectados,
 };

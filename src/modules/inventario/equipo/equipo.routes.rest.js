@@ -53,15 +53,7 @@ router.get("/", ctrl.listEquipos);
  *             schema:
  *               type: array
  *               items:
- *                 type: object
- *                 properties:
- *                   idTipoEquipo: { type: integer }
- *                   nombreTipoEquipo: { type: string }
- *                   idMarca: { type: integer }
- *                   nombreMarca: { type: string }
- *                   idModelo: { type: integer }
- *                   nombreModelo: { type: string }
- *                   cantidad: { type: integer }
+ *                 $ref: '#/components/schemas/EquipoResumen'
  */
 router.get("/resumen", ctrl.summarizeEquipos);
 
@@ -102,13 +94,41 @@ router.get("/estados", ctrl.listEstadosEquipo);
  *             $ref: '#/components/schemas/EquipoEstadoUpdate'
  *     responses:
  *       "200":
- *         description: OK
+ *         description: OK. Si el nuevo estado es inhabilitante (mantenimiento/baja), incluirá proyectosAfectados.
  *         content:
  *           application/json:
  *             schema:
  *               $ref: '#/components/schemas/Equipo'
  */
 router.patch("/:idEquipo/estado", ctrl.updateEstadoEquipo);
+
+/**
+ * @swagger
+ * /inventario/equipos/{idEquipo}/proyectos-afectados:
+ *   get:
+ *     tags: [inventario - equipos]
+ *     summary: Lista proyectos donde el equipo tiene asignaciones futuras (con fecha de inicio del evento)
+ *     parameters:
+ *       - in: path
+ *         name: idEquipo
+ *         schema: { type: integer }
+ *         required: true
+ *       - in: query
+ *         name: fechaDesde
+ *         required: false
+ *         schema: { type: string, format: date }
+ *         description: Por defecto hoy; devuelve asignaciones con fechaFin >= fechaDesde
+ *     responses:
+ *       "200":
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/EquipoProyectoAfectado'
+ */
+router.get("/:idEquipo/proyectos-afectados", ctrl.listProyectosAfectados);
 
 /**
  * @swagger

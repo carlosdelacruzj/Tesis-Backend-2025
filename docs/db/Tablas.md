@@ -10,6 +10,7 @@
 - [T_Empleados](#t_empleados)
 - [T_Empleado_Asignacion](#t_empleado_asignacion)
 - [T_Equipo](#t_equipo)
+- [T_Equipo_Asignacion](#t_equipo_asignacion)
 - [T_Estado_Cliente](#t_estado_cliente)
 - [T_Estado_Empleado](#t_estado_empleado)
 - [T_Estado_Equipo](#t_estado_equipo)
@@ -212,6 +213,28 @@ CREATE TABLE `T_Equipo` (
   CONSTRAINT `FK_T_Equipo_T_Modelo` FOREIGN KEY (`FK_IMo_Cod`) REFERENCES `T_Modelo` (`PK_IMo_Cod`) ON DELETE RESTRICT ON UPDATE RESTRICT
 
 ) ENGINE=InnoDB AUTO_INCREMENT=31 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+```
+
+## T_Equipo_Asignacion
+
+```sql
+CREATE TABLE `T_Equipo_Asignacion` (
+
+  `PK_EqAsig_Cod` int NOT NULL AUTO_INCREMENT,
+  `FK_Eq_Cod` int NOT NULL,
+  `FK_Pro_Cod` int NOT NULL,
+  `EqAsig_Fecha_Inicio` date NOT NULL,
+  `EqAsig_Fecha_Fin` date NOT NULL,
+  `EqAsig_Estado` varchar(20) NOT NULL DEFAULT 'Confirmado',
+  `EqAsig_Notas` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`PK_EqAsig_Cod`),
+  UNIQUE KEY `ux_equipo_proyecto` (`FK_Eq_Cod`,`FK_Pro_Cod`),
+  KEY `ix_eq_fecha` (`FK_Eq_Cod`,`EqAsig_Fecha_Inicio`,`EqAsig_Fecha_Fin`,`EqAsig_Estado`),
+  CONSTRAINT `FK_EqAsig_Equipo` FOREIGN KEY (`FK_Eq_Cod`) REFERENCES `T_Equipo` (`PK_Eq_Cod`),
+  CONSTRAINT `FK_EqAsig_Proyecto` FOREIGN KEY (`FK_Pro_Cod`) REFERENCES `T_Proyecto` (`PK_Pro_Cod`),
+  CONSTRAINT `chk_eqasig_fecha` CHECK ((`EqAsig_Fecha_Fin` >= `EqAsig_Fecha_Inicio`))
+
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 ```
 
 ## T_Estado_Cliente
@@ -569,11 +592,11 @@ CREATE TABLE `T_Proyecto_Recurso` (
 
   `PK_RxP_Cod` int NOT NULL AUTO_INCREMENT,
   `FK_Pro_Cod` int NOT NULL,
-  `FK_Em_Cod` int NOT NULL,
+  `FK_Em_Cod` int DEFAULT NULL,
   `FK_Eq_Cod` int NOT NULL,
   `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`PK_RxP_Cod`),
-  UNIQUE KEY `ux_proyecto_recurso` (`FK_Pro_Cod`,`FK_Em_Cod`,`FK_Eq_Cod`),
+  UNIQUE KEY `ux_proyecto_equipo` (`FK_Pro_Cod`,`FK_Eq_Cod`),
   KEY `FK_T_RecursosxProyecto_T_Empleados` (`FK_Em_Cod`),
   KEY `FK_T_RecursosxProyecto_T_Equipo` (`FK_Eq_Cod`),
   CONSTRAINT `FK_T_RecursosxProyecto_T_Empleados` FOREIGN KEY (`FK_Em_Cod`) REFERENCES `T_Empleados` (`PK_Em_Cod`),

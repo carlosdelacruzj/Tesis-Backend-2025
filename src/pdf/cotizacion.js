@@ -29,6 +29,14 @@ function toCamelCaseName(value) {
 }
 const ISO_DATE_RE = /^\d{4}-\d{2}-\d{2}$/;
 const TIME_RE = /^\d{2}:\d{2}(:\d{2})?$/;
+function parseLocalDate(value) {
+  if (!value) return null;
+  const str = String(value).trim();
+  const m = str.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (m) return new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  const d = new Date(value);
+  return Number.isNaN(d.getTime()) ? null : d;
+}
 function formatDateHuman(value) {
   if (!value) return "";
   const str = String(value);
@@ -36,8 +44,8 @@ function formatDateHuman(value) {
     const [y, m, d] = str.split("-");
     return `${d}/${m}/${y}`;
   }
-  const date = new Date(str);
-  return Number.isNaN(date.getTime()) ? str : date.toLocaleDateString("es-PE");
+  const date = parseLocalDate(str);
+  return date ? date.toLocaleDateString("es-PE") : str;
 }
 function formatTimeHuman(value) {
   if (!value) return "";
@@ -180,8 +188,8 @@ function renderSignAndDate(doc, { createdAt, firmaBase64 }) {
   doc.moveDown(1.2);
   const yBase = doc.y;
 
-  const fechaTxt = createdAt ? new Date(createdAt).toLocaleDateString()
-                             : new Date().toLocaleDateString();
+  const fechaDate = parseLocalDate(createdAt) || new Date();
+  const fechaTxt = fechaDate.toLocaleDateString();
   doc.x = left;
   doc.font("Helvetica").fontSize(10).text(fechaTxt, left, yBase);
 
@@ -316,7 +324,7 @@ function generarCotizacionPdf({ cabecera = {}, selecciones = {}, locaciones = []
       doc.font("Helvetica-Bold").text(atencion);
       doc.font("Helvetica");
     }
-    const fechaTxt = fechaEvento ? new Date(fechaEvento).toLocaleDateString() : "—";
+    const fechaTxt = fechaEvento ? formatDateHuman(fechaEvento) : "—";
     const msg = `Por medio de la presente hago llegar la cotización para la realización de fotografía y video para ${evento || "evento"} a realizarse el ${fechaTxt}${lugar ? `, ${lugar}` : ""}.`;
     doc.moveDown(0.4).text(msg).moveDown(1.0);
     doc.x = doc.page.margins.left;

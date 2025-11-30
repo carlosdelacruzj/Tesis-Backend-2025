@@ -5,6 +5,7 @@ function badRequest(msg) {
   e.status = 400;
   return e;
 }
+const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 function assertIdPositivo(val, nombre = "id") {
   const n = Number(val);
   if (!Number.isFinite(n) || n <= 0) throw badRequest(`${nombre} inválido`);
@@ -18,6 +19,11 @@ function assertNumber(val, nombre) {
 function parseFecha(value, field = "fecha") {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
+  const str = typeof value === "string" ? value.trim() : value;
+  if (typeof str === "string" && ISO_DATE_ONLY.test(str)) {
+    const [y, m, d] = str.split("-").map(Number);
+    return new Date(y, m - 1, d); // local midnight evita saltos de día por zona horaria
+  }
   const d = new Date(value);
   if (Number.isNaN(d.getTime())) throw badRequest(`${field} inválida`);
   return d;

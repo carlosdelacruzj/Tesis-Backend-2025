@@ -41,10 +41,20 @@ function toBullets(desc) {
     .filter(Boolean);
 }
 
+function parseLocalDate(value) {
+  if (!value) return null;
+  if (typeof value === "string" && ISO_DATE.test(value.trim())) {
+    const [y, m, d] = value.split("-").map(Number);
+    return new Date(y, m - 1, d); // evita desfase de -1 día en zonas horarias negativas
+  }
+  const date = new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date;
+}
+
 function formatDateDetail(value) {
   if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = parseLocalDate(value);
+  if (!date) return String(value);
   return new Intl.DateTimeFormat("es-PE", {
     day: "numeric",
     month: "long",
@@ -54,8 +64,8 @@ function formatDateDetail(value) {
 
 function formatDateLong(value) {
   if (!value) return "";
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return String(value);
+  const date = parseLocalDate(value);
+  if (!date) return String(value);
   const parts = new Intl.DateTimeFormat("es-PE", {
     day: "numeric",
     month: "long",

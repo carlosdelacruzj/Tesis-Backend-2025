@@ -2268,6 +2268,68 @@ END ;;
 DELIMITER ;
 ```
 
+## sp_proyecto_recurso_agregar
+
+```sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_recurso_agregar"(
+  IN p_proyecto_id INT,
+  IN p_equipo_id   INT,
+  IN p_empleado_id INT,   -- puede ser NULL para equipos en reserva
+  IN p_fecha_inicio DATE,
+  IN p_fecha_fin     DATE,
+  IN p_notas         VARCHAR(255)
+)
+BEGIN
+  DECLARE v_recurso_id BIGINT;
+
+  IF p_fecha_inicio IS NULL OR p_fecha_fin IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaInicio y fechaFin son requeridos';
+  END IF;
+  IF p_fecha_fin < p_fecha_inicio THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaFin no puede ser menor a fechaInicio';
+  END IF;
+
+  START TRANSACTION;
+  /* Proyecto-Recurso: upsert por equipo+proyecto */
+  INSERT INTO T_Proyecto_Recurso (FK_Pro_Cod, FK_Eq_Cod, FK_Em_Cod)
+  VALUES (p_proyecto_id, p_equipo_id, p_empleado_id)
+  ON DUPLICATE KEY UPDATE FK_Em_Cod = VALUES(FK_Em_Cod);
+  SET v_recurso_id = LAST_INSERT_ID();
+  IF v_recurso_id = 0 THEN
+    SELECT PK_RxP_Cod INTO v_recurso_id
+    FROM T_Proyecto_Recurso
+    WHERE FK_Pro_Cod = p_proyecto_id AND FK_Eq_Cod = p_equipo_id;
+  END IF;
+
+  IF p_empleado_id IS NOT NULL THEN
+    INSERT INTO T_Empleado_Asignacion (
+      FK_Em_Cod, FK_Pro_Cod, EAsig_Fecha_Inicio, EAsig_Fecha_Fin, EAsig_Notas
+    ) VALUES (
+      p_empleado_id, p_proyecto_id, p_fecha_inicio, p_fecha_fin, p_notas
+    )
+    ON DUPLICATE KEY UPDATE
+      EAsig_Fecha_Inicio = VALUES(EAsig_Fecha_Inicio),
+      EAsig_Fecha_Fin    = VALUES(EAsig_Fecha_Fin),
+      EAsig_Notas        = VALUES(EAsig_Notas);
+  END IF;
+
+  INSERT INTO T_Equipo_Asignacion (
+    FK_Eq_Cod, FK_Pro_Cod, EqAsig_Fecha_Inicio, EqAsig_Fecha_Fin, EqAsig_Notas
+  ) VALUES (
+    p_equipo_id, p_proyecto_id, p_fecha_inicio, p_fecha_fin, p_notas
+  )
+  ON DUPLICATE KEY UPDATE
+    EqAsig_Fecha_Inicio = VALUES(EqAsig_Fecha_Inicio),
+    EqAsig_Fecha_Fin    = VALUES(EqAsig_Fecha_Fin),
+    EqAsig_Notas        = VALUES(EqAsig_Notas);
+
+  COMMIT;
+  SELECT v_recurso_id AS recursoId;
+END ;;
+DELIMITER ;
+```
+
 ## sp_proyecto_obtener
 
 ```sql
@@ -2315,6 +2377,276 @@ BEGIN
   LEFT JOIN T_Modelo    mo  ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
   LEFT JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
   WHERE rxp.FK_Pro_Cod = p_id;
+END ;;
+DELIMITER ;
+```
+
+## sp_proyecto_asignaciones
+
+```sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_asignaciones"(IN p_proyecto_id INT)
+BEGIN
+  SELECT
+    r.PK_RxP_Cod              AS recursoId,
+    r.FK_Pro_Cod              AS proyectoId,
+    r.FK_Eq_Cod               AS equipoId,
+    eq.Eq_Serie               AS equipoSerie,
+    mo.NMo_Nombre             AS modelo,
+    te.TE_Nombre              AS tipoEquipo,
+    eq.FK_EE_Cod              AS estadoEquipoId,
+    r.FK_Em_Cod               AS empleadoId,
+    CONCAT(u.U_Nombre, ' ', u.U_Apellido) AS empleadoNombre,
+    ea.EAsig_Fecha_Inicio     AS empleadoFechaInicio,
+    ea.EAsig_Fecha_Fin        AS empleadoFechaFin,
+    ea.EAsig_Estado           AS empleadoEstado,
+    ea.EAsig_Notas            AS empleadoNotas,
+    eqas.EqAsig_Fecha_Inicio  AS equipoFechaInicio,
+    eqas.EqAsig_Fecha_Fin     AS equipoFechaFin,
+    eqas.EqAsig_Estado        AS equipoEstado,
+    eqas.EqAsig_Notas         AS equipoNotas
+  FROM T_Proyecto_Recurso r
+  LEFT JOIN T_Equipo eq           ON eq.PK_Eq_Cod   = r.FK_Eq_Cod
+  LEFT JOIN T_Modelo mo           ON mo.PK_IMo_Cod  = eq.FK_IMo_Cod
+  LEFT JOIN T_Tipo_Equipo te      ON te.PK_TE_Cod   = mo.FK_TE_Cod
+  LEFT JOIN T_Empleados em        ON em.PK_Em_Cod   = r.FK_Em_Cod
+  LEFT JOIN T_Usuario u           ON u.PK_U_Cod     = em.FK_U_Cod
+  LEFT JOIN T_Empleado_Asignacion ea
+         ON ea.FK_Em_Cod = r.FK_Em_Cod AND ea.FK_Pro_Cod = r.FK_Pro_Cod
+  LEFT JOIN T_Equipo_Asignacion eqas
+         ON eqas.FK_Eq_Cod = r.FK_Eq_Cod AND eqas.FK_Pro_Cod = r.FK_Pro_Cod
+  WHERE r.FK_Pro_Cod = p_proyecto_id;
+END ;;
+DELIMITER ;
+```
+
+## sp_proyecto_recursos_reset
+
+```sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_recursos_reset"(IN p_proyecto_id INT)
+BEGIN
+  START TRANSACTION;
+    DELETE FROM T_Empleado_Asignacion WHERE FK_Pro_Cod = p_proyecto_id;
+    DELETE FROM T_Equipo_Asignacion   WHERE FK_Pro_Cod = p_proyecto_id;
+    DELETE FROM T_Proyecto_Recurso    WHERE FK_Pro_Cod = p_proyecto_id;
+  COMMIT;
+END ;;
+DELIMITER ;
+```
+
+## sp_proyecto_disponibilidad
+
+```sql
+CREATE PROCEDURE sp_proyecto_disponibilidad(
+  IN p_fecha_inicio DATE,
+  IN p_fecha_fin    DATE,
+  IN p_proyecto_id  INT,
+  IN p_tipo_equipo  INT,
+  IN p_cargo_id     INT
+)
+BEGIN
+  IF p_fecha_inicio IS NULL OR p_fecha_fin IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaInicio y fechaFin son requeridos';
+  END IF;
+  IF p_fecha_fin < p_fecha_inicio THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaFin no puede ser menor a fechaInicio';
+  END IF;
+
+  /* Empleados operativos y activos */
+  SELECT
+    em.PK_Em_Cod           AS empleadoId,
+    u.PK_U_Cod             AS usuarioId,
+    u.U_Nombre             AS nombre,
+    u.U_Apellido           AS apellido,
+    te.PK_Tipo_Emp_Cod     AS cargoId,
+    te.TiEm_Cargo          AS cargo,
+    em.FK_Estado_Emp_Cod   AS estadoId,
+    ee.EsEm_Nombre         AS estado,
+    te.TiEm_OperativoCampo AS operativoCampo,
+    IF(conf.conflictos IS NULL, 1, 0)                 AS disponible,
+    COALESCE(conf.conflictos, JSON_ARRAY())           AS conflictos
+  FROM T_Empleados em
+  JOIN T_Usuario u            ON u.PK_U_Cod         = em.FK_U_Cod
+  JOIN T_Tipo_Empleado te     ON te.PK_Tipo_Emp_Cod = em.FK_Tipo_Emp_Cod
+  LEFT JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = em.FK_Estado_Emp_Cod
+  LEFT JOIN (
+    SELECT
+      ea.FK_Em_Cod AS empleadoId,
+      JSON_ARRAYAGG(
+        JSON_OBJECT(
+          'proyectoId',  ea.FK_Pro_Cod,
+          'fechaInicio', ea.EAsig_Fecha_Inicio,
+          'fechaFin',    ea.EAsig_Fecha_Fin,
+          'estado',      ea.EAsig_Estado
+        )
+      ) AS conflictos
+    FROM T_Empleado_Asignacion ea
+    WHERE (ea.EAsig_Estado IS NULL OR ea.EAsig_Estado NOT IN ('Cancelado', 'Anulado'))
+      AND ea.EAsig_Fecha_Inicio <= p_fecha_fin
+      AND ea.EAsig_Fecha_Fin    >= p_fecha_inicio
+      AND (p_proyecto_id IS NULL OR ea.FK_Pro_Cod <> p_proyecto_id)
+    GROUP BY ea.FK_Em_Cod
+  ) conf ON conf.empleadoId = em.PK_Em_Cod
+  WHERE te.TiEm_OperativoCampo = 1
+    AND em.FK_Estado_Emp_Cod = 1
+    AND (p_cargo_id IS NULL OR te.PK_Tipo_Emp_Cod = p_cargo_id)
+  ORDER BY disponible DESC, te.TiEm_Cargo, u.U_Nombre, u.U_Apellido;
+
+  /* Equipos */
+  SELECT
+    eq.PK_Eq_Cod     AS idEquipo,
+    eq.Eq_Fecha_Ingreso AS fechaIngreso,
+    eq.Eq_Serie      AS serie,
+    mo.PK_IMo_Cod    AS idModelo,
+    mo.NMo_Nombre    AS nombreModelo,
+    ma.PK_IMa_Cod    AS idMarca,
+    ma.NMa_Nombre    AS nombreMarca,
+    teq.PK_TE_Cod    AS idTipoEquipo,
+    teq.TE_Nombre    AS nombreTipoEquipo,
+    eq.FK_EE_Cod     AS idEstado,
+    eeq.EE_Nombre    AS nombreEstado,
+    IF(confEq.conflictos IS NULL, 1, 0)       AS disponible,
+    COALESCE(confEq.conflictos, JSON_ARRAY()) AS conflictos
+  FROM T_Equipo eq
+  JOIN T_Modelo mo       ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
+  JOIN T_Marca  ma       ON ma.PK_IMa_Cod = mo.FK_IMa_Cod
+  JOIN T_Tipo_Equipo teq ON teq.PK_TE_Cod = mo.FK_TE_Cod
+  JOIN T_Estado_Equipo eeq ON eeq.PK_EE_Cod = eq.FK_EE_Cod
+  LEFT JOIN (
+    SELECT
+      ea.FK_Eq_Cod AS equipoId,
+      JSON_ARRAYAGG(
+        JSON_OBJECT(
+          'proyectoId',  ea.FK_Pro_Cod,
+          'fechaInicio', ea.EqAsig_Fecha_Inicio,
+          'fechaFin',    ea.EqAsig_Fecha_Fin,
+          'estado',      ea.EqAsig_Estado
+        )
+      ) AS conflictos
+    FROM T_Equipo_Asignacion ea
+    WHERE (ea.EqAsig_Estado IS NULL OR ea.EqAsig_Estado NOT IN ('Cancelado', 'Anulado'))
+      AND ea.EqAsig_Fecha_Inicio <= p_fecha_fin
+      AND ea.EqAsig_Fecha_Fin    >= p_fecha_inicio
+      AND (p_proyecto_id IS NULL OR ea.FK_Pro_Cod <> p_proyecto_id)
+    GROUP BY ea.FK_Eq_Cod
+  ) confEq ON confEq.equipoId = eq.PK_Eq_Cod
+  WHERE eeq.EE_Nombre = 'Disponible'
+    AND (p_tipo_equipo IS NULL OR teq.PK_TE_Cod = p_tipo_equipo)
+  ORDER BY disponible DESC, teq.TE_Nombre, mo.NMo_Nombre, eq.PK_Eq_Cod;
+END;
+```
+
+## sp_equipo_inhabilitar
+
+Pensado para el `PATCH /inventario/equipos/{idEquipo}/estado` cuando el nuevo estado lo deja inhabilitado (mantenimiento/baja). Cancela únicamente las asignaciones futuras de ese equipo, actualiza el estado y retorna los proyectos afectados.
+
+```sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_equipo_inhabilitar"(
+  IN p_equipo_id INT,
+  IN p_estado_id INT,
+  IN p_fecha_hoy DATE
+)
+BEGIN
+  DECLARE v_today DATE;
+  SET v_today = IFNULL(p_fecha_hoy, CURDATE());
+
+  /* Proyectos impactados por la cancelación del equipo (solo asignaciones futuras) */
+  CREATE TEMPORARY TABLE IF NOT EXISTS tmp_equipo_afectado (
+    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+    proyectoId        INT,
+    nombreProyecto    VARCHAR(255),
+    fechaEventoInicio DATE,
+    fechaInicio       DATE,
+    fechaFin          DATE,
+    empleadoId        INT,
+    empleadoNombre    VARCHAR(255),
+    nota              VARCHAR(255)
+  );
+  TRUNCATE TABLE tmp_equipo_afectado;
+
+  INSERT INTO tmp_equipo_afectado (proyectoId, nombreProyecto, fechaEventoInicio, fechaInicio, fechaFin, empleadoId, empleadoNombre, nota)
+  SELECT
+    r.FK_Pro_Cod                              AS proyectoId,
+    pr.Pro_Nombre                             AS nombreProyecto,
+    (SELECT MIN(pe.PE_Fecha)
+       FROM T_PedidoEvento pe
+      WHERE pe.FK_P_Cod = pr.FK_P_Cod)        AS fechaEventoInicio,
+    ea.EqAsig_Fecha_Inicio                    AS fechaInicio,
+    ea.EqAsig_Fecha_Fin                       AS fechaFin,
+    r.FK_Em_Cod                               AS empleadoId,
+    CONCAT(u.U_Nombre, ' ', u.U_Apellido)     AS empleadoNombre,
+    ea.EqAsig_Notas                           AS nota
+  FROM T_Equipo_Asignacion ea
+  JOIN T_Proyecto_Recurso r
+       ON r.FK_Pro_Cod = ea.FK_Pro_Cod AND r.FK_Eq_Cod = ea.FK_Eq_Cod
+  LEFT JOIN T_Proyecto pr  ON pr.PK_Pro_Cod = r.FK_Pro_Cod
+  LEFT JOIN T_Empleados em ON em.PK_Em_Cod  = r.FK_Em_Cod
+  LEFT JOIN T_Usuario u    ON u.PK_U_Cod    = em.FK_U_Cod
+  WHERE ea.FK_Eq_Cod = p_equipo_id
+    AND ea.EqAsig_Fecha_Fin >= v_today;
+
+  START TRANSACTION;
+    /* Borra recurso-equipo solo si había asignaciones futuras de ese equipo */
+    DELETE r
+    FROM T_Proyecto_Recurso r
+    WHERE r.FK_Eq_Cod = p_equipo_id
+      AND EXISTS (
+        SELECT 1
+        FROM T_Equipo_Asignacion ea
+        WHERE ea.FK_Eq_Cod = r.FK_Eq_Cod
+          AND ea.FK_Pro_Cod = r.FK_Pro_Cod
+          AND ea.EqAsig_Fecha_Fin >= v_today
+      );
+
+    /* Borra asignaciones futuras del equipo (no toca T_Empleado_Asignacion) */
+    DELETE ea
+    FROM T_Equipo_Asignacion ea
+    WHERE ea.FK_Eq_Cod = p_equipo_id
+      AND ea.EqAsig_Fecha_Fin >= v_today;
+
+    /* Actualiza estado del equipo */
+    UPDATE T_Equipo
+      SET FK_EE_Cod = p_estado_id
+      WHERE PK_Eq_Cod = p_equipo_id;
+  COMMIT;
+
+  SELECT * FROM tmp_equipo_afectado;
+  DROP TEMPORARY TABLE IF EXISTS tmp_equipo_afectado;
+END ;;
+DELIMITER ;
+```
+
+## sp_equipo_proyectos_afectados
+
+Devuelve proyectos en los que un equipo está asignado con fechas futuras (o desde una fecha dada), incluyendo la fecha de inicio del evento (primer registro en T_PedidoEvento).
+
+```sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_equipo_proyectos_afectados"(
+  IN p_equipo_id INT,
+  IN p_fecha_desde DATE
+)
+BEGIN
+  DECLARE v_desde DATE;
+  SET v_desde = IFNULL(p_fecha_desde, CURDATE());
+
+  SELECT
+    r.FK_Pro_Cod                              AS proyectoId,
+    pr.Pro_Nombre                             AS nombreProyecto,
+    (SELECT MIN(pe.PE_Fecha)
+       FROM T_PedidoEvento pe
+      WHERE pe.FK_P_Cod = pr.FK_P_Cod)        AS fechaEventoInicio,
+    ea.EqAsig_Fecha_Inicio                    AS fechaInicio,
+    ea.EqAsig_Fecha_Fin                       AS fechaFin
+  FROM T_Equipo_Asignacion ea
+  JOIN T_Proyecto_Recurso r
+       ON r.FK_Pro_Cod = ea.FK_Pro_Cod AND r.FK_Eq_Cod = ea.FK_Eq_Cod
+  LEFT JOIN T_Proyecto pr ON pr.PK_Pro_Cod = r.FK_Pro_Cod
+  WHERE ea.FK_Eq_Cod = p_equipo_id
+    AND ea.EqAsig_Fecha_Fin >= v_desde
+  ORDER BY ea.EqAsig_Fecha_Inicio;
 END ;;
 DELIMITER ;
 ```

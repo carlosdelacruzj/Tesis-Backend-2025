@@ -105,6 +105,52 @@ async function listEstadoProyecto() {
   return rows;
 }
 
+async function listAsignacionesByProyecto(proyectoId) {
+  return runCall("CALL sp_proyecto_asignaciones(?)", [Number(proyectoId)]);
+}
+
+async function resetRecursosProyecto(proyectoId) {
+  return runCall("CALL sp_proyecto_recursos_reset(?)", [Number(proyectoId)]);
+}
+
+async function addProyectoRecurso({
+  proyectoId,
+  equipoId,
+  empleadoId = null,
+  fechaInicio,
+  fechaFin,
+  notas = null,
+}) {
+  return runCall("CALL sp_proyecto_recurso_agregar(?,?,?,?,?,?)", [
+    Number(proyectoId),
+    Number(equipoId),
+    empleadoId == null ? null : Number(empleadoId),
+    fechaInicio ?? null,
+    fechaFin ?? null,
+    notas ?? null,
+  ]);
+}
+
+async function getDisponibilidad({
+  fechaInicio,
+  fechaFin,
+  proyectoId = null,
+  tipoEquipoId = null,
+  cargoId = null,
+}) {
+  const sets = await runCallMulti("CALL sp_proyecto_disponibilidad(?,?,?,?,?)", [
+    fechaInicio ?? null,
+    fechaFin ?? null,
+    proyectoId == null ? null : Number(proyectoId),
+    tipoEquipoId == null ? null : Number(tipoEquipoId),
+    cargoId == null ? null : Number(cargoId),
+  ]);
+  return {
+    empleados: sets[0] || [],
+    equipos: sets[1] || [],
+  };
+}
+
 module.exports = {
   getAllProyecto,
   getByIdProyecto,
@@ -113,4 +159,8 @@ module.exports = {
   deleteProyecto,
   getPagoInfoByPedido,
   listEstadoProyecto,
+  listAsignacionesByProyecto,
+  resetRecursosProyecto,
+  addProyectoRecurso,
+  getDisponibilidad,
 };

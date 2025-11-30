@@ -2,6 +2,8 @@
 const repo = require("./equipo.repository");
 const { ensurePositiveInt, ensureTrimmedString } = require("../shared/validation");
 
+const ESTADOS_INHABILITANTES = new Set([12, 13]); // 12: mantenimiento, 13: baja
+
 function normalizeFecha(fecha) {
   if (fecha == null || fecha === "") {
     return null;
@@ -139,16 +141,49 @@ async function updateEstado(idEquipo, payload) {
   const id = ensurePositiveInt(idEquipo, "idEquipo");
   const idEstado = ensurePositiveInt(payload?.idEstado, "idEstado");
   try {
-    const equipo = await repo.updateEstado(id, idEstado);
-    if (!equipo) {
+    const current = await repo.findById(id);
+    if (!current) {
       const err = new Error("El equipo solicitado no existe.");
       err.status = 404;
       throw err;
     }
-    return equipo;
+    // Evita reactivar un equipo dado de baja directamente.
+    if (current.idEstado === 13 && idEstado === 10) {
+      const err = new Error(
+        "No se puede cambiar un equipo dado de baja a Disponible. Solicita reactivación manual."
+      );
+      err.status = 400;
+      throw err;
+    }
+    // Si el estado nuevo es inhabilitante, limpiar asignaciones futuras del equipo
+    if (ESTADOS_INHABILITANTES.has(idEstado)) {
+      const hoy = new Date().toISOString().slice(0, 10);
+      const { equipo, proyectosAfectados } = await repo.inhabilitarEquipo(
+        id,
+        idEstado,
+        hoy
+      );
+      return { ...equipo, proyectosAfectados: proyectosAfectados || [] };
+    }
+    const equipo = await repo.updateEstado(id, idEstado);
+    return { ...equipo, proyectosAfectados: [] };
   } catch (err) {
     handleRepositoryError(err);
   }
+}
+
+async function listProyectosAfectados(idEquipo, { fechaDesde } = {}) {
+  const id = ensurePositiveInt(idEquipo, "idEquipo");
+  const current = await repo.findById(id);
+  if (!current) {
+    const err = new Error("El equipo solicitado no existe.");
+    err.status = 404;
+    throw err;
+  }
+  const hoy = fechaDesde
+    ? normalizeFecha(fechaDesde)
+    : new Date().toISOString().slice(0, 10);
+  return repo.listProyectosAfectados(id, hoy);
 }
 
 module.exports = {
@@ -161,4 +196,5 @@ module.exports = {
   summarize,
   listEstados,
   updateEstado,
+  listProyectosAfectados,
 };
