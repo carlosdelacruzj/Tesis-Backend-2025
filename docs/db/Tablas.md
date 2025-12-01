@@ -227,11 +227,19 @@ CREATE TABLE `T_Equipo_Asignacion` (
   `EqAsig_Fecha_Fin` date NOT NULL,
   `EqAsig_Estado` varchar(20) NOT NULL DEFAULT 'Confirmado',
   `EqAsig_Notas` varchar(255) DEFAULT NULL,
+  `EqAsig_Devuelto` tinyint(1) NOT NULL DEFAULT '0',
+  `EqAsig_Fecha_Devolucion` datetime DEFAULT NULL,
+  `EqAsig_Estado_Devolucion` varchar(20) DEFAULT NULL,
+  `EqAsig_Notas_Devolucion` varchar(255) DEFAULT NULL,
+  `EqAsig_Usuario_Devolucion` int DEFAULT NULL,
   PRIMARY KEY (`PK_EqAsig_Cod`),
   UNIQUE KEY `ux_equipo_proyecto` (`FK_Eq_Cod`,`FK_Pro_Cod`),
   KEY `ix_eq_fecha` (`FK_Eq_Cod`,`EqAsig_Fecha_Inicio`,`EqAsig_Fecha_Fin`,`EqAsig_Estado`),
+  KEY `ix_eq_devolucion_fecha` (`EqAsig_Devuelto`,`EqAsig_Fecha_Devolucion`),
+  KEY `fk_eqasig_usuario_devolucion` (`EqAsig_Usuario_Devolucion`),
   CONSTRAINT `FK_EqAsig_Equipo` FOREIGN KEY (`FK_Eq_Cod`) REFERENCES `T_Equipo` (`PK_Eq_Cod`),
   CONSTRAINT `FK_EqAsig_Proyecto` FOREIGN KEY (`FK_Pro_Cod`) REFERENCES `T_Proyecto` (`PK_Pro_Cod`),
+  CONSTRAINT `fk_eqasig_usuario_devolucion` FOREIGN KEY (`EqAsig_Usuario_Devolucion`) REFERENCES `T_Usuario` (`PK_U_Cod`),
   CONSTRAINT `chk_eqasig_fecha` CHECK ((`EqAsig_Fecha_Fin` >= `EqAsig_Fecha_Inicio`))
 
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;

@@ -2404,7 +2404,12 @@ BEGIN
     eqas.EqAsig_Fecha_Inicio  AS equipoFechaInicio,
     eqas.EqAsig_Fecha_Fin     AS equipoFechaFin,
     eqas.EqAsig_Estado        AS equipoEstado,
-    eqas.EqAsig_Notas         AS equipoNotas
+    eqas.EqAsig_Notas         AS equipoNotas,
+    eqas.EqAsig_Devuelto      AS equipoDevuelto,
+    eqas.EqAsig_Fecha_Devolucion  AS equipoFechaDevolucion,
+    eqas.EqAsig_Estado_Devolucion AS equipoEstadoDevolucion,
+    eqas.EqAsig_Notas_Devolucion  AS equipoNotasDevolucion,
+    eqas.EqAsig_Usuario_Devolucion AS equipoUsuarioDevolucion
   FROM T_Proyecto_Recurso r
   LEFT JOIN T_Equipo eq           ON eq.PK_Eq_Cod   = r.FK_Eq_Cod
   LEFT JOIN T_Modelo mo           ON mo.PK_IMo_Cod  = eq.FK_IMo_Cod
@@ -2546,7 +2551,8 @@ DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_equipo_inhabilitar"(
   IN p_equipo_id INT,
   IN p_estado_id INT,
-  IN p_fecha_hoy DATE
+  IN p_fecha_hoy DATE,
+  IN p_proyecto_excluir INT
 )
 BEGIN
   DECLARE v_today DATE;
@@ -2585,26 +2591,30 @@ BEGIN
   LEFT JOIN T_Empleados em ON em.PK_Em_Cod  = r.FK_Em_Cod
   LEFT JOIN T_Usuario u    ON u.PK_U_Cod    = em.FK_U_Cod
   WHERE ea.FK_Eq_Cod = p_equipo_id
-    AND ea.EqAsig_Fecha_Fin >= v_today;
+    AND ea.EqAsig_Fecha_Fin >= v_today
+    AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir);
 
   START TRANSACTION;
     /* Borra recurso-equipo solo si había asignaciones futuras de ese equipo */
     DELETE r
     FROM T_Proyecto_Recurso r
     WHERE r.FK_Eq_Cod = p_equipo_id
+      AND (p_proyecto_excluir IS NULL OR r.FK_Pro_Cod <> p_proyecto_excluir)
       AND EXISTS (
         SELECT 1
         FROM T_Equipo_Asignacion ea
         WHERE ea.FK_Eq_Cod = r.FK_Eq_Cod
           AND ea.FK_Pro_Cod = r.FK_Pro_Cod
           AND ea.EqAsig_Fecha_Fin >= v_today
+          AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir)
       );
 
     /* Borra asignaciones futuras del equipo (no toca T_Empleado_Asignacion) */
     DELETE ea
     FROM T_Equipo_Asignacion ea
     WHERE ea.FK_Eq_Cod = p_equipo_id
-      AND ea.EqAsig_Fecha_Fin >= v_today;
+      AND ea.EqAsig_Fecha_Fin >= v_today
+      AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir);
 
     /* Actualiza estado del equipo */
     UPDATE T_Equipo

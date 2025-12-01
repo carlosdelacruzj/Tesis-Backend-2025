@@ -119,9 +119,85 @@ router.post("/recursos", ctrl.postRecurso);
  *         name: id
  *         required: true
  *         schema: { type: integer }
- *     responses: { '200': { description: OK } }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   recursoId: { type: integer }
+ *                   proyectoId: { type: integer }
+ *                   equipoId: { type: integer }
+ *                   equipoSerie: { type: string }
+ *                   modelo: { type: string }
+ *                   tipoEquipo: { type: string }
+ *                   estadoEquipoId: { type: integer }
+ *                   empleadoId: { type: integer, nullable: true }
+ *                   empleadoNombre: { type: string, nullable: true }
+ *                   empleadoFechaInicio: { type: string, format: date, nullable: true }
+ *                   empleadoFechaFin: { type: string, format: date, nullable: true }
+ *                   empleadoEstado: { type: string, nullable: true }
+ *                   empleadoNotas: { type: string, nullable: true }
+ *                   equipoFechaInicio: { type: string, format: date, nullable: true }
+ *                   equipoFechaFin: { type: string, format: date, nullable: true }
+ *                   equipoEstado: { type: string, nullable: true }
+ *                   equipoNotas: { type: string, nullable: true }
+ *                   equipoDevuelto: { type: integer, nullable: true }
+ *                   equipoFechaDevolucion: { type: string, format: date-time, nullable: true }
+ *                   equipoEstadoDevolucion: { type: string, nullable: true }
+ *                   equipoNotasDevolucion: { type: string, nullable: true }
+ *                   equipoUsuarioDevolucion: { type: integer, nullable: true }
  */
 router.get("/:id(\\d+)/asignaciones", ctrl.getAsignaciones);
+
+/**
+ * @swagger
+ * /proyecto/{id}/devolucion:
+ *   post:
+ *     tags: [proyecto]
+ *     summary: Registrar devolución de equipos de un proyecto
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [devoluciones]
+ *             properties:
+ *               devoluciones:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   required: [equipoId, estadoDevolucion]
+ *                   properties:
+ *                     equipoId: { type: integer }
+ *                     estadoDevolucion:
+ *                       type: string
+ *                       enum: [devuelto, daniado, faltante]
+ *                     notas: { type: string, maxLength: 255 }
+ *             example:
+ *               devoluciones:
+ *                 - equipoId: 101
+ *                   estadoDevolucion: devuelto
+ *                   notas: "Ok"
+ *                 - equipoId: 102
+ *                   estadoDevolucion: daniado
+ *                   notas: "Golpe en lente"
+ *                 - equipoId: 103
+ *                   estadoDevolucion: faltante
+ *                   notas: "Extraviado"
+ *     responses: { '200': { description: Devoluciones registradas } }
+ */
+router.post("/:id(\\d+)/devolucion", ctrl.postDevolucion);
 
 /**
  * @swagger
@@ -167,6 +243,40 @@ router.put("/:id(\\d+)", ctrl.putProyecto);
  *     responses: { '200': { description: Eliminado } }
  */
 router.delete("/:id(\\d+)", ctrl.deleteProyecto);
+
+/**
+ * @swagger
+ * /proyecto/{id}:
+ *   patch:
+ *     tags: [proyecto]
+ *     summary: Actualización parcial de proyecto
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               proyectoNombre: { type: string }
+ *               fechaInicioEdicion: { type: string, format: date }
+ *               fechaFinEdicion: { type: string, format: date }
+ *               estadoId: { type: integer }
+ *               responsableId: { type: integer, nullable: true }
+ *               notas: { type: string }
+ *               enlace: { type: string }
+ *               multimedia: { type: integer }
+ *               edicion: { type: integer }
+ *             example:
+ *               estadoId: 2
+ *               notas: "Actualizando estado a En ejecución"
+ *     responses: { '200': { description: Actualización parcial exitosa } }
+ */
+router.patch("/:id(\\d+)", ctrl.patchProyecto);
 
 /**
  * @swagger

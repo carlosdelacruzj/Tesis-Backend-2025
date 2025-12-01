@@ -99,11 +99,12 @@ async function updateEstado(idEquipo, idEstado) {
 }
 
 // Cambia estado a inhabilitado y limpia asignaciones futuras del equipo
-async function inhabilitarEquipo(idEquipo, idEstado, fechaHoy) {
-  const [rows] = await pool.query("CALL sp_equipo_inhabilitar(?,?,?)", [
+async function inhabilitarEquipo(idEquipo, idEstado, fechaHoy, proyectoExcluidoId = null) {
+  const [rows] = await pool.query("CALL sp_equipo_inhabilitar(?,?,?,?)", [
     idEquipo,
     idEstado,
     fechaHoy,
+    proyectoExcluidoId == null ? null : Number(proyectoExcluidoId),
   ]);
   const proyectosAfectados =
     Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : [];

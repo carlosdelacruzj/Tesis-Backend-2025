@@ -140,6 +140,8 @@ async function listEstados() {
 async function updateEstado(idEquipo, payload) {
   const id = ensurePositiveInt(idEquipo, "idEquipo");
   const idEstado = ensurePositiveInt(payload?.idEstado, "idEstado");
+  const proyectoExcluidoId =
+    payload?.proyectoExcluidoId != null ? Number(payload.proyectoExcluidoId) : null;
   try {
     const current = await repo.findById(id);
     if (!current) {
@@ -161,7 +163,8 @@ async function updateEstado(idEquipo, payload) {
       const { equipo, proyectosAfectados } = await repo.inhabilitarEquipo(
         id,
         idEstado,
-        hoy
+        hoy,
+        proyectoExcluidoId
       );
       return { ...equipo, proyectosAfectados: proyectosAfectados || [] };
     }

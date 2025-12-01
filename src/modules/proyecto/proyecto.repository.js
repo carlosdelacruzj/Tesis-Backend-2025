@@ -80,6 +80,77 @@ async function putProyectoById(id, payload) {
   ]);
 }
 
+async function patchProyectoById(id, payload = {}) {
+  const {
+    proyectoNombre,
+    fechaInicioEdicion,
+    fechaFinEdicion,
+    estadoId,
+    responsableId,
+    notas,
+    enlace,
+    multimedia,
+    edicion,
+  } = payload;
+
+  // Sólo actualiza columnas si se envían; evita sobreescribir con NULL no enviado.
+  // Usa un UPDATE directo para flexibilidad.
+  const fields = [];
+  const params = [];
+
+  if (proyectoNombre !== undefined) {
+    fields.push("Pro_Nombre = ?");
+    params.push(proyectoNombre ?? null);
+  }
+  if (fechaInicioEdicion !== undefined) {
+    fields.push("EPro_Fecha_Inicio_Edicion = ?");
+    params.push(fechaInicioEdicion ?? null);
+  }
+  if (fechaFinEdicion !== undefined) {
+    fields.push("Pro_Fecha_Fin_Edicion = ?");
+    params.push(fechaFinEdicion ?? null);
+  }
+  if (estadoId !== undefined) {
+    fields.push("Pro_Estado = ?");
+    params.push(estadoId ?? null);
+  }
+  if (responsableId !== undefined) {
+    fields.push("FK_Em_Cod = ?");
+    params.push(responsableId ?? null);
+  }
+  if (notas !== undefined) {
+    fields.push("Pro_Notas = ?");
+    params.push(notas ?? null);
+  }
+  if (enlace !== undefined) {
+    fields.push("Pro_Enlace = ?");
+    params.push(enlace ?? null);
+  }
+  if (multimedia !== undefined) {
+    fields.push("Pro_Revision_Multimedia = ?");
+    params.push(multimedia ?? null);
+  }
+  if (edicion !== undefined) {
+    fields.push("Pro_Revision_Edicion = ?");
+    params.push(edicion ?? null);
+  }
+
+  if (!fields.length) {
+    return { affectedRows: 0 };
+  }
+
+  params.push(Number(id));
+
+  const [result] = await pool.query(
+    `UPDATE T_Proyecto
+     SET ${fields.join(", ")}
+     WHERE PK_Pro_Cod = ?`,
+    params
+  );
+
+  return { affectedRows: result.affectedRows };
+}
+
 async function deleteProyecto(id) {
   return runCall("CALL sp_proyecto_eliminar(?)", [Number(id)]);
 }
@@ -151,6 +222,51 @@ async function getDisponibilidad({
   };
 }
 
+// Busca una asignación de equipo para un proyecto que no haya sido devuelta.
+async function findAsignacionPendiente(proyectoId, equipoId) {
+  const [rows] = await pool.query(
+    `SELECT
+       PK_EqAsig_Cod AS asignacionId,
+       FK_Eq_Cod     AS equipoId,
+       FK_Pro_Cod    AS proyectoId,
+       EqAsig_Fecha_Inicio AS fechaInicio,
+       EqAsig_Fecha_Fin    AS fechaFin,
+       EqAsig_Estado       AS estado,
+       EqAsig_Devuelto     AS devuelto
+     FROM T_Equipo_Asignacion
+     WHERE FK_Pro_Cod = ? AND FK_Eq_Cod = ? AND EqAsig_Devuelto = 0
+     LIMIT 1`,
+    [Number(proyectoId), Number(equipoId)]
+  );
+  return rows[0] || null;
+}
+
+// Marca una asignación como devuelta y almacena información de devolución.
+async function marcarDevolucion({
+  proyectoId,
+  equipoId,
+  estadoDevolucion,
+  notas,
+  usuarioId = null,
+}) {
+  await pool.query(
+    `UPDATE T_Equipo_Asignacion
+       SET EqAsig_Devuelto = 1,
+           EqAsig_Fecha_Devolucion = NOW(),
+           EqAsig_Estado_Devolucion = ?,
+           EqAsig_Notas_Devolucion = ?,
+           EqAsig_Usuario_Devolucion = ?
+     WHERE FK_Pro_Cod = ? AND FK_Eq_Cod = ?`,
+    [
+      estadoDevolucion ?? null,
+      notas ?? null,
+      usuarioId ?? null,
+      Number(proyectoId),
+      Number(equipoId),
+    ]
+  );
+}
+
 module.exports = {
   getAllProyecto,
   getByIdProyecto,
@@ -163,4 +279,7 @@ module.exports = {
   resetRecursosProyecto,
   addProyectoRecurso,
   getDisponibilidad,
+  patchProyectoById,
+  findAsignacionPendiente,
+  marcarDevolucion,
 };
