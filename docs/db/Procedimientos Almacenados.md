@@ -5,9 +5,9 @@
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_actualizar"(
   IN pIdCliente INT,
-  IN pCorreo    VARCHAR(25),
+  IN pCorreo    VARCHAR(250),
   IN pCelular   VARCHAR(25),
-  IN pDireccion VARCHAR(100)
+  IN pDireccion VARCHAR(150)
 )
 BEGIN
   DECLARE vUserId INT;
@@ -111,7 +111,8 @@ BEGIN
     FROM T_Cliente c
     JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
     WHERE
-      (u.U_Nombre  LIKE CONCAT(v_t1, '%')
+      c.FK_ECli_Cod <> 3
+      AND (u.U_Nombre  LIKE CONCAT(v_t1, '%')
        AND u.U_Apellido LIKE CONCAT(v_t2, '%'))
       -- Si quisieras permitir también el concatenado explícito (equivalente):
       -- OR CONCAT(u.U_Nombre, ' ', u.U_Apellido) LIKE CONCAT(v_t1, ' ', v_t2, '%')
@@ -137,13 +138,16 @@ BEGIN
     FROM T_Cliente c
     JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
     WHERE
-      u.U_Numero_Documento = v_q_norm OR
-      u.U_Correo = v_q_norm OR
-      u.U_Celular = v_q_norm OR
-      u.U_Numero_Documento LIKE CONCAT(v_t1, '%') OR
-      u.U_Celular          LIKE CONCAT(v_t1, '%') OR
-      u.U_Nombre           LIKE CONCAT(v_t1, '%') OR
-      u.U_Apellido         LIKE CONCAT(v_t1, '%')
+      c.FK_ECli_Cod <> 3
+      AND (
+        u.U_Numero_Documento = v_q_norm OR
+        u.U_Correo = v_q_norm OR
+        u.U_Celular = v_q_norm OR
+        u.U_Numero_Documento LIKE CONCAT(v_t1, '%') OR
+        u.U_Celular          LIKE CONCAT(v_t1, '%') OR
+        u.U_Nombre           LIKE CONCAT(v_t1, '%') OR
+        u.U_Apellido         LIKE CONCAT(v_t1, '%')
+      )
     ORDER BY score DESC, c.PK_Cli_Cod DESC
     LIMIT v_limit;
   END IF;

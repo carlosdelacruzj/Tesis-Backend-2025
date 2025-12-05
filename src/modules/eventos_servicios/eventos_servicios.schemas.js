@@ -6,89 +6,68 @@
  *     EventoServicioStaffItem:
  *       type: object
  *       properties:
- *         rol:
- *           type: string
- *           example: Fotógrafo
- *         cantidad:
- *           type: integer
- *           example: 2
+ *         rol:      { type: string, example: Fotógrafo }
+ *         cantidad: { type: integer, example: 2 }
  *
  *     EventoServicioEquipoItem:
  *       type: object
  *       properties:
- *         tipoEquipoId:
+ *         tipoEquipoId: { type: integer, example: 3 }
+ *         tipoEquipo:   { type: string,  example: "Cámara DSLR" }
+ *         cantidad:     { type: integer, example: 2 }
+ *         notas:        { type: string, nullable: true, example: "Con baterías adicionales" }
+ *
+ *     EventoServicioEstado:
+ *       type: object
+ *       properties:
+ *         idEstado: { type: integer }
+ *         nombreEstado: { type: string }
+ *       required: [idEstado, nombreEstado]
+ *       example:
+ *         idEstado: 1
+ *         nombreEstado: "Activo"
+ *
+ *     EventoServicioEstadoUpdate:
+ *       type: object
+ *       required: [estadoId]
+ *       properties:
+ *         estadoId:
  *           type: integer
- *           example: 3
- *         tipoEquipo:
- *           type: string
- *           example: Cámara DSLR
- *         cantidad:
- *           type: integer
- *           example: 2
- *         notas:
- *           type: string
- *           nullable: true
- *           example: Con baterías adicionales
+ *           description: Identificador del estado (1=Activo, 2=Inactivo)
+ *       example:
+ *         estadoId: 2
  *
  *     EventoServicio:
  *       type: object
  *       properties:
- *         id:
- *           type: integer
- *           description: PK_ExS_Cod
- *         titulo:
- *           type: string
- *           description: Nombre comercial del paquete
- *         categoriaId:
- *           type: integer
- *           nullable: true
- *           description: FK a T_EventoServicioCategoria
- *         categoriaNombre:
- *           type: string
- *           nullable: true
- *           description: Nombre de la categoría asociada
- *         categoriaTipo:
- *           type: string
- *           nullable: true
- *           description: Tipo de la categoría (PAQUETE / ADDON)
- *         esAddon:
- *           type: boolean
- *           description: Indica si el evento-servicio es un complemento
+ *         id:              { type: integer, description: "PK_ExS_Cod" }
+ *         titulo:          { type: string, description: "Nombre comercial del paquete" }
+ *         categoriaId:     { type: integer, nullable: true, description: "FK a T_EventoServicioCategoria" }
+ *         categoriaNombre: { type: string, nullable: true }
+ *         categoriaTipo:   { type: string, nullable: true, description: "PAQUETE | ADDON" }
+ *         esAddon:         { type: boolean, description: "Indica si es complemento" }
  *         evento:
  *           type: object
  *           properties:
- *             id: { type: integer, description: PK_E_Cod }
+ *             id: { type: integer, description: "PK_E_Cod" }
  *             nombre: { type: string, nullable: true }
  *         servicio:
  *           type: object
  *           properties:
- *             id: { type: integer, description: PK_S_Cod }
+ *             id: { type: integer, description: "PK_S_Cod" }
  *             nombre: { type: string, nullable: true }
- *         precio:
- *           type: number
- *           format: float
- *           nullable: true
- *         descripcion:
- *           type: string
- *           nullable: true
- *         horas:
- *           type: number
- *           format: float
- *           nullable: true
- *         fotosImpresas:
- *           type: integer
- *           nullable: true
- *         trailerMin:
- *           type: integer
- *           nullable: true
- *         filmMin:
- *           type: integer
- *           nullable: true
+ *         precio:        { type: number, format: float, nullable: true }
+ *         descripcion:   { type: string, nullable: true }
+ *         horas:         { type: number, format: float, nullable: true }
+ *         fotosImpresas: { type: integer, nullable: true }
+ *         trailerMin:    { type: integer, nullable: true }
+ *         filmMin:       { type: integer, nullable: true }
+ *         estado:
+ *           $ref: '#/components/schemas/EventoServicioEstado'
  *         staff:
  *           type: object
  *           properties:
- *             total:
- *               type: integer
+ *             total:   { type: integer }
  *             detalle:
  *               type: array
  *               items: { $ref: '#/components/schemas/EventoServicioStaffItem' }
@@ -110,6 +89,7 @@
  *         fotosImpresas: 40
  *         trailerMin: 0
  *         filmMin: 0
+ *         estado: { idEstado: 1, nombreEstado: "Activo" }
  *         staff:
  *           total: 3
  *           detalle:
@@ -122,13 +102,9 @@
  *     EventoServicioCategoria:
  *       type: object
  *       properties:
- *         id:
- *           type: integer
- *         nombre:
- *           type: string
- *         tipo:
- *           type: string
- *           enum: [PAQUETE, ADDON]
+ *         id:     { type: integer }
+ *         nombre: { type: string }
+ *         tipo:   { type: string, enum: [PAQUETE, ADDON] }
  *       example:
  *         id: 2
  *         nombre: Deluxe
@@ -138,40 +114,17 @@
  *       type: object
  *       required: [servicio, evento, staff, equipos]
  *       properties:
- *         servicio:
- *           type: integer
- *           description: FK -> PK_S_Cod
- *         evento:
- *           type: integer
- *         titulo:
- *           type: string
- *           nullable: true
- *         categoriaId:
- *           type: integer
- *           nullable: true
- *         esAddon:
- *           type: boolean
- *           nullable: true
- *         precio:
- *           type: number
- *           format: float
- *           nullable: true
- *         descripcion:
- *           type: string
- *           nullable: true
- *         horas:
- *           type: number
- *           format: float
- *           nullable: true
- *         fotosImpresas:
- *           type: integer
- *           nullable: true
- *         trailerMin:
- *           type: integer
- *           nullable: true
- *         filmMin:
- *           type: integer
- *           nullable: true
+ *         servicio:      { type: integer, description: "FK -> PK_S_Cod" }
+ *         evento:        { type: integer }
+ *         titulo:        { type: string, nullable: true }
+ *         categoriaId:   { type: integer, nullable: true }
+ *         esAddon:       { type: boolean, nullable: true }
+ *         precio:        { type: number, format: float, nullable: true }
+ *         descripcion:   { type: string, nullable: true }
+ *         horas:         { type: number, format: float, nullable: true }
+ *         fotosImpresas: { type: integer, nullable: true }
+ *         trailerMin:    { type: integer, nullable: true }
+ *         filmMin:       { type: integer, nullable: true }
  *         staff:
  *           type: array
  *           minItems: 1

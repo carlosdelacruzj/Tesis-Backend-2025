@@ -76,6 +76,36 @@ async function updateById({ idCliente, correo, celular, direccion }) {
   ]);
 }
 
+async function findEstadoById(idEstadoCliente) {
+  const [rows] = await pool.query(
+    `SELECT PK_ECli_Cod AS idEstadoCliente, ECli_Nombre AS nombreEstadoCliente
+     FROM T_Estado_Cliente
+     WHERE PK_ECli_Cod = ?`,
+    [idEstadoCliente]
+  );
+  return rows[0] || null;
+}
+
+async function listEstados() {
+  const [rows] = await pool.query(
+    `SELECT PK_ECli_Cod AS idEstadoCliente, ECli_Nombre AS nombreEstadoCliente
+     FROM T_Estado_Cliente
+     ORDER BY PK_ECli_Cod`
+  );
+  return rows;
+}
+
+async function updateEstado(idCliente, idEstadoCliente) {
+  const [result] = await pool.query(
+    "UPDATE T_Cliente SET FK_ECli_Cod = ? WHERE PK_Cli_Cod = ?",
+    [idEstadoCliente, idCliente]
+  );
+  if (result.affectedRows === 0) {
+    return null;
+  }
+  return getById(idCliente);
+}
+
 module.exports = {
   getAll,
   getById,
@@ -83,4 +113,7 @@ module.exports = {
   autocomplete, // <-- nuevo método exportado
   create,
   updateById,
+  findEstadoById,
+  listEstados,
+  updateEstado,
 };

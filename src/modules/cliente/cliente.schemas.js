@@ -92,6 +92,16 @@
  *       description: Lista de coincidencias para autocompletado.
  *       items:
  *         $ref: '#/components/schemas/ClienteAutocompleteItem'
+ *
+ *     ClienteEstadoUpdate:
+ *       type: object
+ *       required: [estadoClienteId]
+ *       properties:
+ *         estadoClienteId:
+ *           type: integer
+ *           description: Identificador de T_Estado_Cliente (ej. 1=Habilitado, 2=Deshabilitado)
+ *       example:
+ *         estadoClienteId: 3
  */
 
 module.exports = {};

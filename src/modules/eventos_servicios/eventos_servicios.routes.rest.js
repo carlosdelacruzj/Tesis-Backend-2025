@@ -42,6 +42,23 @@ router.get("/categorias", ctrl.getCategorias);
 
 /**
  * @swagger
+ * /eventos_servicios/estados:
+ *   get:
+ *     tags: [eventos - servicios]
+ *     summary: Lista los estados disponibles para evento-servicio (paquete)
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/EventoServicioEstado' }
+ */
+router.get("/estados", ctrl.getEstados);
+
+/**
+ * @swagger
  * /eventos_servicios/{id}:
  *   get:
  *     tags: [eventos - servicios]
@@ -91,5 +108,28 @@ router.post("/", ctrl.create);
  *     responses: { '200': { description: Actualizado } }
  */
 router.put("/:id", ctrl.update);
+
+/**
+ * @swagger
+ * /eventos_servicios/{id}/estado:
+ *   patch:
+ *     tags: [eventos - servicios]
+ *     summary: Cambiar estado de un evento-servicio (activar/desactivar)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/EventoServicioEstadoUpdate'
+ *     responses:
+ *       "200": { description: OK }
+ *       "404": { description: No encontrado }
+ */
+router.patch("/:id/estado", ctrl.patchEstado);
 
 module.exports = router;

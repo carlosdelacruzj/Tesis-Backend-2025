@@ -14,6 +14,27 @@ router.get("/", ctrl.getAllCliente);
 
 /**
  * @swagger
+ * /clientes/estados:
+ *   get:
+ *     tags: [cliente]
+ *     summary: Listar estados de cliente
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   idEstadoCliente: { type: integer }
+ *                   nombreEstadoCliente: { type: string }
+ */
+router.get("/estados", ctrl.listEstadosCliente);
+
+/**
+ * @swagger
  * /clientes/buscar:
  *   get:
  *     tags: [cliente]
@@ -104,6 +125,35 @@ router.get("/:id/cotizaciones", ctrl.getCotizacionesCliente);
  *       '404': { description: No encontrado }
  */
 router.get("/:id", ctrl.getByIdCliente);
+
+/**
+ * @swagger
+ * /clientes/{id}/estado:
+ *   patch:
+ *     tags: [cliente]
+ *     summary: Cambiar estado de un cliente (habilitar/deshabilitar)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             $ref: '#/components/schemas/ClienteEstadoUpdate'
+ *     responses:
+ *       "200":
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cliente'
+ *       "404":
+ *         description: Cliente o estado no encontrado
+ */
+router.patch("/:id/estado", ctrl.patchEstadoCliente);
 
 /**
  * @swagger

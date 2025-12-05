@@ -156,6 +156,40 @@ router.get("/:id(\\d+)/asignaciones", ctrl.getAsignaciones);
 
 /**
  * @swagger
+ * /proyecto/{id}/devoluciones/pendientes:
+ *   get:
+ *     tags: [proyecto]
+ *     summary: Listar asignaciones de equipo pendientes de devolución para un proyecto
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   asignacionId: { type: integer }
+ *                   proyectoId: { type: integer }
+ *                   equipoId: { type: integer }
+ *                   equipoSerie: { type: string, nullable: true }
+ *                   modelo: { type: string }
+ *                   marca: { type: string }
+ *                   tipoEquipo: { type: string }
+ *                   fechaInicio: { type: string, format: date }
+ *                   fechaFin: { type: string, format: date }
+ *                   notas: { type: string, nullable: true }
+ */
+router.get("/:id(\\d+)/devoluciones/pendientes", ctrl.getPendientesDevolucion);
+
+/**
+ * @swagger
  * /proyecto/{id}/devolucion:
  *   post:
  *     tags: [proyecto]
@@ -184,6 +218,10 @@ router.get("/:id(\\d+)/asignaciones", ctrl.getAsignaciones);
  *                       type: string
  *                       enum: [devuelto, daniado, faltante]
  *                     notas: { type: string, maxLength: 255 }
+ *                     usuarioId:
+ *                       type: integer
+ *                       nullable: true
+ *                       description: Se tomará del token si está disponible
  *             example:
  *               devoluciones:
  *                 - equipoId: 101

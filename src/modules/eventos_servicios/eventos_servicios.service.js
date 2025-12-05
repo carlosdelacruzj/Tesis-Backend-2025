@@ -298,4 +298,37 @@ async function listCategorias() {
   return repo.listCategorias();
 }
 
-module.exports = { list, findById, create, update, listCategorias };
+async function listEstados() {
+  return repo.listEstados();
+}
+
+async function updateEstado(id, payload = {}) {
+  assertPositiveInt(id, "id");
+  const estadoId = ensureOptionalPositiveInteger(payload.estadoId, "estadoId");
+  if (!estadoId) {
+    badRequest("estadoId es requerido");
+  }
+  const estados = await repo.listEstados();
+  if (!estados.some((e) => e.idEstado === estadoId)) {
+    const err = new Error("Estado de evento-servicio no existe");
+    err.status = 404;
+    throw err;
+  }
+  const ok = await repo.updateEstado(id, estadoId);
+  if (!ok) {
+    const err = new Error(`Registro con id ${id} no encontrado`);
+    err.status = 404;
+    throw err;
+  }
+  return { Status: "Estado actualizado", idEventoServicio: Number(id), estadoId };
+}
+
+module.exports = {
+  list,
+  findById,
+  create,
+  update,
+  listCategorias,
+  listEstados,
+  updateEstado,
+};

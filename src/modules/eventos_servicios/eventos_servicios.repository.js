@@ -98,6 +98,18 @@ function normalizeRow(row = {}) {
       row.filmMin != null && Number.isFinite(Number(row.filmMin))
         ? Number(row.filmMin)
         : null,
+    estado: {
+      id:
+        row.estadoId != null
+          ? Number(row.estadoId)
+          : row.FK_ESE_Cod != null
+          ? Number(row.FK_ESE_Cod)
+          : null,
+      nombre:
+        row.estadoNombre ??
+        row.ESE_Nombre ??
+        null,
+    },
     staff: normalizeStaff(staffDetalle, row.staffTotal),
     equipos: equiposDetalle,
   };
@@ -250,6 +262,23 @@ async function updateById({
   );
 }
 
+async function updateEstado(id, estadoId) {
+  const [result] = await pool.query(
+    "UPDATE T_EventoServicio SET FK_ESE_Cod = ? WHERE PK_ExS_Cod = ?",
+    [estadoId, id]
+  );
+  return result.affectedRows > 0;
+}
+
+async function listEstados() {
+  const [rows] = await pool.query(
+    `SELECT PK_ESE_Cod AS idEstado, ESE_Nombre AS nombreEstado
+     FROM T_EventoServicioEstado
+     ORDER BY PK_ESE_Cod`
+  );
+  return rows;
+}
+
 async function listCategorias() {
   const [rows] = await pool.query(
     `SELECT
@@ -263,4 +292,12 @@ async function listCategorias() {
   return rows;
 }
 
-module.exports = { getAll, getById, create, updateById, listCategorias };
+module.exports = {
+  getAll,
+  getById,
+  create,
+  updateById,
+  listCategorias,
+  updateEstado,
+  listEstados,
+};

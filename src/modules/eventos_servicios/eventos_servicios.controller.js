@@ -24,6 +24,13 @@ async function getCategorias(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function getEstados(_req, res, next) {
+  try {
+    const data = await service.listEstados();
+    res.status(200).json(data);
+  } catch (err) { next(err); }
+}
+
 // POST /eventos_servicios
 async function create(req, res, next) {
   try {
@@ -41,4 +48,19 @@ async function update(req, res, next) {
   } catch (err) { next(err); }
 }
 
-module.exports = { getAll, getById, getCategorias, create, update };
+async function patchEstado(req, res, next) {
+  try {
+    const result = await service.updateEstado(req.params.id, req.body);
+    res.status(200).json(result);
+  } catch (err) { next(err); }
+}
+
+module.exports = {
+  getAll,
+  getById,
+  getCategorias,
+  getEstados,
+  create,
+  update,
+  patchEstado,
+};

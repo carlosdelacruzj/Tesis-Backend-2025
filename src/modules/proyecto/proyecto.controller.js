@@ -37,6 +37,12 @@ async function getAsignaciones(req, res, next) {
     res.status(200).json(data);
   } catch (e) { next(e); }
 }
+async function getPendientesDevolucion(req, res, next) {
+  try {
+    const data = await service.listPendientesDevolucion(req.params.id);
+    res.status(200).json(data);
+  } catch (e) { next(e); }
+}
 async function deleteProyecto(req, res, next) {
   try {
     const r = await service.deleteProyecto(req.params.id);
@@ -65,7 +71,15 @@ async function getDisponibilidad(req, res, next) {
 
 async function postDevolucion(req, res, next) {
   try {
-    const data = await service.registrarDevolucion(req.params.id, req.body);
+    const usuarioId =
+      req.user?.usuarioId ??
+      req.user?.id ??
+      (req.body?.usuarioId != null ? req.body.usuarioId : null);
+    const data = await service.registrarDevolucion(
+      req.params.id,
+      req.body,
+      { usuarioId }
+    );
     res.status(200).json(data);
   } catch (e) { next(e); }
 }
@@ -77,6 +91,7 @@ module.exports = {
   putProyecto,
   postRecurso,
   getAsignaciones,
+  getPendientesDevolucion,
   deleteProyecto,
   patchProyecto,
   getEstados,

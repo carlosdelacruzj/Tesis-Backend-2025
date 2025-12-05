@@ -16,6 +16,24 @@ function assertString(value, field) {
   }
 }
 
+function assertMaxLength(value, field, max) {
+  if (value != null && typeof value === "string" && value.length > max) {
+    const err = new Error(`El campo '${field}' no puede exceder ${max} caracteres`);
+    err.status = 422;
+    throw err;
+  }
+}
+
+function assertPositiveInt(value, field) {
+  const num = Number(value);
+  if (!Number.isInteger(num) || num <= 0) {
+    const err = new Error(`Campo '${field}' debe ser un entero positivo`);
+    err.status = 400;
+    throw err;
+  }
+  return num;
+}
+
 async function list() {
   return repo.getAll();
 }
@@ -36,7 +54,8 @@ async function findById(id) {
     throw err;
   }
 
-  return data;
+  // El SP devuelve arreglo; normalizamos a un solo objeto.
+  return Array.isArray(data) ? data[0] : data;
 }
 
 async function findByDoc(doc) {
@@ -75,6 +94,11 @@ async function update(payload) {
     err.status = 400;
     throw err;
   }
+
+  // Validaciones de longitud según SP sp_cliente_actualizar
+  assertMaxLength(correo, "correo", 250);
+  assertMaxLength(celular, "celular", 25);
+  assertMaxLength(direccion, "direccion", 150);
 
   await repo.updateById({ idCliente: idNum, correo, celular, direccion });
   return { Status: "Actualizacion exitosa" };
@@ -115,6 +139,31 @@ async function listCotizacionesByCliente(id, estado) {
   return rows;
 }
 
+async function listEstadosCliente() {
+  return repo.listEstados();
+}
+
+async function changeEstado(idCliente, estadoClienteId) {
+  const id = assertPositiveInt(idCliente, "idCliente");
+  const estadoId = assertPositiveInt(estadoClienteId, "estadoClienteId");
+
+  const estado = await repo.findEstadoById(estadoId);
+  if (!estado) {
+    const err = new Error("Estado de cliente no existe.");
+    err.status = 404;
+    throw err;
+  }
+
+  const updated = await repo.updateEstado(id, estadoId);
+  const normalized = Array.isArray(updated) ? updated[0] : updated;
+  if (!normalized) {
+    const err = new Error(`Cliente con id ${id} no encontrado`);
+    err.status = 404;
+    throw err;
+  }
+  return normalized;
+}
+
 module.exports = {
   list,
   findById,
@@ -124,4 +173,6 @@ module.exports = {
   autocomplete,
   listPedidosByCliente,
   listCotizacionesByCliente,
+  listEstadosCliente,
+  changeEstado,
 };

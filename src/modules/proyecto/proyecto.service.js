@@ -1,6 +1,7 @@
 const repo = require("./proyecto.repository");
 const equipoService = require("../inventario/equipo/equipo.service");
 
+const ESTADO_DISPONIBLE = 10;
 const ESTADO_MANTENIMIENTO = 12;
 const ESTADO_BAJA = 13;
 
@@ -123,6 +124,11 @@ async function listAsignaciones(proyectoId) {
   }
   return repo.listAsignacionesByProyecto(proyectoId);
 }
+
+async function listPendientesDevolucion(proyectoId) {
+  const pid = ensurePositiveInt(proyectoId, "proyectoId");
+  return repo.listAsignacionesPendientes(pid);
+}
 async function deleteProyecto(id) {
   await repo.deleteProyecto(id);
   return { status: "Eliminada" };
@@ -197,7 +203,7 @@ async function disponibilidad(query = {}) {
   return { empleados: empleadosMapped, equipos: equiposMapped };
 }
 
-async function registrarDevolucion(proyectoId, payload = {}) {
+async function registrarDevolucion(proyectoId, payload = {}, { usuarioId = null } = {}) {
   const pid = ensurePositiveInt(proyectoId, "proyectoId");
   const lista = Array.isArray(payload.devoluciones) ? payload.devoluciones : null;
   if (!lista || !lista.length) {
@@ -238,13 +244,15 @@ async function registrarDevolucion(proyectoId, payload = {}) {
       equipoId,
       estadoDevolucion,
       notas,
-      usuarioId: null,
+      usuarioId: usuarioId == null ? null : ensurePositiveInt(usuarioId, "usuarioId"),
     });
 
     let nuevoEstado = null;
     let proyectosAfectados = [];
 
-    if (estadoDevolucion === "daniado") {
+    if (estadoDevolucion === "devuelto") {
+      nuevoEstado = ESTADO_DISPONIBLE;
+    } else if (estadoDevolucion === "daniado") {
       nuevoEstado = ESTADO_MANTENIMIENTO;
     } else if (estadoDevolucion === "faltante") {
       nuevoEstado = ESTADO_BAJA;
@@ -281,6 +289,7 @@ module.exports = {
   updateProyecto,
   addRecurso,
   listAsignaciones,
+  listPendientesDevolucion,
   deleteProyecto,
   patchProyecto,
   listEstadosProyecto,

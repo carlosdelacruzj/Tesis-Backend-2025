@@ -241,6 +241,31 @@ async function findAsignacionPendiente(proyectoId, equipoId) {
   return rows[0] || null;
 }
 
+async function listAsignacionesPendientes(proyectoId) {
+  const [rows] = await pool.query(
+    `SELECT
+       a.PK_EqAsig_Cod  AS asignacionId,
+       a.FK_Pro_Cod     AS proyectoId,
+       a.FK_Eq_Cod      AS equipoId,
+       e.Eq_Serie       AS equipoSerie,
+       mo.NMo_Nombre    AS modelo,
+       ma.NMa_Nombre    AS marca,
+       te.TE_Nombre     AS tipoEquipo,
+       a.EqAsig_Fecha_Inicio AS fechaInicio,
+       a.EqAsig_Fecha_Fin    AS fechaFin,
+       a.EqAsig_Notas        AS notas
+     FROM T_Equipo_Asignacion a
+     INNER JOIN T_Equipo e ON e.PK_Eq_Cod = a.FK_Eq_Cod
+     INNER JOIN T_Modelo mo ON mo.PK_IMo_Cod = e.FK_IMo_Cod
+     INNER JOIN T_Marca ma ON ma.PK_IMa_Cod = mo.FK_IMa_Cod
+     INNER JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
+     WHERE a.FK_Pro_Cod = ? AND a.EqAsig_Devuelto = 0
+     ORDER BY a.EqAsig_Fecha_Inicio, a.PK_EqAsig_Cod`,
+    [Number(proyectoId)]
+  );
+  return rows;
+}
+
 // Marca una asignación como devuelta y almacena información de devolución.
 async function marcarDevolucion({
   proyectoId,
@@ -281,5 +306,6 @@ module.exports = {
   getDisponibilidad,
   patchProyectoById,
   findAsignacionPendiente,
+  listAsignacionesPendientes,
   marcarDevolucion,
 };

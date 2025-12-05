@@ -88,6 +88,24 @@ async function getCotizacionesCliente(req, res, next) {
   }
 }
 
+async function listEstadosCliente(_req, res, next) {
+  try {
+    const data = await service.listEstadosCliente();
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function patchEstadoCliente(req, res, next) {
+  try {
+    const data = await service.changeEstado(req.params.id, req.body?.estadoClienteId);
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAllCliente,
   getByIdCliente,
@@ -97,4 +115,6 @@ module.exports = {
   buscarClientes, // <-- export nuevo
   getPedidosCliente,
   getCotizacionesCliente,
+  listEstadosCliente,
+  patchEstadoCliente,
 };
