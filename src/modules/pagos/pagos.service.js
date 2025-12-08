@@ -71,6 +71,11 @@ async function createVoucher({
   const mp = assertIdPositivo(metodoPagoId, "metodoPagoId");
   const ev = assertIdPositivo(estadoVoucherId, "estadoVoucherId");
 
+  // Detectar si es el primer pago antes de insertar (MontoAbonado previo == 0)
+  const resumenPrev = await repo.getResumenByPedido(id);
+  const montoAbonadoPrev = Number(resumenPrev?.[0]?.MontoAbonado ?? 0);
+  const esPrimerPago = montoAbonadoPrev <= 0;
+
   // Si no hay archivo, persistimos nulos en columnas de imagen
   const imagen = file?.buffer ?? null;
   const mime = file?.mimetype ?? null;
@@ -89,6 +94,17 @@ async function createVoucher({
     nombre, // string o null
     size, // number o null
   });
+
+  // Si es el primer pago, pasamos el pedido a estado "Contratado" (id=2) solo si estaba en "Cotizado" (id=1)
+  if (esPrimerPago) {
+    try {
+      await repo.updatePedidoEstadoContratado(id);
+    } catch (err) {
+      // No bloqueamos el flujo de pago si falla el cambio de estado, pero registramos error
+      // eslint-disable-next-line no-console
+      console.error("[pagos] No se pudo actualizar estado de pedido a Contratado:", err.message);
+    }
+  }
 
   return { Status: "Voucher registrado" };
 }

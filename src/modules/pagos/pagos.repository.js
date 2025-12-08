@@ -152,6 +152,15 @@ async function updateVoucher({
   return result.affectedRows;
 }
 
+// Cambia el estado del pedido a "Contratado" (id=2) solo si está en "Cotizado" (id=1)
+async function updatePedidoEstadoContratado(pedidoId) {
+  const [result] = await pool.query(
+    "UPDATE T_Pedido SET FK_EP_Cod = 2 WHERE PK_P_Cod = ? AND FK_EP_Cod = 1",
+    [Number(pedidoId)]
+  );
+  return result.affectedRows > 0;
+}
+
 async function deleteVoucher(id) {
   const [result] = await pool.query(
     "DELETE FROM T_Voucher WHERE PK_Pa_Cod = ?",
@@ -172,5 +181,6 @@ module.exports = {
   listAllVouchers,
   findVoucherMetaById,
   updateVoucher,
+  updatePedidoEstadoContratado,
   deleteVoucher,
 };
