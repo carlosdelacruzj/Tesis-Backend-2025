@@ -9,8 +9,16 @@ function assertString(v, field) {
   }
 }
 
+const { formatCodigo } = require("../../utils/codigo");
+
 async function list() {
-  return repo.getAll();
+  const rows = await repo.getAll();
+  return Array.isArray(rows)
+    ? rows.map((r) => ({
+        ...r,
+        codigo: r.codigoEmpleado ?? formatCodigo("EMP", r.idEmpleado),
+      }))
+    : rows;
 }
 
 async function listCargos() {
@@ -47,7 +55,9 @@ async function findById(id) {
     throw err;
   }
   const row = Array.isArray(data) ? data[0] : data;
-  return row;
+  return row
+    ? { ...row, codigo: row.codigoEmpleado ?? formatCodigo("EMP", row.idEmpleado) }
+    : row;
 }
 
 async function create(payload) {

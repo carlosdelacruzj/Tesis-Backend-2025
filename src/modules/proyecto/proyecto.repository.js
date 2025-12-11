@@ -1,4 +1,5 @@
 const pool = require("../../db");
+const { formatCodigo } = require("../../utils/codigo");
 
 async function runCall(sql, params = []) {
   const [rows] = await pool.query(sql, params);
@@ -13,7 +14,13 @@ async function runCallMulti(sql, params = []) {
 
 /* Proyecto */
 async function getAllProyecto() {
-  return runCall("CALL sp_proyecto_listar()");
+  const rows = await runCall("CALL sp_proyecto_listar()");
+  return Array.isArray(rows)
+    ? rows.map((r) => ({
+        ...r,
+        codigo: formatCodigo("PRO", r.proyectoId ?? r.id ?? r.ID),
+      }))
+    : rows;
 }
 
 async function getByIdProyecto(id) {
@@ -21,8 +28,12 @@ async function getByIdProyecto(id) {
   //   result set 0: una sola fila con los campos del proyecto
   //   result set 1: lista de recursos asociados al proyecto
   const sets = await runCallMulti("CALL sp_proyecto_obtener(?)", [Number(id)]);
+  const proyectoRaw = sets[0]?.[0] || null;
+  const proyecto = proyectoRaw
+    ? { ...proyectoRaw, codigo: formatCodigo("PRO", proyectoRaw.proyectoId ?? proyectoRaw.id) }
+    : null;
   return {
-    proyecto: sets[0]?.[0] || null,
+    proyecto,
     recursos: sets[1] || [],
   };
 }

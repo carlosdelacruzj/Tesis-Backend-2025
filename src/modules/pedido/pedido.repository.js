@@ -1,5 +1,6 @@
 // pedido.repository.js
 const pool = require("../../db");
+const { formatCodigo } = require("../../utils/codigo");
 
 // ------------------------------
 // Helpers de formato
@@ -56,7 +57,11 @@ async function runCallMulti(sql, params = []) {
 // Consultas / Procedures existentes
 // ------------------------------
 async function getAll() {
-  return runCall("CALL sp_pedido_listar()");
+  const rows = await runCall("CALL sp_pedido_listar()");
+  return rows.map((r) => {
+    const id = r.ID ?? r.id ?? r.pedidoId ?? r.idPedido;
+    return { ...r, codigo: formatCodigo("PED", id) };
+  });
 }
 
 async function getByClienteId(clienteId) {
@@ -64,7 +69,12 @@ async function getByClienteId(clienteId) {
     "CALL sp_pedido_listar_por_cliente_detalle(?)",
     [Number(clienteId)]
   );
-  return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
+  const result = Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
+  const list = Array.isArray(result) ? result : [];
+  return list.map((r) => ({
+    ...r,
+    codigo: formatCodigo("PED", r.pedidoId ?? r.ID ?? r.id),
+  }));
 }
 
 async function getIndex() {
@@ -83,6 +93,7 @@ async function getById(id) {
 
   const pedido = {
     id: cab.id,
+    codigo: formatCodigo("PED", cab.id),
     clienteId: cab.clienteId,
     cotizacionId: cab.cotizacionId ?? null,
     nombrePedido: cab.nombrePedido,

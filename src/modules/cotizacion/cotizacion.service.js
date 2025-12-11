@@ -1,6 +1,7 @@
 const repo = require("./cotizacion.repository");
 const { generarCotizacionPdf } = require("../../pdf/cotizacion");
 const { generarCotizacionPdfV2 } = require("../../pdf/cotizacion_v2");
+const { formatCodigo } = require("../../utils/codigo");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -456,8 +457,10 @@ async function list({ estado } = {}) {
       } : undefined
     );
 
+    const id = r.id ?? r.idCotizacion ?? r.cotizacion_id ?? r.PK_Cot_Cod;
     return {
-      id: r.id ?? r.idCotizacion ?? r.cotizacion_id ?? r.PK_Cot_Cod,
+      id,
+      codigo: r.codigo ?? formatCodigo("COT", id),
       estado: r.estado ?? r.Cot_Estado,
       fechaCreacion: r.fechaCreacion ?? r.Cot_Fecha_Crea,
 

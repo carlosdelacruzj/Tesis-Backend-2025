@@ -6,6 +6,7 @@ const {
   buildInitialPassword,
   hashPassword,
 } = require("../../utils/password");
+const { formatCodigo } = require("../../utils/codigo");
 
 // Basic validation helpers
 function assertString(value, field) {
@@ -35,7 +36,13 @@ function assertPositiveInt(value, field) {
 }
 
 async function list() {
-  return repo.getAll();
+  const rows = await repo.getAll();
+  return Array.isArray(rows)
+    ? rows.map((r) => ({
+        ...r,
+        codigo: r.codigoCliente ?? formatCodigo("CLI", r.idCliente),
+      }))
+    : rows;
 }
 
 async function findById(id) {
@@ -55,7 +62,10 @@ async function findById(id) {
   }
 
   // El SP devuelve arreglo; normalizamos a un solo objeto.
-  return Array.isArray(data) ? data[0] : data;
+  const cliente = Array.isArray(data) ? data[0] : data;
+  return cliente
+    ? { ...cliente, codigo: cliente.codigoCliente ?? formatCodigo("CLI", cliente.idCliente) }
+    : cliente;
 }
 
 async function findByDoc(doc) {
@@ -113,7 +123,13 @@ async function autocomplete({ query, limit = 10 }) {
     throw err;
   }
   const lim = Number.isFinite(Number(limit)) ? Number(limit) : 10;
-  return repo.autocomplete({ query: q, limit: lim });
+  const rows = await repo.autocomplete({ query: q, limit: lim });
+  return Array.isArray(rows)
+    ? rows.map((r) => ({
+        ...r,
+        codigo: r.codigoCliente ?? formatCodigo("CLI", r.idCliente),
+      }))
+    : rows;
 }
 
 async function listPedidosByCliente(id) {

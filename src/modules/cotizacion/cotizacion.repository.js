@@ -1,5 +1,6 @@
 // cotizacion.repository.js
 const pool = require("../../db");
+const { formatCodigo } = require("../../utils/codigo");
 
 // Helper: ejecuta CALL y devuelve el/los resultsets ya “limpios”
 async function callSP(sql, params = []) {
@@ -33,6 +34,7 @@ async function listAll({ estado } = {}) {
   const list = rows.map((r) => {
     const item = {
       id: Number(r.idCotizacion),
+      codigo: formatCodigo("COT", r.idCotizacion),
       estado: String(r.estado),
       fechaCreacion: r.fechaCreacion,
       eventoId: r.idTipoEvento ?? null, // <- del SP: Cot_IdTipoEvento AS idTipoEvento
