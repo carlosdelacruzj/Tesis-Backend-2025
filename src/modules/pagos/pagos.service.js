@@ -29,6 +29,40 @@ function parseFecha(value, field = "fecha") {
   return d;
 }
 
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function syncEstadoPagoPedido(pedidoId) {
+  const resumenRows = await repo.getResumenByPedido(pedidoId);
+  const resumen = resumenRows?.[0];
+  if (!resumen) {
+    const e = new Error(`No se encontró resumen de pago para pedido ${pedidoId}`);
+    e.status = 404;
+    throw e;
+  }
+
+  const costoTotal = toNumber(resumen.CostoTotal);
+  const montoAbonado = toNumber(resumen.MontoAbonado);
+  const saldoPendiente = toNumber(
+    resumen.SaldoPendiente ?? costoTotal - montoAbonado
+  );
+
+  let estadoPagoId = 1; // Pendiente
+  if (saldoPendiente <= 0) estadoPagoId = 3; // Pagado
+  else if (montoAbonado > 0) estadoPagoId = 2; // Parcial
+
+  await repo.updatePedidoEstadoPago(pedidoId, estadoPagoId);
+
+  return {
+    estadoPagoId,
+    costoTotal,
+    montoAbonado,
+    saldoPendiente,
+  };
+}
+
 async function listPendientes() {
   return repo.listPendientes();
 }
@@ -56,6 +90,10 @@ async function listVouchers(pedidoId) {
 
 async function listMetodos() {
   return repo.listMetodos();
+}
+
+async function listEstadosPago() {
+  return repo.listEstadosPago();
 }
 
 async function createVoucher({
@@ -105,6 +143,8 @@ async function createVoucher({
       console.error("[pagos] No se pudo actualizar estado de pedido a Contratado:", err.message);
     }
   }
+
+  await syncEstadoPagoPedido(id);
 
   return { Status: "Voucher registrado" };
 }
@@ -176,17 +216,29 @@ async function updateVoucher(id, payload, file) {
     throw e;
   }
 
+  await syncEstadoPagoPedido(current.pedidoId);
+
   return repo.findVoucherMetaById(voucherId);
 }
 
 async function deleteVoucher(id) {
   const voucherId = assertIdPositivo(id, "id");
+  const current = await repo.findVoucherMetaById(voucherId);
+  if (!current) {
+    const e = new Error(`Voucher ${voucherId} no encontrado`);
+    e.status = 404;
+    throw e;
+  }
+
   const deleted = await repo.deleteVoucher(voucherId);
   if (!deleted) {
     const e = new Error(`Voucher ${voucherId} no encontrado`);
     e.status = 404;
     throw e;
   }
+
+  await syncEstadoPagoPedido(current.pedidoId);
+
   return { Status: "Voucher eliminado" };
 }
 
@@ -198,6 +250,7 @@ module.exports = {
   getResumen,
   listVouchers,
   listMetodos,
+  listEstadosPago,
   createVoucher,
   getVoucherImage,
   findVoucherById,

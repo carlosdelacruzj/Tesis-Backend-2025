@@ -113,6 +113,17 @@ router.get("/metodos", ctrl.getMetodos);
 
 /**
  * @swagger
+ * /pagos/estados:
+ *   get:
+ *     tags: [pagos]
+ *     summary: Listar estados de pago
+ *     responses:
+ *       '200': { description: OK }
+ */
+router.get("/estados", ctrl.getEstadosPago);
+
+/**
+ * @swagger
  * /pagos:
  *   post:
  *     tags: [pagos]

@@ -63,6 +63,14 @@ async function getMetodos(_req, res, next) {
   }
 }
 
+async function getEstadosPago(_req, res, next) {
+  try {
+    res.status(200).json(await service.listEstadosPago());
+  } catch (e) {
+    next(e);
+  }
+}
+
 // GET /pagos/:id
 async function getPagoById(req, res, next) {
   try {
@@ -159,6 +167,7 @@ module.exports = {
   getResumen,
   getVouchers,
   getMetodos,
+  getEstadosPago,
   getPagoById,
   postPago,
   getVoucherImage,

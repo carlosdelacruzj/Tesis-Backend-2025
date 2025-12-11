@@ -29,6 +29,25 @@ async function listMetodos() {
   return runCall("CALL sp_metodo_pago_listar()");
 }
 
+async function listEstadosPago() {
+  const [rows] = await pool.query(
+    `SELECT
+       PK_ESP_Cod AS id,
+       ESP_Nombre AS nombre
+     FROM T_Estado_Pago
+     ORDER BY PK_ESP_Cod`
+  );
+  return rows;
+}
+
+async function updatePedidoEstadoPago(pedidoId, estadoPagoId) {
+  const [result] = await pool.query(
+    "UPDATE T_Pedido SET FK_ESP_Cod = ? WHERE PK_P_Cod = ?",
+    [Number(estadoPagoId), Number(pedidoId)]
+  );
+  return result.affectedRows > 0;
+}
+
 // === Crear voucher ===
 // Si tu SP admite 'fecha', acá agregas ese parámetro (y en service/controller lo enviamos)
 async function insertVoucher({
@@ -176,11 +195,13 @@ module.exports = {
   getResumenByPedido,
   listVouchersByPedido,
   listMetodos,
+  listEstadosPago,
   insertVoucher,
   getVoucherById,
   listAllVouchers,
   findVoucherMetaById,
   updateVoucher,
   updatePedidoEstadoContratado,
+  updatePedidoEstadoPago,
   deleteVoucher,
 };
