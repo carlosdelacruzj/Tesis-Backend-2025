@@ -2,7 +2,26 @@
 const repo = require("./equipo.repository");
 const { ensurePositiveInt, ensureTrimmedString } = require("../shared/validation");
 
-const ESTADOS_INHABILITANTES = new Set([12, 13]); // 12: mantenimiento, 13: baja
+const ESTADO_EQUIPO_DISPONIBLE = "Disponible";
+const ESTADO_EQUIPO_MANTENIMIENTO = "En Mantenimiento";
+const ESTADO_EQUIPO_BAJA = "De baja";
+
+let estadoEquipoIdsCache = null;
+
+async function getEstadoEquipoIds() {
+  if (estadoEquipoIdsCache) return estadoEquipoIdsCache;
+  const [disponibleId, mantenimientoId, bajaId] = await Promise.all([
+    repo.getEstadoEquipoIdByNombre(ESTADO_EQUIPO_DISPONIBLE),
+    repo.getEstadoEquipoIdByNombre(ESTADO_EQUIPO_MANTENIMIENTO),
+    repo.getEstadoEquipoIdByNombre(ESTADO_EQUIPO_BAJA),
+  ]);
+  estadoEquipoIdsCache = { disponibleId, mantenimientoId, bajaId };
+  return estadoEquipoIdsCache;
+}
+
+async function getEstadoEquipoIdByNombre(nombre) {
+  return repo.getEstadoEquipoIdByNombre(nombre);
+}
 
 function normalizeFecha(fecha) {
   if (fecha == null || fecha === "") {
@@ -149,8 +168,10 @@ async function updateEstado(idEquipo, payload) {
       err.status = 404;
       throw err;
     }
+    const { disponibleId, mantenimientoId, bajaId } = await getEstadoEquipoIds();
+    const estadosInhabilitantes = new Set([mantenimientoId, bajaId]);
     // Evita reactivar un equipo dado de baja directamente.
-    if (current.idEstado === 13 && idEstado === 10) {
+    if (current.idEstado === bajaId && idEstado === disponibleId) {
       const err = new Error(
         "No se puede cambiar un equipo dado de baja a Disponible. Solicita reactivación manual."
       );
@@ -158,7 +179,7 @@ async function updateEstado(idEquipo, payload) {
       throw err;
     }
     // Si el estado nuevo es inhabilitante, limpiar asignaciones futuras del equipo
-    if (ESTADOS_INHABILITANTES.has(idEstado)) {
+    if (estadosInhabilitantes.has(idEstado)) {
       const hoy = new Date().toISOString().slice(0, 10);
       const { equipo, proyectosAfectados } = await repo.inhabilitarEquipo(
         id,
@@ -198,6 +219,7 @@ module.exports = {
   remove,
   summarize,
   listEstados,
+  getEstadoEquipoIdByNombre,
   updateEstado,
   listProyectosAfectados,
 };

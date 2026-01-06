@@ -1,23 +1,25 @@
-const repo = require("./cotizacion.repository");
+﻿const repo = require("./cotizacion.repository");
 const { generarCotizacionPdf } = require("../../pdf/cotizacion");
 const { generarCotizacionPdfV2 } = require("../../pdf/cotizacion_v2");
 const { formatCodigo } = require("../../utils/codigo");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
+const ESTADOS_ABIERTOS = new Set(["Borrador", "Enviada"]);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
-// ───────── utils ─────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ utils â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function badRequest(message){ const err=new Error(message); err.status=400; return err; }
-function assertPositiveInt(v,f){ const n=Number(v); if(!Number.isInteger(n)||n<=0) throw badRequest(`${f} inválido`); return n; }
+function assertPositiveInt(v,f){ const n=Number(v); if(!Number.isInteger(n)||n<=0) throw badRequest(`${f} invÃ¡lido`); return n; }
 function assertString(v,f){ if(typeof v!=="string"||!v.trim()) throw badRequest(`Campo '${f}' es requerido`); return v.trim(); }
 function assertDate(v,f){ if(v==null) return null; if(typeof v!=="string"||!ISO_DATE.test(v)) throw badRequest(`Campo '${f}' debe ser YYYY-MM-DD`); return v; }
-function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(); if(!ESTADOS_VALIDOS.has(e)) throw badRequest(`estado inválido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`); return e; }
+function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(); if(!ESTADOS_VALIDOS.has(e)) throw badRequest(`estado invÃ¡lido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`); return e; }
 
-// ───────── repo passthrough ─────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ repo passthrough â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function findById(id){
+  await repo.rechazarVencidas();
   const n = assertPositiveInt(id,"id");
   const data = await repo.findByIdWithItems(n);
-  if(!data){ const err=new Error(`Cotización ${n} no encontrada`); err.status=404; throw err; }
+  if(!data){ const err=new Error(`CotizaciÃ³n ${n} no encontrada`); err.status=404; throw err; }
   if(!Array.isArray(data.eventos)) data.eventos = [];
   if(Array.isArray(data.items)){
     data.items = data.items.map((it)=>{
@@ -33,11 +35,11 @@ async function findById(id){
   return data;
 }
 
-// ───────── STREAM PDF ─────────
+// â”€â”€â”€â”€â”€â”€â”€â”€â”€ STREAM PDF â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function toBullets(desc) {
   if (!desc) return [];
   return String(desc)
-    .split(/\r?\n|●|- |•|·|\u2022|\. /)
+    .split(/\r?\n|â—|- |â€¢|Â·|\u2022|\. /)
     .map((s) => s.trim())
     .filter(Boolean);
 }
@@ -46,12 +48,34 @@ function parseLocalDate(value) {
   if (!value) return null;
   if (typeof value === "string" && ISO_DATE.test(value.trim())) {
     const [y, m, d] = value.split("-").map(Number);
-    return new Date(y, m - 1, d); // evita desfase de -1 día en zonas horarias negativas
+    return new Date(y, m - 1, d); // evita desfase de -1 dÃ­a en zonas horarias negativas
   }
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function todayLocal() {
+  const now = new Date();
+  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+}
+
+function isOnOrBefore(date, ref) {
+  return date.getTime() <= ref.getTime();
+}
+
+function isEditableFechaEvento(fechaEvento) {
+  const date = parseLocalDate(fechaEvento);
+  if (!date) return true;
+  return !isOnOrBefore(date, todayLocal());
+}
+
+function isAceptableFechaEvento(fechaEvento) {
+  const date = parseLocalDate(fechaEvento);
+  if (!date) return true;
+  const tomorrow = new Date(todayLocal());
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  return date.getTime() >= tomorrow.getTime();
+}
 function formatDateDetail(value) {
   if (!value) return "";
   const date = parseLocalDate(value);
@@ -99,10 +123,10 @@ async function streamPdf({ id, res, body, query } = {}) {
   const cotizacionId = assertPositiveInt(id, "id");
 
   const detail = await repo.findByIdWithItems(cotizacionId);
-  if (!detail) { const err = new Error(`Cotización ${cotizacionId} no encontrada`); err.status = 404; throw err; }
+  if (!detail) { const err = new Error(`CotizaciÃ³n ${cotizacionId} no encontrada`); err.status = 404; throw err; }
   if (!Array.isArray(detail.eventos)) detail.eventos = [];
 
-  // Normaliza items según esquema actual del SP
+  // Normaliza items segÃºn esquema actual del SP
   const rawItems = Array.isArray(detail.items) ? detail.items : [];
   const norm = rawItems.map((it) => {
     const titulo = String(it.nombre || "").trim();
@@ -132,14 +156,14 @@ async function streamPdf({ id, res, body, query } = {}) {
     };
   });
 
-  // Clasifica por heurística simple
+  // Clasifica por heurÃ­stica simple
   const foto = [], video = [], extrasFoto = [], extrasVideo = [];
   const keywordCat = (t, d, fi, tr, fm) => {
     if ((tr||0) > 0 || (fm||0) > 0) return "video";
     if ((fi||0) > 0) return "foto";
     const txt = `${t} ${d}`.toLowerCase();
-    if (/(video|filmación|filmacion|tráiler|trailer|reporte|4k|cámara de video)/i.test(txt)) return "video";
-    if (/(foto|fotografía|fotografia|photobook|álbum|album)/i.test(txt)) return "foto";
+    if (/(video|filmaciÃ³n|filmacion|trÃ¡iler|trailer|reporte|4k|cÃ¡mara de video)/i.test(txt)) return "video";
+    if (/(foto|fotografÃ­a|fotografia|photobook|Ã¡lbum|album)/i.test(txt)) return "foto";
     return "otro";
   };
   for (const it of norm) {
@@ -181,14 +205,14 @@ async function streamPdf({ id, res, body, query } = {}) {
     evento: detail.cotizacion?.tipoEvento || detail.tipoEvento || "evento",
     fechaEvento: detail.cotizacion?.fechaEvento || detail.fechaEvento || null,
     lugar: detail.cotizacion?.lugar || detail.lugar || "",
-    // valores por defecto desde DB…
+    // valores por defecto desde DBâ€¦
     logoBase64: detail.company?.logoBase64 || null,
     firmaBase64: detail.company?.firmaBase64 || null,
     videoEquipo: detail.cotizacion?.videoEquipo || detail.videoEquipo || null,
     createdAt: detail.cotizacion?.fechaCreacion || detail.fechaCreacion || new Date()
   };
 
-  // …y sobreescrituras desde el body del front (si vienen)
+  // â€¦y sobreescrituras desde el body del front (si vienen)
   if (body && typeof body === "object") {
     if (body.company) {
       if (body.company.logoBase64) cabecera.logoBase64 = body.company.logoBase64;
@@ -246,8 +270,8 @@ async function streamPdf({ id, res, body, query } = {}) {
           : `Personal: ${it.personal}`;
         meta.push(label);
       }
-      const metaTxt = meta.length ? ` (${meta.join(" • ")})` : "";
-      const note = it.notas ? ` — ${it.notas}` : "";
+      const metaTxt = meta.length ? ` (${meta.join(" â€¢ ")})` : "";
+      const note = it.notas ? ` â€” ${it.notas}` : "";
       return `${base}${metaTxt}${note}`.trim();
     };
 
@@ -271,7 +295,7 @@ async function streamPdf({ id, res, body, query } = {}) {
           lines.push(`Fecha: ${fechaTxt}${horaTxt}`);
         }
         if (loc.ubicacion) lines.push(`Lugar: ${loc.ubicacion}`);
-        if (loc.direccion) lines.push(`Dirección: ${loc.direccion}`);
+        if (loc.direccion) lines.push(`DirecciÃ³n: ${loc.direccion}`);
         if (loc.notas) lines.push(`Notas: ${loc.notas}`);
       });
       return clean(lines);
@@ -283,7 +307,7 @@ async function streamPdf({ id, res, body, query } = {}) {
           ...toBullets(it.notas),
         ])
       );
-      return bullets.length ? bullets : ["Entrega según detalle del servicio fotográfico."];
+      return bullets.length ? bullets : ["Entrega segÃºn detalle del servicio fotogrÃ¡fico."];
     })();
 
     const videoEquipos = clean(
@@ -310,7 +334,7 @@ async function streamPdf({ id, res, body, query } = {}) {
           ...toBullets(it.descripcion),
         ])
       );
-      return bullets.length ? bullets : ["Producto final según alcance del servicio de video."];
+      return bullets.length ? bullets : ["Producto final segÃºn alcance del servicio de video."];
     })();
 
     const sumImporte = (items = []) =>
@@ -334,7 +358,7 @@ async function streamPdf({ id, res, body, query } = {}) {
     const totalesData = [];
     if (totalFoto > 0) {
       totalesData.push({
-        label: "Total, por el servicio fotografía",
+        label: "Total, por el servicio fotografÃ­a",
         amount: totalFoto,
         currency: monedaFoto,
       });
@@ -346,7 +370,7 @@ async function streamPdf({ id, res, body, query } = {}) {
         currency: monedaVideo,
       });
     }
-    totalesData.push("Precios expresados en dólares no incluye el IGV (18%)");
+    totalesData.push("Precios expresados en dÃ³lares no incluye el IGV (18%)");
 
     const fechasEvento = locaciones.map((loc) => formatDateDetail(loc.fecha)).filter(Boolean);
     if (!fechasEvento.length && cabecera.fechaEvento) fechasEvento.push(formatDateDetail(cabecera.fechaEvento));
@@ -372,7 +396,7 @@ async function streamPdf({ id, res, body, query } = {}) {
           uniqueJoin(fechasEvento, " y "),
           uniqueJoin(lugaresEvento, ", "),
         ].filter(Boolean),
-        " – "
+        " â€“ "
       ),
     };
 
@@ -442,6 +466,7 @@ async function migrarAPedido(id, { empleadoId, nombrePedido } = {}) {
 
 /** ====== REST no tocado ====== */
 async function list({ estado } = {}) {
+  await repo.rechazarVencidas();
   const rows = await repo.listAll({ estado });
 
   return rows.map((r) => {
@@ -464,13 +489,13 @@ async function list({ estado } = {}) {
       estado: r.estado ?? r.Cot_Estado,
       fechaCreacion: r.fechaCreacion ?? r.Cot_Fecha_Crea,
 
-      // 🔹 asegúrate de poblar eventoId (desde idTipoEvento en el SP)
+      // ðŸ”¹ asegÃºrate de poblar eventoId (desde idTipoEvento en el SP)
       eventoId: r.eventoId ?? r.idTipoEvento ?? r.Cot_IdTipoEvento ?? null,
       tipoEvento: r.tipoEvento ?? r.Cot_TipoEvento,
       fechaEvento: r.fechaEvento ?? r.Cot_FechaEvento,
       lugar: r.lugar ?? r.Cot_Lugar,
 
-      // 🔹 coerces numéricos a Number
+      // ðŸ”¹ coerces numÃ©ricos a Number
       horasEstimadas:
         r.horasEstimadas != null ? Number(r.horasEstimadas)
         : (r.Cot_HorasEst != null ? Number(r.Cot_HorasEst) : null),
@@ -480,16 +505,16 @@ async function list({ estado } = {}) {
         r.total != null ? Number(r.total)
         : (r.cot_total != null ? Number(r.cot_total) : null),
 
-      // 🔥 solo incluimos 'contacto' si existe; no exponemos 'lead'
+      // ðŸ”¥ solo incluimos 'contacto' si existe; no exponemos 'lead'
       ...(contacto ? { contacto } : {}),
     };
   });
 }
 
 async function createPublic(payload = {}) {
-  if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
+  if (!payload || typeof payload !== "object") throw badRequest("Body invÃ¡lido");
   const { lead, cotizacion } = payload;
-  // Validaciones mínimas (el SP también valida)
+  // Validaciones mÃ­nimas (el SP tambiÃ©n valida)
   assertString(lead?.nombre ?? "", "lead.nombre");
   assertString(cotizacion?.tipoEvento ?? "", "cotizacion.tipoEvento");
   assertDate(cotizacion?.fechaEvento, "cotizacion.fechaEvento");
@@ -497,7 +522,7 @@ async function createPublic(payload = {}) {
 }
 
 async function createAdmin(payload = {}) {
-  if (!payload || typeof payload !== "object") throw badRequest("Body inválido");
+  if (!payload || typeof payload !== "object") throw badRequest("Body invÃ¡lido");
   if (payload.eventos != null && !Array.isArray(payload.eventos))
     throw badRequest("Campo 'eventos' debe ser un arreglo");
   return await repo.createAdmin(payload);
@@ -508,6 +533,16 @@ async function update(id, body = {}) {
   if (!body || typeof body !== "object") throw badRequest("Body inválido");
   if (body.eventos != null && !Array.isArray(body.eventos))
     throw badRequest("Campo 'eventos' debe ser un arreglo");
+
+  await repo.rechazarVencidas();
+  const info = await repo.getFechaYEstado(nId);
+  if (!info) { const err = new Error(`Cotización ${nId} no encontrada`); err.status = 404; throw err; }
+
+  const fechaEvento = body?.cotizacion?.fechaEvento ?? info.fechaEvento;
+  if (!isEditableFechaEvento(fechaEvento)) {
+    throw badRequest("Cotización no editable el mismo día del evento.");
+  }
+
   return await repo.updateAdmin(nId, body);
 }
 
@@ -520,6 +555,18 @@ async function cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) 
   const nId = assertPositiveInt(id, "id");
   const nuevo = assertEstado(estadoNuevo);
   const esperado = estadoEsperado == null ? null : assertEstado(estadoEsperado);
+
+  await repo.rechazarVencidas();
+  const info = await repo.getFechaYEstado(nId);
+  if (!info) { const err = new Error(`Cotización ${nId} no encontrada`); err.status = 404; throw err; }
+
+  if (nuevo !== "Rechazada" && !isEditableFechaEvento(info.fechaEvento)) {
+    throw badRequest("Cotización vencida: solo se permite rechazar el mismo día del evento.");
+  }
+  if (nuevo === "Aceptada" && !isAceptableFechaEvento(info.fechaEvento)) {
+    throw badRequest("La cotización solo puede aceptarse hasta un día antes del evento.");
+  }
+
   return await repo.cambiarEstado(nId, { estadoNuevo: nuevo, estadoEsperado: esperado });
 }
 
@@ -535,3 +582,10 @@ module.exports = {
   remove,
   cambiarEstadoOptimista,
 };
+
+
+
+
+
+
+

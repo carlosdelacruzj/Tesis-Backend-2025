@@ -146,7 +146,10 @@ router.post("/recursos", ctrl.postRecurso);
  *                   equipoFechaFin: { type: string, format: date, nullable: true }
  *                   equipoEstado: { type: string, nullable: true }
  *                   equipoNotas: { type: string, nullable: true }
- *                   equipoDevuelto: { type: integer, nullable: true }
+ *                   equipoDevuelto:
+ *                     type: integer
+ *                     nullable: true
+ *                     description: Flag de devolucion (0 = pendiente, 1 = devuelto)
  *                   equipoFechaDevolucion: { type: string, format: date-time, nullable: true }
  *                   equipoEstadoDevolucion: { type: string, nullable: true }
  *                   equipoNotasDevolucion: { type: string, nullable: true }

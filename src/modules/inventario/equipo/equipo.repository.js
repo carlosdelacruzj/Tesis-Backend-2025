@@ -1,9 +1,35 @@
 // src/modules/inventario/equipo/equipo.repository.js
 const pool = require("../../../db");
 
-// Estado 'De baja' (no se contabiliza en resúmenes)
-const ESTADO_BAJA_ID = 13;
-const ESTADO_DISPONIBLE_ID = 10;
+const nombreCache = {
+  estadoEquipo: new Map(),
+};
+
+async function getIdByNombre({ table, idCol, nameCol, nombre, cache }) {
+  const key = String(nombre || "").trim().toLowerCase();
+  if (!key) throw new Error(`Nombre requerido para ${table}`);
+  if (cache.has(key)) return cache.get(key);
+  const [rows] = await pool.query(
+    `SELECT ${idCol} AS id FROM ${table} WHERE LOWER(${nameCol}) = LOWER(?) LIMIT 1`,
+    [nombre]
+  );
+  const id = rows?.[0]?.id;
+  if (!id) {
+    throw new Error(`No se encontro ${table} para nombre: ${nombre}`);
+  }
+  cache.set(key, Number(id));
+  return Number(id);
+}
+
+async function getEstadoEquipoIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Estado_Equipo",
+    idCol: "PK_EE_Cod",
+    nameCol: "EE_Nombre",
+    nombre,
+    cache: nombreCache.estadoEquipo,
+  });
+}
 
 const baseSelect = `SELECT
     e.PK_Eq_Cod AS idEquipo,
@@ -121,6 +147,10 @@ async function listProyectosAfectados(idEquipo, fechaDesde) {
 }
 
 async function summarizeByModel() {
+  const [disponibleId, bajaId] = await Promise.all([
+    getEstadoEquipoIdByNombre("Disponible"),
+    getEstadoEquipoIdByNombre("De baja"),
+  ]);
   const [rows] = await pool.query(
     `SELECT
        te.PK_TE_Cod AS idTipoEquipo,
@@ -145,7 +175,7 @@ async function summarizeByModel() {
        mo.PK_IMo_Cod,
        mo.NMo_Nombre
      ORDER BY te.TE_Nombre, ma.NMa_Nombre, mo.NMo_Nombre`,
-    [ESTADO_DISPONIBLE_ID, ESTADO_BAJA_ID]
+    [disponibleId, bajaId]
   );
   return rows;
 }
@@ -173,4 +203,5 @@ module.exports = {
   listProyectosAfectados,
   summarizeByModel,
   findEstados,
+  getEstadoEquipoIdByNombre,
 };

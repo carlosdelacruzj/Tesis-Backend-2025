@@ -1,5 +1,7 @@
 // src/modules/empleado/empleado.service.js
 const repo = require("./empleado.repository");
+const authRepo = require("../auth/auth.repository");
+const { buildInitialPassword, hashPassword } = require("../../utils/password");
 
 function assertString(v, field) {
   if (typeof v !== "string" || !v.trim()) {
@@ -88,6 +90,15 @@ async function create(payload) {
   }
 
   await repo.create(payload);
+
+  const plainPassword = buildInitialPassword(payload.nombre, payload.apellido);
+  const contrasenaHash = hashPassword(plainPassword);
+  const updated = await authRepo.updatePasswordByCorreo(payload.correo, contrasenaHash);
+  if (!updated) {
+    const err = new Error("No se pudo establecer la contraseña del empleado");
+    err.status = 500;
+    throw err;
+  }
   return { Status: "Registro exitoso" };
 }
 

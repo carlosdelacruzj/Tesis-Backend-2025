@@ -6,6 +6,36 @@ async function runCall(sql, params = []) {
   return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
 }
 
+const nombreCache = {
+  estadoEmpleado: new Map(),
+};
+
+async function getIdByNombre({ table, idCol, nameCol, nombre, cache }) {
+  const key = String(nombre || "").trim().toLowerCase();
+  if (!key) throw new Error(`Nombre requerido para ${table}`);
+  if (cache.has(key)) return cache.get(key);
+  const [rows] = await pool.query(
+    `SELECT ${idCol} AS id FROM ${table} WHERE LOWER(${nameCol}) = LOWER(?) LIMIT 1`,
+    [nombre]
+  );
+  const id = rows?.[0]?.id;
+  if (!id) {
+    throw new Error(`No se encontro ${table} para nombre: ${nombre}`);
+  }
+  cache.set(key, Number(id));
+  return Number(id);
+}
+
+async function getEstadoEmpleadoIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Estado_Empleado",
+    idCol: "PK_Estado_Emp_Cod",
+    nameCol: "EsEm_Nombre",
+    nombre,
+    cache: nombreCache.estadoEmpleado,
+  });
+}
+
 const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
 
 // Lecturas
@@ -18,6 +48,7 @@ async function getCargos() {
 }
 
 async function getOperativosActivos() {
+  const activoId = await getEstadoEmpleadoIdByNombre("Activo");
   const [rows] = await pool.query(
     `SELECT
        em.PK_Em_Cod          AS empleadoId,
@@ -34,8 +65,9 @@ async function getOperativosActivos() {
      JOIN T_Tipo_Empleado te ON te.PK_Tipo_Emp_Cod = em.FK_Tipo_Emp_Cod
      LEFT JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = em.FK_Estado_Emp_Cod
      WHERE te.TiEm_OperativoCampo = 1
-       AND em.FK_Estado_Emp_Cod = 1
-     ORDER BY te.PK_Tipo_Emp_Cod, u.U_Nombre, u.U_Apellido`
+       AND em.FK_Estado_Emp_Cod = ?
+     ORDER BY te.PK_Tipo_Emp_Cod, u.U_Nombre, u.U_Apellido`,
+    [activoId]
   );
   return rows;
 }
@@ -81,4 +113,5 @@ module.exports = {
   getById,
   create,
   updateById,
+  getEstadoEmpleadoIdByNombre,
 };

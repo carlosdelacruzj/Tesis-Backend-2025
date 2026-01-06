@@ -1,4 +1,4 @@
-const { Router } = require("express");
+﻿const { Router } = require("express");
 const ctrl = require("./eventos_servicios.controller");
 const router = Router();
 
@@ -7,7 +7,7 @@ const router = Router();
  * /eventos_servicios:
  *   get:
  *     tags: [eventos - servicios]
- *     summary: Lista la relación evento-servicio (con filtros opcionales)
+ *     summary: Lista la relaciÃ³n evento-servicio (con filtros opcionales)
  *     parameters:
  *       - in: query
  *         name: evento
@@ -28,7 +28,7 @@ router.get("/", ctrl.getAll);
  * /eventos_servicios/categorias:
  *   get:
  *     tags: [eventos - servicios]
- *     summary: Lista las categorías disponibles para evento-servicio
+ *     summary: Lista las categorias disponibles para evento-servicio (solo activas)
  *     responses:
  *       '200':
  *         description: OK
@@ -79,7 +79,7 @@ router.get("/:id", ctrl.getById);
  * /eventos_servicios:
  *   post:
  *     tags: [eventos - servicios]
- *     summary: Crear relación evento-servicio
+ *     summary: Crear relaciÃ³n evento-servicio
  *     requestBody:
  *       required: true
  *       content:
@@ -94,7 +94,7 @@ router.post("/", ctrl.create);
  * /eventos_servicios/{id}:
  *   put:
  *     tags: [eventos - servicios]
- *     summary: Actualizar relación evento-servicio
+ *     summary: Actualizar relaciÃ³n evento-servicio
  *     parameters:
  *       - in: path
  *         name: id
@@ -133,3 +133,4 @@ router.put("/:id", ctrl.update);
 router.patch("/:id/estado", ctrl.patchEstado);
 
 module.exports = router;
+

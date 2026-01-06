@@ -12,6 +12,36 @@ async function runCallMulti(sql, params = []) {
   return Array.isArray(rows) ? rows.filter(Array.isArray) : [];
 }
 
+const nombreCache = {
+  estadoProyecto: new Map(),
+};
+
+async function getIdByNombre({ table, idCol, nameCol, nombre, cache }) {
+  const key = String(nombre || "").trim().toLowerCase();
+  if (!key) throw new Error(`Nombre requerido para ${table}`);
+  if (cache.has(key)) return cache.get(key);
+  const [rows] = await pool.query(
+    `SELECT ${idCol} AS id FROM ${table} WHERE LOWER(${nameCol}) = LOWER(?) LIMIT 1`,
+    [nombre]
+  );
+  const id = rows?.[0]?.id;
+  if (!id) {
+    throw new Error(`No se encontro ${table} para nombre: ${nombre}`);
+  }
+  cache.set(key, Number(id));
+  return Number(id);
+}
+
+async function getEstadoProyectoIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Estado_Proyecto",
+    idCol: "PK_EPro_Cod",
+    nameCol: "EPro_Nombre",
+    nombre,
+    cache: nombreCache.estadoProyecto,
+  });
+}
+
 /* Proyecto */
 async function getAllProyecto() {
   const rows = await runCall("CALL sp_proyecto_listar()");
@@ -51,10 +81,12 @@ async function postProyecto(payload) {
     multimedia,
     edicion,
   } = payload;
+  const estadoDefaultId =
+    estadoId == null ? await getEstadoProyectoIdByNombre("Planificado") : estadoId;
   return runCall("CALL sp_proyecto_crear(?,?,?,?,?,?,?,?,?,?)", [
     proyectoNombre ?? null,
     Number(pedidoId),
-    estadoId ?? 1,
+    estadoDefaultId,
     responsableId ?? null,
     fechaInicioEdicion ?? null,
     fechaFinEdicion ?? null,
@@ -319,4 +351,5 @@ module.exports = {
   findAsignacionPendiente,
   listAsignacionesPendientes,
   marcarDevolucion,
+  getEstadoProyectoIdByNombre,
 };

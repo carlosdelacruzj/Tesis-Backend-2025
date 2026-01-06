@@ -82,8 +82,7 @@
  *           description: YYYY-MM-DD (opcional)
  *         estadoId:
  *           type: integer
- *           description: FK a T_Estado_Proyecto (default 1 = Planificado)
- *           default: 1
+ *           description: FK a T_Estado_Proyecto (por defecto Planificado)
  *         responsableId:
  *           type: integer
  *           nullable: true

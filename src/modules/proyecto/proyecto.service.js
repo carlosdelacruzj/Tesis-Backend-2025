@@ -1,10 +1,6 @@
 const repo = require("./proyecto.repository");
 const equipoService = require("../inventario/equipo/equipo.service");
 
-const ESTADO_DISPONIBLE = 10;
-const ESTADO_MANTENIMIENTO = 12;
-const ESTADO_BAJA = 13;
-
 function ensurePositiveInt(value, field) {
   const num = Number(value);
   if (!Number.isInteger(num) || num <= 0) {
@@ -213,6 +209,11 @@ async function registrarDevolucion(proyectoId, payload = {}, { usuarioId = null 
   }
 
   const allowedEstados = new Set(["devuelto", "daniado", "faltante"]);
+  const [disponibleId, mantenimientoId, bajaId] = await Promise.all([
+    equipoService.getEstadoEquipoIdByNombre("Disponible"),
+    equipoService.getEstadoEquipoIdByNombre("En Mantenimiento"),
+    equipoService.getEstadoEquipoIdByNombre("De baja"),
+  ]);
   const results = [];
 
   for (let i = 0; i < lista.length; i++) {
@@ -251,11 +252,11 @@ async function registrarDevolucion(proyectoId, payload = {}, { usuarioId = null 
     let proyectosAfectados = [];
 
     if (estadoDevolucion === "devuelto") {
-      nuevoEstado = ESTADO_DISPONIBLE;
+      nuevoEstado = disponibleId;
     } else if (estadoDevolucion === "daniado") {
-      nuevoEstado = ESTADO_MANTENIMIENTO;
+      nuevoEstado = mantenimientoId;
     } else if (estadoDevolucion === "faltante") {
-      nuevoEstado = ESTADO_BAJA;
+      nuevoEstado = bajaId;
     }
 
     if (nuevoEstado) {

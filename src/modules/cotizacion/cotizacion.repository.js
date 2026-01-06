@@ -1,8 +1,8 @@
-// cotizacion.repository.js
+﻿// cotizacion.repository.js
 const pool = require("../../db");
 const { formatCodigo } = require("../../utils/codigo");
 
-// Helper: ejecuta CALL y devuelve el/los resultsets ya “limpios”
+// Helper: ejecuta CALL y devuelve el/los resultsets ya â€œlimpiosâ€
 async function callSP(sql, params = []) {
   const [res] = await pool.query(sql, params);
   // mysql2 para CALL devuelve: [ [rows0], [rows1], ... , meta ]
@@ -10,12 +10,12 @@ async function callSP(sql, params = []) {
   return [res]; // por si el driver retorna una sola capa
 }
 
-// Helper: normaliza números/strings
+// Helper: normaliza nÃºmeros/strings
 const n = (v) => (v == null ? null : Number(v));
 const s = (v) => (v == null ? null : String(v));
 
 // ===================== LISTAR =====================
-// repo.cotizacion.js (función listAll)
+// repo.cotizacion.js (funciÃ³n listAll)
 async function listAll({ estado } = {}) {
   const spRes = await callSP("CALL defaultdb.sp_cotizacion_listar_general()");
 
@@ -46,7 +46,7 @@ async function listAll({ estado } = {}) {
       mensaje: r.mensaje,
       total: r.total != null ? Number(r.total) : null,
 
-      // 👇 bloque unificado 'contacto' (lo que quieres en la respuesta)
+      // ðŸ‘‡ bloque unificado 'contacto' (lo que quieres en la respuesta)
       contacto: {
         id: r.origen === "CLIENTE" ? r.idCliente : r.idLead,
         origen: r.origen, // 'CLIENTE' | 'LEAD'
@@ -125,11 +125,11 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = 
   const params = [
     // 1) p_cliente_id (si viene >0, NO se crea lead)
     hasCliente ? n(cliente.id) : null,
-    // 2–4) datos de lead SOLO si NO hay cliente
+    // 2â€“4) datos de lead SOLO si NO hay cliente
     hasCliente ? null : s(lead?.nombre),
     hasCliente ? null : s(lead?.celular),
     hasCliente ? null : s(lead?.origen ?? "Backoffice"),
-    // 5–11) cabecera
+    // 5â€“11) cabecera
     s(cotizacion?.tipoEvento),
     n(cotizacion?.idTipoEvento),
     s(cotizacion?.fechaEvento), // 'YYYY-MM-DD'
@@ -156,7 +156,7 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = 
       origen: out.origen ?? (hasCliente ? "CLIENTE" : "LEAD"),
     };
   } catch (err) {
-    // Traduce mensajes del SIGNAL del SP a errores más claros
+    // Traduce mensajes del SIGNAL del SP a errores mÃ¡s claros
     const msg = String(err?.message || "");
     if (msg.match(/Cliente no existe/i))
       throw new Error("El cliente indicado no existe.");
@@ -169,11 +169,11 @@ async function createAdmin(payload) {
   return createAdminV3(payload);
 }
 
-// ===================== CREAR (PÚBLICA/WEB) =====================
+// ===================== CREAR (PÃšBLICA/WEB) =====================
 /**
  * Espera:
  * { lead: { nombre, celular, origen }, cotizacion: { tipoEvento, idTipoEvento, fechaEvento, lugar, horasEstimadas, mensaje } }
- * Retorna: { lead_id, cotizacion_id } según SP.
+ * Retorna: { lead_id, cotizacion_id } segÃºn SP.
  */
 async function createPublic({ lead, cotizacion }) {
   const params = [
@@ -199,7 +199,7 @@ async function createPublic({ lead, cotizacion }) {
 /**
  * updateAdmin(id, { cotizacion?, items? })
  * - cotizacion: campos parciales (mismos nombres que createAdmin.cotizacion)
- * - items: reemplaza TODO el set si se envía (mismo formato que en createAdmin)
+ * - items: reemplaza TODO el set si se envÃ­a (mismo formato que en createAdmin)
  */
 async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
   const itemsMapped = Array.isArray(items)
@@ -253,6 +253,21 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
     params
   );
   return { updated: true };
+}
+
+// ===================== REGLA DE NEGOCIO (VENCIMIENTO) =====================
+async function getFechaYEstado(id) {
+  const [rows] = await pool.query(
+    "SELECT Cot_FechaEvento AS fechaEvento, Cot_Estado AS estado FROM T_Cotizacion WHERE PK_Cot_Cod = ?",
+    [Number(id)]
+  );
+  return rows && rows[0] ? rows[0] : null;
+}
+
+async function rechazarVencidas() {
+  await pool.query(
+    "UPDATE T_Cotizacion SET Cot_Estado = 'Rechazada' WHERE Cot_Estado IN ('Borrador','Enviada') AND Cot_FechaEvento <= CURDATE()"
+  );
 }
 
 // ===================== DELETE =====================
@@ -348,7 +363,10 @@ module.exports = {
   createAdmin, // usa SP crear_admin
   createPublic, // usa SP crear_publica
   updateAdmin, // usa SP actualizar_admin (reemplaza ítems si se pasan)
+  getFechaYEstado,
+  rechazarVencidas,
   deleteById,
   cambiarEstado,
   migrarAPedido,
 };
+

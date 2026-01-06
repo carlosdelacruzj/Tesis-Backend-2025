@@ -42,7 +42,14 @@ router.get("/", ctrl.getAllPagos);
  *     tags: [pagos]
  *     summary: Listar pedidos con estado de pago Pendiente
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/PedidoLite'
  */
 router.get("/pendientes", ctrl.getPendientes);
 
@@ -53,7 +60,14 @@ router.get("/pendientes", ctrl.getPendientes);
  *     tags: [pagos]
  *     summary: Listar pedidos con estado de pago Parcial
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/PedidoLite'
  */
 router.get("/parciales", ctrl.getParciales);
 
@@ -64,7 +78,14 @@ router.get("/parciales", ctrl.getParciales);
  *     tags: [pagos]
  *     summary: Listar pedidos con estado de pago Pagado
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/PedidoLite'
  */
 router.get("/pagados", ctrl.getPagados);
 

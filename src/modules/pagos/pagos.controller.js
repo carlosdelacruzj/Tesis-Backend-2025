@@ -79,13 +79,12 @@ async function getPagoById(req, res, next) {
     next(e);
   }
 }
-const TRANSFERENCIA_ID = 2; // <-- Ajusta al ID real de "Transferencia"
 // POST /pagos  (multipart)
 async function postPago(req, res, next) {
   try {
     const { pedidoId, monto, metodoPagoId, estadoVoucherId, fecha } = req.body;
     const mpId = Number(metodoPagoId);
-    const voucherRequerido = mpId === TRANSFERENCIA_ID;
+    const voucherRequerido = await service.isMetodoPagoTransferencia(mpId);
 
     // Si es transferencia y no hay archivo => 400
     if (voucherRequerido && !req.file?.buffer) {
@@ -106,7 +105,7 @@ async function postPago(req, res, next) {
       pedidoId,
       monto,
       metodoPagoId: mpId,
-      estadoVoucherId, // puede venir undefined; el service ya aplica default=2
+      estadoVoucherId, // puede venir undefined; el service resuelve el default por nombre
       fecha,
     });
 

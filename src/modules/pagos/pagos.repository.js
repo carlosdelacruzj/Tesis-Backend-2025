@@ -1,8 +1,71 @@
-const pool = require("../../db");
+﻿const pool = require("../../db");
 
 async function runCall(sql, params = []) {
   const [rows] = await pool.query(sql, params);
   return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
+}
+
+const nombreCache = {
+  metodoPago: new Map(),
+  estadoVoucher: new Map(),
+  estadoPago: new Map(),
+  estadoPedido: new Map(),
+};
+
+async function getIdByNombre({ table, idCol, nameCol, nombre, cache }) {
+  const key = String(nombre || "").trim().toLowerCase();
+  if (!key) throw new Error(`Nombre requerido para ${table}`);
+  if (cache.has(key)) return cache.get(key);
+  const [rows] = await pool.query(
+    `SELECT ${idCol} AS id FROM ${table} WHERE LOWER(${nameCol}) = LOWER(?) LIMIT 1`,
+    [nombre]
+  );
+  const id = rows?.[0]?.id;
+  if (!id) {
+    throw new Error(`No se encontro ${table} para nombre: ${nombre}`);
+  }
+  cache.set(key, Number(id));
+  return Number(id);
+}
+
+async function getMetodoPagoIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Metodo_Pago",
+    idCol: "PK_MP_Cod",
+    nameCol: "MP_Nombre",
+    nombre,
+    cache: nombreCache.metodoPago,
+  });
+}
+
+async function getEstadoVoucherIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Estado_voucher",
+    idCol: "PK_EV_Cod",
+    nameCol: "EV_Nombre",
+    nombre,
+    cache: nombreCache.estadoVoucher,
+  });
+}
+
+async function getEstadoPagoIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Estado_Pago",
+    idCol: "PK_ESP_Cod",
+    nameCol: "ESP_Nombre",
+    nombre,
+    cache: nombreCache.estadoPago,
+  });
+}
+
+async function getEstadoPedidoIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Estado_Pedido",
+    idCol: "PK_EP_Cod",
+    nameCol: "EP_Nombre",
+    nombre,
+    cache: nombreCache.estadoPedido,
+  });
 }
 
 // === Listados por estado de pago ===
@@ -24,7 +87,7 @@ async function listVouchersByPedido(pedidoId) {
   return runCall("CALL sp_voucher_listar_por_pedido_detalle(?)", [Number(pedidoId)]);
 }
 
-// === Catálogos ===
+// === CatÃ¡logos ===
 async function listMetodos() {
   return runCall("CALL sp_metodo_pago_listar()");
 }
@@ -49,7 +112,7 @@ async function updatePedidoEstadoPago(pedidoId, estadoPagoId) {
 }
 
 // === Crear voucher ===
-// Si tu SP admite 'fecha', acá agregas ese parámetro (y en service/controller lo enviamos)
+// Si tu SP admite 'fecha', acÃ¡ agregas ese parÃ¡metro (y en service/controller lo enviamos)
 async function insertVoucher({
   monto,
   metodoPagoId,
@@ -65,7 +128,7 @@ async function insertVoucher({
     monto,
     metodoPagoId,
     estadoVoucherId,
-    imagen, // Buffer → BLOB
+    imagen, // Buffer â†’ BLOB
     pedidoId,
     fecha,
     mime,
@@ -171,11 +234,15 @@ async function updateVoucher({
   return result.affectedRows;
 }
 
-// Cambia el estado del pedido a "Contratado" (id=2) solo si está en "Cotizado" (id=1)
-async function updatePedidoEstadoContratado(pedidoId) {
+// Cambia el estado del pedido a "Contratado" solo si esta en "Cotizado"
+async function updatePedidoEstadoContratadoByIds(
+  pedidoId,
+  contratadoId,
+  cotizadoId
+) {
   const [result] = await pool.query(
-    "UPDATE T_Pedido SET FK_EP_Cod = 2 WHERE PK_P_Cod = ? AND FK_EP_Cod = 1",
-    [Number(pedidoId)]
+    "UPDATE T_Pedido SET FK_EP_Cod = ? WHERE PK_P_Cod = ? AND FK_EP_Cod = ?",
+    [Number(contratadoId), Number(pedidoId), Number(cotizadoId)]
   );
   return result.affectedRows > 0;
 }
@@ -196,12 +263,17 @@ module.exports = {
   listVouchersByPedido,
   listMetodos,
   listEstadosPago,
+  getMetodoPagoIdByNombre,
+  getEstadoVoucherIdByNombre,
+  getEstadoPagoIdByNombre,
+  getEstadoPedidoIdByNombre,
   insertVoucher,
   getVoucherById,
   listAllVouchers,
   findVoucherMetaById,
   updateVoucher,
-  updatePedidoEstadoContratado,
+  updatePedidoEstadoContratadoByIds,
   updatePedidoEstadoPago,
   deleteVoucher,
 };
+

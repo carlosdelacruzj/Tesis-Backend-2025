@@ -12,10 +12,14 @@
  *         Fecha:
  *           type: string
  *           format: date
+ *         FechaCreacion:
+ *           type: string
+ *           format: date
  *       example:
  *         IdPed: 42
  *         Nombre: "Boda Renzo y Pablo"
  *         Fecha: "2025-09-20"
+ *         FechaCreacion: "2025-09-01"
  *
  *     ResumenPago:
  *       type: object
@@ -114,8 +118,7 @@
  *           description: FK de método de pago
  *         estadoVoucherId:
  *           type: integer
- *           description: FK de estado de voucher (default 2 = Aprobado)
- *           default: 2
+ *           description: FK de estado de voucher (por defecto Aprobado)
  *         fecha:
  *           type: string
  *           format: date

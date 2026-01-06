@@ -5,6 +5,13 @@ function badRequest(msg) {
   e.status = 400;
   return e;
 }
+const ESTADO_PAGO_PENDIENTE = "Pendiente";
+const ESTADO_PAGO_PARCIAL = "Parcial";
+const ESTADO_PAGO_PAGADO = "Pagado";
+const ESTADO_VOUCHER_APROBADO = "Aprobado";
+const ESTADO_PEDIDO_COTIZADO = "Cotizado";
+const ESTADO_PEDIDO_CONTRATADO = "Contratado";
+const METODO_PAGO_TRANSFERENCIA = "Transferencia";
 const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 function assertIdPositivo(val, nombre = "id") {
   const n = Number(val);
@@ -49,9 +56,15 @@ async function syncEstadoPagoPedido(pedidoId) {
     resumen.SaldoPendiente ?? costoTotal - montoAbonado
   );
 
-  let estadoPagoId = 1; // Pendiente
-  if (saldoPendiente <= 0) estadoPagoId = 3; // Pagado
-  else if (montoAbonado > 0) estadoPagoId = 2; // Parcial
+  const [pendienteId, parcialId, pagadoId] = await Promise.all([
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PENDIENTE),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PARCIAL),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PAGADO),
+  ]);
+
+  let estadoPagoId = pendienteId;
+  if (saldoPendiente <= 0) estadoPagoId = pagadoId;
+  else if (montoAbonado > 0) estadoPagoId = parcialId;
 
   await repo.updatePedidoEstadoPago(pedidoId, estadoPagoId);
 
@@ -96,18 +109,32 @@ async function listEstadosPago() {
   return repo.listEstadosPago();
 }
 
+async function isMetodoPagoTransferencia(metodoPagoId) {
+  const id = assertIdPositivo(metodoPagoId, "metodoPagoId");
+  const transferenciaId = await repo.getMetodoPagoIdByNombre(
+    METODO_PAGO_TRANSFERENCIA
+  );
+  return id === transferenciaId;
+}
+
 async function createVoucher({
   file, // <-- ahora opcional
   pedidoId,
   monto,
   metodoPagoId,
-  estadoVoucherId = 2, // default Aprobado
+  estadoVoucherId,
   fecha,
 }) {
   const id = assertIdPositivo(pedidoId, "pedidoId");
   assertNumber(monto, "monto");
-  const mp = assertIdPositivo(metodoPagoId, "metodoPagoId");
-  const ev = assertIdPositivo(estadoVoucherId, "estadoVoucherId");
+  assertIdPositivo(metodoPagoId, "metodoPagoId");
+  let estadoVoucherIdFinal = estadoVoucherId;
+  if (estadoVoucherIdFinal == null || estadoVoucherIdFinal === "") {
+    estadoVoucherIdFinal = await repo.getEstadoVoucherIdByNombre(
+      ESTADO_VOUCHER_APROBADO
+    );
+  }
+  assertIdPositivo(estadoVoucherIdFinal, "estadoVoucherId");
 
   // Detectar si es el primer pago antes de insertar (MontoAbonado previo == 0)
   const resumenPrev = await repo.getResumenByPedido(id);
@@ -124,7 +151,7 @@ async function createVoucher({
   await repo.insertVoucher({
     monto: Number(monto),
     metodoPagoId: Number(metodoPagoId),
-    estadoVoucherId: Number(estadoVoucherId),
+    estadoVoucherId: Number(estadoVoucherIdFinal),
     imagen, // Buffer o null
     pedidoId: Number(pedidoId),
     fecha: fechaNormalizada === undefined ? new Date() : fechaNormalizada,
@@ -133,10 +160,14 @@ async function createVoucher({
     size, // number o null
   });
 
-  // Si es el primer pago, pasamos el pedido a estado "Contratado" (id=2) solo si estaba en "Cotizado" (id=1)
+  // Si es el primer pago, pasamos el pedido a estado "Contratado" solo si estaba en "Cotizado"
   if (esPrimerPago) {
     try {
-      await repo.updatePedidoEstadoContratado(id);
+      const [cotizadoId, contratadoId] = await Promise.all([
+        repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_COTIZADO),
+        repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_CONTRATADO),
+      ]);
+      await repo.updatePedidoEstadoContratadoByIds(id, contratadoId, cotizadoId);
     } catch (err) {
       // No bloqueamos el flujo de pago si falla el cambio de estado, pero registramos error
       // eslint-disable-next-line no-console
@@ -254,6 +285,7 @@ module.exports = {
   createVoucher,
   getVoucherImage,
   findVoucherById,
+  isMetodoPagoTransferencia,
   updateVoucher,
   deleteVoucher,
 };
