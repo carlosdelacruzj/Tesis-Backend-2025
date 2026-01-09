@@ -264,9 +264,11 @@ async function getFechaYEstado(id) {
   return rows && rows[0] ? rows[0] : null;
 }
 
-async function rechazarVencidas() {
+async function rechazarVencidas(fechaCorte) {
+  const fecha = fechaCorte || null;
   await pool.query(
-    "UPDATE T_Cotizacion SET Cot_Estado = 'Rechazada' WHERE Cot_Estado IN ('Borrador','Enviada') AND Cot_FechaEvento <= CURDATE()"
+    "UPDATE T_Cotizacion SET Cot_Estado = 'Rechazada' WHERE Cot_Estado IN ('Borrador','Enviada') AND Cot_FechaEvento <= ?",
+    [fecha]
   );
 }
 

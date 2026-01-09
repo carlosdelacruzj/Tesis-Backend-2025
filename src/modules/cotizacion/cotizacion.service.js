@@ -2,6 +2,7 @@
 const { generarCotizacionPdf } = require("../../pdf/cotizacion");
 const { generarCotizacionPdfV2 } = require("../../pdf/cotizacion_v2");
 const { formatCodigo } = require("../../utils/codigo");
+const { getLimaDate, getLimaISODate } = require("../../utils/dates");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ESTADOS_ABIERTOS = new Set(["Borrador", "Enviada"]);
@@ -16,7 +17,7 @@ function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€ repo passthrough â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function findById(id){
-  await repo.rechazarVencidas();
+  await rechazarVencidasLocal();
   const n = assertPositiveInt(id,"id");
   const data = await repo.findByIdWithItems(n);
   if(!data){ const err=new Error(`CotizaciÃ³n ${n} no encontrada`); err.status=404; throw err; }
@@ -54,9 +55,8 @@ function parseLocalDate(value) {
   return Number.isNaN(date.getTime()) ? null : date;
 }
 
-function todayLocal() {
-  const now = new Date();
-  return new Date(now.getFullYear(), now.getMonth(), now.getDate());
+async function rechazarVencidasLocal() {
+  await repo.rechazarVencidas(getLimaISODate());
 }
 
 function isOnOrBefore(date, ref) {
@@ -66,13 +66,13 @@ function isOnOrBefore(date, ref) {
 function isEditableFechaEvento(fechaEvento) {
   const date = parseLocalDate(fechaEvento);
   if (!date) return true;
-  return !isOnOrBefore(date, todayLocal());
+  return !isOnOrBefore(date, getLimaDate());
 }
 
 function isAceptableFechaEvento(fechaEvento) {
   const date = parseLocalDate(fechaEvento);
   if (!date) return true;
-  const tomorrow = new Date(todayLocal());
+  const tomorrow = new Date(getLimaDate());
   tomorrow.setDate(tomorrow.getDate() + 1);
   return date.getTime() >= tomorrow.getTime();
 }
@@ -466,7 +466,7 @@ async function migrarAPedido(id, { empleadoId, nombrePedido } = {}) {
 
 /** ====== REST no tocado ====== */
 async function list({ estado } = {}) {
-  await repo.rechazarVencidas();
+  await rechazarVencidasLocal();
   const rows = await repo.listAll({ estado });
 
   return rows.map((r) => {
@@ -534,7 +534,7 @@ async function update(id, body = {}) {
   if (body.eventos != null && !Array.isArray(body.eventos))
     throw badRequest("Campo 'eventos' debe ser un arreglo");
 
-  await repo.rechazarVencidas();
+  await rechazarVencidasLocal();
   const info = await repo.getFechaYEstado(nId);
   if (!info) { const err = new Error(`Cotización ${nId} no encontrada`); err.status = 404; throw err; }
 
@@ -556,7 +556,7 @@ async function cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) 
   const nuevo = assertEstado(estadoNuevo);
   const esperado = estadoEsperado == null ? null : assertEstado(estadoEsperado);
 
-  await repo.rechazarVencidas();
+  await rechazarVencidasLocal();
   const info = await repo.getFechaYEstado(nId);
   if (!info) { const err = new Error(`Cotización ${nId} no encontrada`); err.status = 404; throw err; }
 

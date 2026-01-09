@@ -1,4 +1,5 @@
 const repo = require("./pagos.repository");
+const { getLimaISODate } = require("../../utils/dates");
 
 function badRequest(msg) {
   const e = new Error(msg);
@@ -154,7 +155,7 @@ async function createVoucher({
     estadoVoucherId: Number(estadoVoucherIdFinal),
     imagen, // Buffer o null
     pedidoId: Number(pedidoId),
-    fecha: fechaNormalizada === undefined ? new Date() : fechaNormalizada,
+    fecha: fechaNormalizada === undefined ? getLimaISODate() : fechaNormalizada,
     mime, // string o null
     nombre, // string o null
     size, // number o null

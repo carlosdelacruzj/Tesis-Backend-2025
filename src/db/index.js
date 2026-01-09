@@ -33,6 +33,14 @@ const pool = mysql.createPool({
   // dateStrings: true,
 });
 
+pool.on('connection', (conn) => {
+  conn.promise()
+    .query("SET time_zone = '-05:00'")
+    .catch((err) => {
+      console.error('DB time_zone error:', err.code || err.message);
+    });
+});
+
 async function initPing() {
   try {
     const conn = await pool.getConnection();

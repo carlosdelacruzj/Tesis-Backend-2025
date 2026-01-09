@@ -1,6 +1,7 @@
 // src/modules/inventario/equipo/equipo.service.js
 const repo = require("./equipo.repository");
 const { ensurePositiveInt, ensureTrimmedString } = require("../shared/validation");
+const { getLimaISODate } = require("../../../utils/dates");
 
 const ESTADO_EQUIPO_DISPONIBLE = "Disponible";
 const ESTADO_EQUIPO_MANTENIMIENTO = "En Mantenimiento";
@@ -34,7 +35,7 @@ function normalizeFecha(fecha) {
   }
   const isoPattern = /^\d{4}-\d{2}-\d{2}$/;
   if (value instanceof Date) {
-    return value.toISOString().slice(0, 10);
+    return getLimaISODate(value);
   }
   if (typeof value === "string" && isoPattern.test(value)) {
     return value;
@@ -180,7 +181,7 @@ async function updateEstado(idEquipo, payload) {
     }
     // Si el estado nuevo es inhabilitante, limpiar asignaciones futuras del equipo
     if (estadosInhabilitantes.has(idEstado)) {
-      const hoy = new Date().toISOString().slice(0, 10);
+      const hoy = getLimaISODate();
       const { equipo, proyectosAfectados } = await repo.inhabilitarEquipo(
         id,
         idEstado,
@@ -206,7 +207,7 @@ async function listProyectosAfectados(idEquipo, { fechaDesde } = {}) {
   }
   const hoy = fechaDesde
     ? normalizeFecha(fechaDesde)
-    : new Date().toISOString().slice(0, 10);
+    : getLimaISODate();
   return repo.listProyectosAfectados(id, hoy);
 }
 
