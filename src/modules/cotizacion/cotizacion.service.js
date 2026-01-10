@@ -486,7 +486,7 @@ async function list({ estado } = {}) {
     return {
       id,
       codigo: r.codigo ?? formatCodigo("COT", id),
-      estado: r.estado ?? r.Cot_Estado,
+      estado: r.estado,
       fechaCreacion: r.fechaCreacion ?? r.Cot_Fecha_Crea,
 
       // ðŸ”¹ asegÃºrate de poblar eventoId (desde idTipoEvento en el SP)

@@ -39,6 +39,7 @@ DELETE FROM `T_Metodo_Pago`;
 DELETE FROM `T_Estado_voucher`;
 DELETE FROM `T_Estado_Proyecto`;
 DELETE FROM `T_Estado_Pedido`;
+DELETE FROM `T_Estado_Cotizacion`;
 DELETE FROM `T_Estado_Pago`;
 DELETE FROM `T_Estado_Equipo`;
 DELETE FROM `T_Estado_Empleado`;
@@ -59,6 +60,8 @@ INSERT INTO `T_Estado_Equipo` (`PK_EE_Cod`, `EE_Nombre`) VALUES(1, 'Disponible')
 INSERT INTO `T_Estado_Pago` (`PK_ESP_Cod`, `ESP_Nombre`) VALUES(1, 'Pendiente'),(2, 'Parcial'),(3, 'Pagado'),(4, 'Vencido'),(5, 'Anulado');
 -- T_Estado_Pedido
 INSERT INTO `T_Estado_Pedido` (`PK_EP_Cod`, `EP_Nombre`) VALUES(1, 'Cotizado'),(2, 'Contratado'),(3, 'En ejecución'),(4, 'Entregado'),(5, 'Cerrado'),(6, 'Cancelado');
+-- T_Estado_Cotizacion
+INSERT INTO `T_Estado_Cotizacion` (`PK_ECot_Cod`, `ECot_Nombre`) VALUES(1, 'Borrador'),(2, 'Enviada'),(3, 'Aceptada'),(4, 'Rechazada');
 -- T_Estado_Proyecto
 INSERT INTO `T_Estado_Proyecto` (`PK_EPro_Cod`, `EPro_Nombre`, `EPro_Orden`, `Activo`) VALUES(1, 'Planificado', 1, 1),(2, 'En ejecucion', 2, 1),(3, 'Entregado', 3, 1),(4, 'Cerrado', 4, 1);
 -- T_Estado_voucher
@@ -680,6 +683,7 @@ ALTER TABLE `T_Estado_Empleado` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Equipo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Pago` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Pedido` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Estado_Cotizacion` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Proyecto` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_voucher` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Metodo_Pago` AUTO_INCREMENT = 1;
@@ -695,6 +699,8 @@ ALTER TABLE `T_Modelo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Cliente` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Empleados` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Equipo` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Cotizacion` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Pedido` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicio` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicioEquipo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicioStaff` AUTO_INCREMENT = 1;

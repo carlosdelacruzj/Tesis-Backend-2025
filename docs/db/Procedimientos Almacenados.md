@@ -282,6 +282,8 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_actualizar"(
   IN p_eventos_json    JSON               -- array de eventos { fecha, hora?, ubicacion?, direccion?, notas? }
 )
 BEGIN
+  DECLARE v_estado_id INT DEFAULT NULL;
+
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
     ROLLBACK;
@@ -295,6 +297,17 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='La cotizacion no existe';
   END IF;
 
+  IF p_estado IS NOT NULL THEN
+    SELECT PK_ECot_Cod INTO v_estado_id
+    FROM defaultdb.T_Estado_Cotizacion
+    WHERE ECot_Nombre = p_estado
+    LIMIT 1;
+
+    IF v_estado_id IS NULL THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Estado de cotizacion invalido';
+    END IF;
+  END IF;
+
   -- Update parcial de cabecera
   UPDATE defaultdb.T_Cotizacion
   SET Cot_TipoEvento   = COALESCE(p_tipo_evento,    Cot_TipoEvento),
@@ -303,7 +316,7 @@ BEGIN
       Cot_Lugar        = COALESCE(p_lugar,          Cot_Lugar),
       Cot_HorasEst     = COALESCE(p_horas_est,      Cot_HorasEst),
       Cot_Mensaje      = COALESCE(p_mensaje,        Cot_Mensaje),
-      Cot_Estado       = COALESCE(p_estado,         Cot_Estado)
+      FK_ECot_Cod      = COALESCE(v_estado_id,      FK_ECot_Cod)
   WHERE PK_Cot_Cod = p_cot_id;
 
   -- Reemplazo completo de items si se envia JSON
@@ -424,6 +437,8 @@ BEGIN
   DECLARE v_lead_id INT DEFAULT NULL;
   DECLARE v_cli_id  INT DEFAULT NULL;
   DECLARE v_cot_id  INT DEFAULT NULL;
+  DECLARE v_estado_nombre VARCHAR(20);
+  DECLARE v_estado_id INT;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -458,11 +473,21 @@ BEGIN
     SET v_cli_id  = NULL;
   END IF;
 
+  SET v_estado_nombre = COALESCE(p_estado, 'Borrador');
+  SELECT PK_ECot_Cod INTO v_estado_id
+  FROM defaultdb.T_Estado_Cotizacion
+  WHERE ECot_Nombre = v_estado_nombre
+  LIMIT 1;
+
+  IF v_estado_id IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+  END IF;
+
   /* 2) Cabecera */
   INSERT INTO defaultdb.T_Cotizacion(
     FK_Lead_Cod, FK_Cli_Cod,
     Cot_TipoEvento, Cot_IdTipoEvento, Cot_FechaEvento,
-    Cot_Lugar, Cot_HorasEst, Cot_Mensaje, Cot_Estado
+    Cot_Lugar, Cot_HorasEst, Cot_Mensaje, FK_ECot_Cod
   )
   VALUES (
     v_lead_id,
@@ -473,7 +498,7 @@ BEGIN
     p_lugar,
     p_horas_est,
     p_mensaje,
-    COALESCE(p_estado, 'Borrador')
+    v_estado_id
   );
 
   SET v_cot_id = LAST_INSERT_ID();
@@ -587,10 +612,11 @@ BEGIN
   START TRANSACTION;
 
   -- 1) Leer cotización y bloquearla
-  SELECT FK_Cli_Cod, Cot_TipoEvento, Cot_FechaEvento, Cot_Lugar, Cot_Estado
-    INTO v_fk_cli,   v_tipo_evento, v_fecha_ev,    v_lugar,   v_estado
-  FROM T_Cotizacion
-  WHERE PK_Cot_Cod = p_cot_id
+  SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, ec.ECot_Nombre
+    INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_estado
+  FROM T_Cotizacion c
+  JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+  WHERE c.PK_Cot_Cod = p_cot_id
   FOR UPDATE;
 
   IF v_estado IS NULL THEN
@@ -672,6 +698,7 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_estado_actualizar"(
 )
 BEGIN
   DECLARE v_estado_actual VARCHAR(20);
+  DECLARE v_estado_nuevo_id INT;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -682,9 +709,10 @@ BEGIN
   START TRANSACTION;
 
   -- leer + lock
-  SELECT Cot_Estado INTO v_estado_actual
-  FROM defaultdb.T_Cotizacion
-  WHERE PK_Cot_Cod = p_cot_id
+  SELECT ec.ECot_Nombre INTO v_estado_actual
+  FROM defaultdb.T_Cotizacion c
+  JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+  WHERE c.PK_Cot_Cod = p_cot_id
   FOR UPDATE;
 
   IF v_estado_actual IS NULL THEN
@@ -709,15 +737,24 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Final state cannot transition';
   END IF;
 
+  SELECT PK_ECot_Cod INTO v_estado_nuevo_id
+  FROM defaultdb.T_Estado_Cotizacion
+  WHERE ECot_Nombre = p_estado_nuevo
+  LIMIT 1;
+
+  IF v_estado_nuevo_id IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+  END IF;
+
   -- update
   UPDATE defaultdb.T_Cotizacion
-  SET Cot_Estado = p_estado_nuevo
+  SET FK_ECot_Cod = v_estado_nuevo_id
   WHERE PK_Cot_Cod = p_cot_id;
 
   -- devolver JSON de detalle (lead o cliente)
   SELECT JSON_OBJECT(
     'id',              c.PK_Cot_Cod,
-    'estado',          c.Cot_Estado,
+    'estado',          ec.ECot_Nombre,
     'fechaCreacion',   c.Cot_Fecha_Crea,
     'eventoId',        c.Cot_IdTipoEvento,
     'tipoEvento',      c.Cot_TipoEvento,
@@ -759,6 +796,7 @@ BEGIN
       END
   ) AS detalle_json
   FROM defaultdb.T_Cotizacion c
+  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
   LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
   LEFT JOIN defaultdb.T_Cliente cli  ON cli.PK_Cli_Cod = c.FK_Cli_Cod
   LEFT JOIN defaultdb.T_Usuario u    ON u.PK_U_Cod = cli.FK_U_Cod
@@ -807,7 +845,7 @@ BEGIN
       c.Cot_Lugar          AS lugar,
       c.Cot_HorasEst       AS horasEstimadas,
       c.Cot_Mensaje        AS mensaje,
-      c.Cot_Estado         AS estado,
+      ec.ECot_Nombre AS estado,
       c.Cot_Fecha_Crea     AS fechaCreacion,
 
       -- Total
@@ -822,6 +860,7 @@ BEGIN
       ), 0) AS total
 
   FROM defaultdb.T_Cotizacion c
+  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
   LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
   LEFT JOIN defaultdb.T_Cliente cli ON cli.PK_Cli_Cod = c.FK_Cli_Cod
   LEFT JOIN defaultdb.T_Usuario u   ON u.PK_U_Cod    = cli.FK_U_Cod
@@ -894,7 +933,7 @@ BEGIN
         'lugar',          c.Cot_Lugar,
         'horasEstimadas', c.Cot_HorasEst,
         'mensaje',        c.Cot_Mensaje,
-        'estado',         c.Cot_Estado,
+        'estado',         ec.ECot_Nombre,
         'fechaCreacion',  c.Cot_Fecha_Crea,
         'total',          COALESCE((
                            SELECT SUM(s.CS_Subtotal)
@@ -1000,6 +1039,7 @@ BEGIN
     ) AS cotizacion_json
 
   FROM defaultdb.T_Cotizacion c
+  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
   LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
   LEFT JOIN defaultdb.T_Cliente cli  ON cli.PK_Cli_Cod = c.FK_Cli_Cod
   LEFT JOIN defaultdb.T_Usuario u    ON u.PK_U_Cod = cli.FK_U_Cod
@@ -1026,6 +1066,7 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_publica_crear"(
 BEGIN
   DECLARE v_lead_id INT;
   DECLARE v_cot_id  INT;
+  DECLARE v_estado_id INT;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN ROLLBACK; RESIGNAL; END;
@@ -1044,10 +1085,37 @@ BEGIN
     SET v_lead_id = LAST_INSERT_ID();
   END IF;
 
-  CALL defaultdb.sp_int_cotizacion_insertar(
-    v_lead_id, p_tipo_evento, p_id_tipo_evento, p_fecha_evento,
-    p_lugar, p_horas_est, p_mensaje, 'Borrador', v_cot_id
+  SELECT PK_ECot_Cod INTO v_estado_id
+  FROM T_Estado_Cotizacion
+  WHERE ECot_Nombre = 'Borrador'
+  LIMIT 1;
+
+  IF v_estado_id IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+  END IF;
+
+  INSERT INTO T_Cotizacion(
+    FK_Lead_Cod,
+    Cot_TipoEvento,
+    Cot_IdTipoEvento,
+    Cot_FechaEvento,
+    Cot_Lugar,
+    Cot_HorasEst,
+    Cot_Mensaje,
+    FK_ECot_Cod
+  )
+  VALUES (
+    v_lead_id,
+    p_tipo_evento,
+    p_id_tipo_evento,
+    p_fecha_evento,
+    p_lugar,
+    p_horas_est,
+    p_mensaje,
+    v_estado_id
   );
+
+  SET v_cot_id = LAST_INSERT_ID();
 
   COMMIT;
 

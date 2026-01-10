@@ -16,6 +16,7 @@
 - [T_Estado_Equipo](#t_estado_equipo)
 - [T_Estado_Pago](#t_estado_pago)
 - [T_Estado_Pedido](#t_estado_pedido)
+- [T_Estado_Cotizacion](#t_estado_cotizacion)
 - [T_Estado_Proyecto](#t_estado_proyecto)
 - [T_Estado_voucher](#t_estado_voucher)
 - [T_Eventos](#t_eventos)
@@ -85,15 +86,17 @@ CREATE TABLE `T_Cotizacion` (
   `Cot_Lugar` varchar(150) DEFAULT NULL,
   `Cot_HorasEst` decimal(4,1) DEFAULT NULL,
   `Cot_Mensaje` varchar(500) DEFAULT NULL,
-  `Cot_Estado` varchar(20) NOT NULL DEFAULT 'Borrador',
+  `FK_ECot_Cod` int NOT NULL DEFAULT '1',
   `Cot_Fecha_Crea` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   `Cot_IdTipoEvento` int NOT NULL,
   `FK_Cli_Cod` int DEFAULT NULL,
   PRIMARY KEY (`PK_Cot_Cod`),
   KEY `ix_cot_lead` (`FK_Lead_Cod`),
   KEY `ix_cot_cli` (`FK_Cli_Cod`),
+  KEY `FK_T_Cotizacion_T_Estado_Cotizacion` (`FK_ECot_Cod`),
   CONSTRAINT `fk_cot_cliente` FOREIGN KEY (`FK_Cli_Cod`) REFERENCES `T_Cliente` (`PK_Cli_Cod`),
   CONSTRAINT `FK_Cot_Lead` FOREIGN KEY (`FK_Lead_Cod`) REFERENCES `T_Lead` (`PK_Lead_Cod`),
+  CONSTRAINT `FK_T_Cotizacion_T_Estado_Cotizacion` FOREIGN KEY (`FK_ECot_Cod`) REFERENCES `T_Estado_Cotizacion` (`PK_ECot_Cod`),
   CONSTRAINT `chk_cot_origen` CHECK ((((`FK_Lead_Cod` is not null) and (`FK_Cli_Cod` is null)) or ((`FK_Lead_Cod` is null) and (`FK_Cli_Cod` is not null))))
 
 ) ENGINE=InnoDB AUTO_INCREMENT=43 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
@@ -305,6 +308,18 @@ CREATE TABLE `T_Estado_Pedido` (
   PRIMARY KEY (`PK_EP_Cod`)
 
 ) ENGINE=InnoDB AUTO_INCREMENT=7 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+```
+
+## T_Estado_Cotizacion
+
+```sql
+CREATE TABLE `T_Estado_Cotizacion` (
+
+  `PK_ECot_Cod` int NOT NULL AUTO_INCREMENT,
+  `ECot_Nombre` varchar(25) DEFAULT NULL,
+  PRIMARY KEY (`PK_ECot_Cod`)
+
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 ```
 
 ## T_Estado_Proyecto

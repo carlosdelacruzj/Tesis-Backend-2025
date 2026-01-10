@@ -258,7 +258,11 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
 // ===================== REGLA DE NEGOCIO (VENCIMIENTO) =====================
 async function getFechaYEstado(id) {
   const [rows] = await pool.query(
-    "SELECT Cot_FechaEvento AS fechaEvento, Cot_Estado AS estado FROM T_Cotizacion WHERE PK_Cot_Cod = ?",
+    `SELECT c.Cot_FechaEvento AS fechaEvento,
+            ec.ECot_Nombre AS estado
+     FROM T_Cotizacion c
+     JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+     WHERE c.PK_Cot_Cod = ?`,
     [Number(id)]
   );
   return rows && rows[0] ? rows[0] : null;
@@ -267,7 +271,13 @@ async function getFechaYEstado(id) {
 async function rechazarVencidas(fechaCorte) {
   const fecha = fechaCorte || null;
   await pool.query(
-    "UPDATE T_Cotizacion SET Cot_Estado = 'Rechazada' WHERE Cot_Estado IN ('Borrador','Enviada') AND Cot_FechaEvento <= ?",
+    `UPDATE T_Cotizacion c
+     JOIN T_Estado_Cotizacion ec_r ON ec_r.ECot_Nombre = 'Rechazada'
+     JOIN T_Estado_Cotizacion ec_b ON ec_b.ECot_Nombre = 'Borrador'
+     JOIN T_Estado_Cotizacion ec_e ON ec_e.ECot_Nombre = 'Enviada'
+     SET c.FK_ECot_Cod = ec_r.PK_ECot_Cod
+     WHERE c.FK_ECot_Cod IN (ec_b.PK_ECot_Cod, ec_e.PK_ECot_Cod)
+       AND c.Cot_FechaEvento <= ?`,
     [fecha]
   );
 }
