@@ -51,16 +51,20 @@ async function create({
   apellido,
   correo,
   numDoc,
+  tipoDocumentoId,
+  razonSocial,
   celular,
   direccion,
   contrasenaHash,
 }) {
   // Si tu SP hace SELECT del nuevo id, runCall() lo devolverá. Tu service hoy no lo usa.
-  await runCall("CALL sp_cliente_crear(?,?,?,?,?,?,?)", [
+  await runCall("CALL sp_cliente_crear(?,?,?,?,?,?,?,?,?)", [
     t(nombre),
     t(apellido),
     t(correo),
     t(numDoc),
+    Number(tipoDocumentoId),
+    t(razonSocial),
     t(celular),
     t(direccion),
     t(contrasenaHash),

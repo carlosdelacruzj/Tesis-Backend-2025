@@ -525,6 +525,9 @@ async function createAdmin(payload = {}) {
   if (!payload || typeof payload !== "object") throw badRequest("Body invÃ¡lido");
   if (payload.eventos != null && !Array.isArray(payload.eventos))
     throw badRequest("Campo 'eventos' debe ser un arreglo");
+  if (payload?.cotizacion?.estado != null) {
+    assertEstado(payload.cotizacion.estado);
+  }
   return await repo.createAdmin(payload);
 }
 
@@ -533,6 +536,9 @@ async function update(id, body = {}) {
   if (!body || typeof body !== "object") throw badRequest("Body inválido");
   if (body.eventos != null && !Array.isArray(body.eventos))
     throw badRequest("Campo 'eventos' debe ser un arreglo");
+  if (body?.cotizacion?.estado != null) {
+    assertEstado(body.cotizacion.estado);
+  }
 
   await rechazarVencidasLocal();
   const info = await repo.getFechaYEstado(nId);

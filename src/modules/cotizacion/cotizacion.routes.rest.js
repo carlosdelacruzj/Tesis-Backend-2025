@@ -41,7 +41,7 @@ const router = Router();
  *         required: false
  *         schema:
  *           type: string
- *           enum: [Borrador, Enviada, Aceptada, Rechazada]
+ *           enum: [Borrador, Enviada, Aceptada, Rechazada, Expirada]
  *         description: Estado por el que se desea filtrar.
  *     responses:
  *       '200':

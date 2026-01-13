@@ -95,7 +95,7 @@
  *             lugar:          { type: string, example: "Cusco - Catedral" }
  *             horasEstimadas: { type: number, format: float, example: 8.0 }
  *             mensaje:        { type: string, example: "Agregar paquete premium" }
- *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada], example: "Enviada" }
+*             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada, Expirada], example: "Enviada" }
  *             total:          { type: number, format: float, example: 1150.0 }
  *             fechaCreacion:  { type: string, format: date, example: "2025-10-10" }
  *         items:
@@ -198,7 +198,7 @@
  *       type: object
  *       properties:
  *         id:             { type: integer, description: "ID unificado de cotizaciÃ³n (mapeado desde idCotizacion)" }
- *         estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada] }
+*         estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada, Expirada] }
  *         fechaCreacion:  { type: string, format: date, description: "YYYY-MM-DD" }
  *         eventoId:       { type: integer, nullable: true, example: 1, description: "Mapeado desde idTipoEvento" }
  *         tipoEvento:     { type: string }
@@ -458,7 +458,7 @@
  *       properties:
  *         Status: { type: string, example: "Estado actualizado" }
  *         id:     { type: integer, example: 6 }
- *         estado: { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada], example: "Enviada" }
+*         estado: { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada, Expirada], example: "Enviada" }
  *         detalle:
  *           $ref: '#/components/schemas/CotizacionListItem'
  *       example:

@@ -17,6 +17,7 @@
  *         apellido:  { type: string }
  *         correo:    { type: string, format: email }
  *         numDoc:    { type: string }
+ *         razonSocial: { type: string, nullable: true }
  *         celular:   { type: string }
  *         direccion: { type: string }
  *       required: [idCliente, nombre]
@@ -26,17 +27,20 @@
  *         apellido: "Vergaray"
  *         correo: "katy@example.com"
  *         numDoc: "12345678"
+ *         razonSocial: null
  *         celular: "999888777"
  *         direccion: "Av. Siempre Viva 123"
  *
  *     ClienteCreate:
  *       type: object
- *       required: [nombre]
+ *       required: [nombre, apellido, correo, numDoc, tipoDocumentoId, celular, direccion]
  *       properties:
  *         nombre:    { type: string }
  *         apellido:  { type: string }
  *         correo:    { type: string, format: email }
  *         numDoc:    { type: string }
+ *         tipoDocumentoId: { type: integer }
+ *         razonSocial: { type: string, nullable: true }
  *         celular:   { type: string }
  *         direccion: { type: string }
  *       example:
@@ -44,6 +48,8 @@
  *         apellido: "Silupu"
  *         correo: "bruno@example.com"
  *         numDoc: "70443316"
+ *         tipoDocumentoId: 1
+ *         razonSocial: null
  *         celular: "99876533"
  *         direccion: "Calle Falsa 123"
  *

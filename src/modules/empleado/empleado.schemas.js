@@ -35,13 +35,14 @@
  *
  *     EmpleadoCreate:
  *       type: object
- *       required: [nombre, apellido, correo, celular, documento, direccion]
+ *       required: [nombre, apellido, correo, celular, documento, direccion, tipoDocumentoId]
  *       properties:
  *         nombre:    { type: string }
  *         apellido:  { type: string }
  *         correo:    { type: string, format: email }
  *         celular:   { type: string }
  *         documento:       { type: string }
+ *         tipoDocumentoId: { type: integer }
  *         direccion: { type: string }
  *         autonomo:  { type: integer, nullable: true }
  *         idCargo:     { type: integer, nullable: true }
@@ -51,6 +52,7 @@
  *         correo: "bruno@example.com"
  *         celular: "99876533"
  *         documento: "70443316"
+ *         tipoDocumentoId: 1
  *         direccion: "Calle Falsa 123"
  *         autonomo: 1
  *         idCargo: 3

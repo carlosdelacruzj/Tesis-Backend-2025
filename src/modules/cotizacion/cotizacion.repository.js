@@ -272,7 +272,7 @@ async function rechazarVencidas(fechaCorte) {
   const fecha = fechaCorte || null;
   await pool.query(
     `UPDATE T_Cotizacion c
-     JOIN T_Estado_Cotizacion ec_r ON ec_r.ECot_Nombre = 'Rechazada'
+     JOIN T_Estado_Cotizacion ec_r ON ec_r.ECot_Nombre = 'Expirada'
      JOIN T_Estado_Cotizacion ec_b ON ec_b.ECot_Nombre = 'Borrador'
      JOIN T_Estado_Cotizacion ec_e ON ec_e.ECot_Nombre = 'Enviada'
      SET c.FK_ECot_Cod = ec_r.PK_ECot_Cod

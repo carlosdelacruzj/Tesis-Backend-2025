@@ -27,6 +27,7 @@ module.exports = {
       { name: "inventario - modelos", description: "Gestion de modelos de inventario" },
       { name: "inventario - equipos", description: "Gestion de equipos de inventario" },
       { name: "inventario - tipos-equipo", description: "Gestion de tipos de equipo" },
+      { name: "tipo_documento", description: "Gestion de tipos de documento" },
     ],
     components: {
       securitySchemes: {
@@ -49,5 +50,6 @@ module.exports = {
     "src/modules/voucher/**/*.js",
     "src/modules/pagos/**/*.js",
     "src/modules/inventario/**/*.js",
+    "src/modules/tipo_documento/**/*.js",
   ],
 };

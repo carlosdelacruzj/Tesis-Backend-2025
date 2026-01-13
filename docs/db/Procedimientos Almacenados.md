@@ -1,47 +1,106 @@
+# Procedimientos Almacenados
+
+## ?ndice
+
+- [sp_cliente_actualizar](#sp_cliente_actualizar)
+- [sp_cliente_autocompletar](#sp_cliente_autocompletar)
+- [sp_cliente_buscar_por_documento](#sp_cliente_buscar_por_documento)
+- [sp_cliente_crear](#sp_cliente_crear)
+- [sp_cliente_listar](#sp_cliente_listar)
+- [sp_cliente_obtener](#sp_cliente_obtener)
+- [sp_cotizacion_admin_actualizar](#sp_cotizacion_admin_actualizar)
+- [sp_cotizacion_admin_crear_v3](#sp_cotizacion_admin_crear_v3)
+- [sp_cotizacion_convertir_a_pedido](#sp_cotizacion_convertir_a_pedido)
+- [sp_cotizacion_estado_actualizar](#sp_cotizacion_estado_actualizar)
+- [sp_cotizacion_listar_general](#sp_cotizacion_listar_general)
+- [sp_cotizacion_obtener_json](#sp_cotizacion_obtener_json)
+- [sp_cotizacion_publica_crear](#sp_cotizacion_publica_crear)
+- [sp_empleado_actualizar](#sp_empleado_actualizar)
+- [sp_empleado_cargo_listar](#sp_empleado_cargo_listar)
+- [sp_empleado_crear](#sp_empleado_crear)
+- [sp_empleado_listar](#sp_empleado_listar)
+- [sp_empleado_obtener](#sp_empleado_obtener)
+- [sp_evento_listar](#sp_evento_listar)
+- [sp_evento_servicio_actualizar](#sp_evento_servicio_actualizar)
+- [sp_evento_servicio_crear](#sp_evento_servicio_crear)
+- [sp_evento_servicio_listar](#sp_evento_servicio_listar)
+- [sp_evento_servicio_obtener](#sp_evento_servicio_obtener)
+- [sp_lead_convertir_cliente](#sp_lead_convertir_cliente)
+- [sp_metodo_pago_listar](#sp_metodo_pago_listar)
+- [sp_pedido_actualizar](#sp_pedido_actualizar)
+- [sp_pedido_estado_obtener_ultimo](#sp_pedido_estado_obtener_ultimo)
+- [sp_pedido_listar](#sp_pedido_listar)
+- [sp_pedido_listar_por_cliente_detalle](#sp_pedido_listar_por_cliente_detalle)
+- [sp_pedido_obtener](#sp_pedido_obtener)
+- [sp_pedido_obtener_siguiente_id](#sp_pedido_obtener_siguiente_id)
+- [sp_pedido_pago_resumen](#sp_pedido_pago_resumen)
+- [sp_pedido_saldo_listar_pagados](#sp_pedido_saldo_listar_pagados)
+- [sp_pedido_saldo_listar_parciales](#sp_pedido_saldo_listar_parciales)
+- [sp_pedido_saldo_listar_pendientes](#sp_pedido_saldo_listar_pendientes)
+- [sp_proyecto_actualizar](#sp_proyecto_actualizar)
+- [sp_proyecto_crear](#sp_proyecto_crear)
+- [sp_proyecto_eliminar](#sp_proyecto_eliminar)
+- [sp_proyecto_listar](#sp_proyecto_listar)
+- [sp_proyecto_recurso_agregar](#sp_proyecto_recurso_agregar)
+- [sp_proyecto_obtener](#sp_proyecto_obtener)
+- [sp_proyecto_asignaciones](#sp_proyecto_asignaciones)
+- [sp_proyecto_recursos_reset](#sp_proyecto_recursos_reset)
+- [sp_proyecto_disponibilidad](#sp_proyecto_disponibilidad)
+- [sp_equipo_inhabilitar](#sp_equipo_inhabilitar)
+- [sp_equipo_proyectos_afectados](#sp_equipo_proyectos_afectados)
+- [sp_servicio_listar](#sp_servicio_listar)
+- [sp_voucher_crear](#sp_voucher_crear)
+- [sp_voucher_estado_listar](#sp_voucher_estado_listar)
+- [sp_voucher_listar_por_pedido](#sp_voucher_listar_por_pedido)
+- [sp_voucher_listar_por_pedido_detalle](#sp_voucher_listar_por_pedido_detalle)
+- [sp_voucher_listar_ultimos_por_estado](#sp_voucher_listar_ultimos_por_estado)
+- [sp_voucher_obtener_por_pedido](#sp_voucher_obtener_por_pedido)
+
+---
 
 ## sp_cliente_actualizar
 
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_actualizar"(
-  IN pIdCliente INT,
-  IN pCorreo    VARCHAR(250),
-  IN pCelular   VARCHAR(25),
-  IN pDireccion VARCHAR(150)
-)
+      IN pIdCliente INT,
+      IN pCorreo    VARCHAR(250),
+      IN pCelular   VARCHAR(25),
+      IN pDireccion VARCHAR(250)
+    )
 BEGIN
-  DECLARE vUserId INT;
+      DECLARE vUserId INT;
 
-  SELECT FK_U_Cod INTO vUserId
-  FROM T_Cliente
-  WHERE PK_Cli_Cod = pIdCliente;
+      SELECT FK_U_Cod INTO vUserId
+      FROM T_Cliente
+      WHERE PK_Cli_Cod = pIdCliente;
 
-  IF vUserId IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe';
-  END IF;
+      IF vUserId IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe';
+      END IF;
 
-  UPDATE T_Usuario
-     SET U_Correo    = COALESCE(pCorreo,    U_Correo),
-         U_Celular   = COALESCE(pCelular,   U_Celular),
-         U_Direccion = COALESCE(pDireccion, U_Direccion)
-   WHERE PK_U_Cod = vUserId;
+      UPDATE T_Usuario
+         SET U_Correo    = COALESCE(pCorreo,    U_Correo),
+             U_Celular   = COALESCE(pCelular,   U_Celular),
+             U_Direccion = COALESCE(pDireccion, U_Direccion)
+       WHERE PK_U_Cod = vUserId;
 
-  -- Devuelve el cliente actualizado
-  SELECT
-    c.PK_Cli_Cod                               AS idCliente,
-    CONCAT('CLI-', LPAD(c.PK_Cli_Cod, 6, '0')) AS codigoCliente,
-    u.PK_U_Cod                                 AS idUsuario,
-    u.U_Nombre                                 AS nombre,
-    u.U_Apellido                               AS apellido,
-    u.U_Correo                                 AS correo,
-    u.U_Celular                                AS celular,
-    u.U_Numero_Documento                       AS doc,
-    u.U_Direccion                              AS direccion,
-    c.Cli_Tipo_Cliente                         AS tipoCliente
-  FROM T_Cliente c
-  JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
-  WHERE c.PK_Cli_Cod = pIdCliente;
-END ;;
+      SELECT
+        c.PK_Cli_Cod                               AS idCliente,
+        CONCAT('CLI-', LPAD(c.PK_Cli_Cod, 6, '0')) AS codigoCliente,
+        u.PK_U_Cod                                 AS idUsuario,
+        u.U_Nombre                                 AS nombre,
+        u.U_Apellido                               AS apellido,
+        u.U_Correo                                 AS correo,
+        u.U_Celular                                AS celular,
+        u.U_Numero_Documento                       AS doc,
+        u.U_Direccion                              AS direccion,
+        c.Cli_Tipo_Cliente                         AS tipoCliente
+      FROM T_Cliente c
+      JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+      WHERE c.PK_Cli_Cod = pIdCliente;
+    END ;;
+;;
 DELIMITER ;
 ```
 
@@ -114,8 +173,6 @@ BEGIN
       c.FK_ECli_Cod <> 3
       AND (u.U_Nombre  LIKE CONCAT(v_t1, '%')
        AND u.U_Apellido LIKE CONCAT(v_t2, '%'))
-      -- Si quisieras permitir también el concatenado explícito (equivalente):
-      -- OR CONCAT(u.U_Nombre, ' ', u.U_Apellido) LIKE CONCAT(v_t1, ' ', v_t2, '%')
     ORDER BY score DESC, c.PK_Cli_Cod DESC
     LIMIT v_limit;
 
@@ -152,6 +209,7 @@ BEGIN
     LIMIT v_limit;
   END IF;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -183,6 +241,7 @@ BEGIN
          ON c.FK_U_Cod = u.PK_U_Cod
   WHERE (p_doc IS NULL OR u.U_Numero_Documento = p_doc);
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -195,6 +254,7 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_crear"(
   IN p_apellido  VARCHAR(100),
   IN p_correo    VARCHAR(120),
   IN p_numDoc    VARCHAR(32),
+  IN p_tipo_doc_id INT,
   IN p_celular   VARCHAR(32),
   IN p_direccion VARCHAR(200),
   IN p_contrasena_hash VARCHAR(255) -- bcrypt/argon2 ya generado
@@ -203,15 +263,16 @@ BEGIN
   DECLARE v_user_id BIGINT;
 
   INSERT INTO T_Usuario
-    (U_Nombre, U_Apellido, U_Correo, U_Contrasena, U_Celular, U_Numero_Documento, U_Direccion)
+    (U_Nombre, U_Apellido, U_Correo, U_Contrasena, U_Celular, U_Numero_Documento, FK_TD_Cod, U_Direccion)
   VALUES
-    (TRIM(p_nombre), TRIM(p_apellido), TRIM(p_correo), p_contrasena_hash, TRIM(p_celular), TRIM(p_numDoc), TRIM(p_direccion));
+    (TRIM(p_nombre), TRIM(p_apellido), TRIM(p_correo), p_contrasena_hash, TRIM(p_celular), TRIM(p_numDoc), p_tipo_doc_id, TRIM(p_direccion));
 
   SET v_user_id = LAST_INSERT_ID();
 
   INSERT INTO T_Cliente (FK_U_Cod, Cli_Tipo_Cliente, FK_ECli_Cod)
   VALUES (v_user_id, 1, 1);
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -236,6 +297,7 @@ JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
 ORDER BY c.PK_Cli_Cod;
 
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -262,6 +324,7 @@ BEGIN
   JOIN T_Estado_Cliente ec ON ec.PK_ECli_Cod = c.FK_ECli_Cod
   WHERE c.PK_Cli_Cod = pId;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -270,145 +333,284 @@ DELIMITER ;
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_actualizar"(
+
   IN p_cot_id          INT,
+
   IN p_tipo_evento     VARCHAR(40),
+
   IN p_id_tipo_evento  INT,
+
   IN p_fecha_evento    DATE,
+
   IN p_lugar           VARCHAR(150),
+
   IN p_horas_est       DECIMAL(4,1),
+
   IN p_mensaje         VARCHAR(500),
+
   IN p_estado          VARCHAR(20),       -- 'Borrador' | 'Enviada' | ...
+
   IN p_items_json      JSON,              -- array de items
+
   IN p_eventos_json    JSON               -- array de eventos { fecha, hora?, ubicacion?, direccion?, notas? }
+
 )
 BEGIN
+
   DECLARE v_estado_id INT DEFAULT NULL;
 
+
+
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
   BEGIN
+
     ROLLBACK;
+
     RESIGNAL;
+
   END;
+
+
 
   START TRANSACTION;
 
+
+
   -- Validación existencia
+
   IF (SELECT COUNT(*) FROM defaultdb.T_Cotizacion WHERE PK_Cot_Cod = p_cot_id) = 0 THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='La cotizacion no existe';
+
   END IF;
+
+
 
   IF p_estado IS NOT NULL THEN
+
     SELECT PK_ECot_Cod INTO v_estado_id
+
     FROM defaultdb.T_Estado_Cotizacion
+
     WHERE ECot_Nombre = p_estado
+
     LIMIT 1;
 
+
+
     IF v_estado_id IS NULL THEN
+
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Estado de cotizacion invalido';
+
     END IF;
+
   END IF;
+
+
 
   -- Update parcial de cabecera
+
   UPDATE defaultdb.T_Cotizacion
+
   SET Cot_TipoEvento   = COALESCE(p_tipo_evento,    Cot_TipoEvento),
+
       Cot_IdTipoEvento = COALESCE(p_id_tipo_evento, Cot_IdTipoEvento),
+
       Cot_FechaEvento  = COALESCE(p_fecha_evento,   Cot_FechaEvento),
+
       Cot_Lugar        = COALESCE(p_lugar,          Cot_Lugar),
+
       Cot_HorasEst     = COALESCE(p_horas_est,      Cot_HorasEst),
+
       Cot_Mensaje      = COALESCE(p_mensaje,        Cot_Mensaje),
+
       FK_ECot_Cod      = COALESCE(v_estado_id,      FK_ECot_Cod)
+
   WHERE PK_Cot_Cod = p_cot_id;
 
+
+
   -- Reemplazo completo de items si se envia JSON
+
   IF p_items_json IS NOT NULL THEN
+
     DELETE FROM defaultdb.T_CotizacionServicio
+
     WHERE FK_Cot_Cod = p_cot_id;
+
+
 
     INSERT INTO defaultdb.T_CotizacionServicio(
+
       FK_Cot_Cod,
+
       FK_ExS_Cod,
+
       CS_EventoId,
+
       CS_ServicioId,
+
       CS_Nombre,
+
       CS_Descripcion,
+
       CS_Moneda,
+
       CS_PrecioUnit,
+
       CS_Cantidad,
+
       CS_Descuento,
+
       CS_Recargo,
+
       CS_Notas,
+
       CS_Horas,
+
       CS_Staff,
+
       CS_FotosImpresas,
+
       CS_TrailerMin,
+
       CS_FilmMin
+
     )
+
     SELECT
+
       p_cot_id,
+
       j.id_evento_servicio,
+
       j.evento_id,
+
       j.servicio_id,
+
       j.nombre,
+
       j.descripcion,
+
       COALESCE(j.moneda, 'USD'),
+
       j.precio_unit,
+
       COALESCE(j.cantidad, 1),
+
       COALESCE(j.descuento, 0),
+
       COALESCE(j.recargo, 0),
+
       j.notas,
+
       j.horas,
+
       j.personal,
+
       j.fotos_impresas,
+
       j.trailer_min,
+
       j.film_min
+
     FROM JSON_TABLE(p_items_json, '$[*]' COLUMNS (
+
       id_evento_servicio  INT           PATH '$.idEventoServicio'  NULL ON ERROR,
+
       evento_id           INT           PATH '$.eventoId'          NULL ON ERROR,
+
       servicio_id         INT           PATH '$.servicioId'        NULL ON ERROR,
+
       nombre              VARCHAR(120)  PATH '$.nombre',
+
       descripcion         VARCHAR(1000) PATH '$.descripcion'       NULL ON ERROR,
+
       moneda              CHAR(3)       PATH '$.moneda'            NULL ON ERROR,
+
       precio_unit         DECIMAL(10,2) PATH '$.precioUnit',
+
       cantidad            DECIMAL(10,2) PATH '$.cantidad'          NULL ON ERROR,
+
       descuento           DECIMAL(10,2) PATH '$.descuento'         NULL ON ERROR,
+
       recargo             DECIMAL(10,2) PATH '$.recargo'           NULL ON ERROR,
+
       notas               VARCHAR(150)  PATH '$.notas'             NULL ON ERROR,
+
       horas               DECIMAL(4,1)  PATH '$.horas'             NULL ON ERROR,
+
       personal            SMALLINT      PATH '$.personal'          NULL ON ERROR,
+
       fotos_impresas      INT           PATH '$.fotosImpresas'     NULL ON ERROR,
+
       trailer_min         INT           PATH '$.trailerMin'        NULL ON ERROR,
+
       film_min            INT           PATH '$.filmMin'           NULL ON ERROR
+
     )) AS j;
+
   END IF;
+
+
 
   -- Reemplazo completo de eventos si se envia JSON
+
   IF p_eventos_json IS NOT NULL THEN
+
     DELETE FROM defaultdb.T_CotizacionEvento
+
     WHERE FK_Cot_Cod = p_cot_id;
 
+
+
     INSERT INTO defaultdb.T_CotizacionEvento(
+
       FK_Cot_Cod, CotE_Fecha, CotE_Hora,
+
       CotE_Ubicacion, CotE_Direccion, CotE_Notas
+
     )
+
     SELECT
+
       p_cot_id,
+
       evt.fecha,
+
       evt.hora,
+
       NULLIF(TRIM(evt.ubicacion), ''),
+
       NULLIF(TRIM(evt.direccion), ''),
+
       NULLIF(TRIM(evt.notas), '')
+
     FROM JSON_TABLE(p_eventos_json, '$[*]' COLUMNS (
+
       fecha      DATE          PATH '$.fecha',
+
       hora       TIME          PATH '$.hora'        NULL ON ERROR,
+
       ubicacion  VARCHAR(100)  PATH '$.ubicacion'   NULL ON ERROR,
+
       direccion  VARCHAR(150)  PATH '$.direccion'   NULL ON ERROR,
+
       notas      VARCHAR(255)  PATH '$.notas'       NULL ON ERROR
+
     )) AS evt
+
     WHERE evt.fecha IS NOT NULL;
+
   END IF;
 
+
+
   COMMIT;
+
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -417,171 +619,336 @@ DELIMITER ;
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_crear_v3"(
+
   IN p_cliente_id      INT,            -- si viene (>0), NO se crea lead
+
   IN p_lead_nombre     VARCHAR(80),    -- usados SOLO si no viene cliente
+
   IN p_lead_celular    VARCHAR(30),
+
   IN p_lead_origen     VARCHAR(40),
 
+
+
   IN p_tipo_evento     VARCHAR(40),
+
   IN p_id_tipo_evento  INT,
+
   IN p_fecha_evento    DATE,
+
   IN p_lugar           VARCHAR(150),
+
   IN p_horas_est       DECIMAL(4,1),
+
   IN p_mensaje         VARCHAR(500),
+
   IN p_estado          VARCHAR(20),    -- 'Borrador' | 'Enviada' (opcional)
 
+
+
   IN p_items_json      JSON,           -- array de ítems
+
   IN p_eventos_json    JSON            -- array de eventos { fecha, hora?, ubicacion?, direccion?, notas? }
+
 )
 BEGIN
+
   DECLARE v_lead_id INT DEFAULT NULL;
+
   DECLARE v_cli_id  INT DEFAULT NULL;
+
   DECLARE v_cot_id  INT DEFAULT NULL;
+
   DECLARE v_estado_nombre VARCHAR(20);
+
   DECLARE v_estado_id INT;
 
+
+
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
   BEGIN
+
     ROLLBACK;
+
     RESIGNAL;
+
   END;
+
+
 
   START TRANSACTION;
 
+
+
   /* 1) Origen: CLIENTE (preferente) o crear LEAD */
+
   IF p_cliente_id IS NOT NULL AND p_cliente_id > 0 THEN
+
     SELECT PK_Cli_Cod INTO v_cli_id
+
     FROM defaultdb.T_Cliente
+
     WHERE PK_Cli_Cod = p_cliente_id
+
     LIMIT 1;
 
+
+
     IF v_cli_id IS NULL THEN
+
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe.';
+
     END IF;
+
+
 
     SET v_lead_id = NULL;
 
+
+
   ELSE
+
     IF p_lead_nombre IS NULL OR TRIM(p_lead_nombre) = '' THEN
+
       SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Se requiere nombre para crear el lead.';
+
     END IF;
 
+
+
     INSERT INTO defaultdb.T_Lead(Lead_Nombre, Lead_Celular, Lead_Origen)
+
     VALUES (p_lead_nombre, p_lead_celular, p_lead_origen);
 
+
+
     SET v_lead_id = LAST_INSERT_ID();
+
     SET v_cli_id  = NULL;
+
   END IF;
+
+
 
   SET v_estado_nombre = COALESCE(p_estado, 'Borrador');
+
   SELECT PK_ECot_Cod INTO v_estado_id
+
   FROM defaultdb.T_Estado_Cotizacion
+
   WHERE ECot_Nombre = v_estado_nombre
+
   LIMIT 1;
 
+
+
   IF v_estado_id IS NULL THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+
   END IF;
 
+
+
   /* 2) Cabecera */
+
   INSERT INTO defaultdb.T_Cotizacion(
+
     FK_Lead_Cod, FK_Cli_Cod,
+
     Cot_TipoEvento, Cot_IdTipoEvento, Cot_FechaEvento,
+
     Cot_Lugar, Cot_HorasEst, Cot_Mensaje, FK_ECot_Cod
+
   )
+
   VALUES (
+
     v_lead_id,
+
     v_cli_id,
+
     p_tipo_evento,
+
     p_id_tipo_evento,
+
     p_fecha_evento,
+
     p_lugar,
+
     p_horas_est,
+
     p_mensaje,
+
     v_estado_id
+
   );
+
+
 
   SET v_cot_id = LAST_INSERT_ID();
 
+
+
   /* 3) Ítems (si viene array JSON) */
+
   IF p_items_json IS NOT NULL AND JSON_TYPE(p_items_json) = 'ARRAY' THEN
+
     INSERT INTO defaultdb.T_CotizacionServicio(
+
       FK_Cot_Cod, FK_ExS_Cod, CS_EventoId, CS_ServicioId,
+
       CS_Nombre, CS_Descripcion, CS_Moneda,
+
       CS_PrecioUnit, CS_Cantidad, CS_Descuento, CS_Recargo,
+
       CS_Notas, CS_Horas, CS_Staff, CS_FotosImpresas, CS_TrailerMin, CS_FilmMin
+
     )
+
     SELECT
+
       v_cot_id,
+
       j.id_evento_servicio,
+
       j.evento_id,
+
       j.servicio_id,
+
       COALESCE(j.nombre, j.titulo),
+
       j.descripcion,
+
       COALESCE(j.moneda, 'USD'),
+
       j.precio_unit,
+
       COALESCE(j.cantidad, 1),
+
       COALESCE(j.descuento, 0),
+
       COALESCE(j.recargo, 0),
+
       j.notas,
+
       j.horas,
+
       j.personal,
+
       j.fotos_impresas,
+
       j.trailer_min,
+
       j.film_min
+
     FROM JSON_TABLE(p_items_json, '$[*]' COLUMNS (
+
       id_evento_servicio  INT           PATH '$.idEventoServicio'  NULL ON ERROR,
+
       evento_id           INT           PATH '$.eventoId'          NULL ON ERROR,
+
       servicio_id         INT           PATH '$.servicioId'        NULL ON ERROR,
+
       nombre              VARCHAR(120)  PATH '$.nombre'            NULL ON ERROR,
+
       titulo              VARCHAR(120)  PATH '$.titulo'            NULL ON ERROR,
+
       descripcion         VARCHAR(1000) PATH '$.descripcion'       NULL ON ERROR,
+
       moneda              CHAR(3)       PATH '$.moneda'            NULL ON ERROR,
+
       precio_unit         DECIMAL(10,2) PATH '$.precioUnit',
+
       cantidad            DECIMAL(10,2) PATH '$.cantidad'          NULL ON ERROR,
+
       descuento           DECIMAL(10,2) PATH '$.descuento'         NULL ON ERROR,
+
       recargo             DECIMAL(10,2) PATH '$.recargo'           NULL ON ERROR,
+
       notas               VARCHAR(150)  PATH '$.notas'             NULL ON ERROR,
+
       horas               DECIMAL(4,1)  PATH '$.horas'             NULL ON ERROR,
+
       personal            SMALLINT      PATH '$.personal'          NULL ON ERROR,
+
       fotos_impresas      INT           PATH '$.fotosImpresas'     NULL ON ERROR,
+
       trailer_min         INT           PATH '$.trailerMin'        NULL ON ERROR,
+
       film_min            INT           PATH '$.filmMin'           NULL ON ERROR
+
     )) AS j;
+
   END IF;
 
+
+
   /* 4) Eventos (si viene array JSON) */
+
   IF p_eventos_json IS NOT NULL AND JSON_TYPE(p_eventos_json) = 'ARRAY' THEN
+
     INSERT INTO defaultdb.T_CotizacionEvento(
+
       FK_Cot_Cod, CotE_Fecha, CotE_Hora,
+
       CotE_Ubicacion, CotE_Direccion, CotE_Notas
+
     )
+
     SELECT
+
       v_cot_id,
+
       evt.fecha,
+
       evt.hora,
+
       NULLIF(TRIM(evt.ubicacion), ''),
+
       NULLIF(TRIM(evt.direccion), ''),
+
       NULLIF(TRIM(evt.notas), '')
+
     FROM JSON_TABLE(p_eventos_json, '$[*]' COLUMNS (
+
       fecha      DATE          PATH '$.fecha',
+
       hora       TIME          PATH '$.hora'        NULL ON ERROR,
+
       ubicacion  VARCHAR(100)  PATH '$.ubicacion'   NULL ON ERROR,
+
       direccion  VARCHAR(150)  PATH '$.direccion'   NULL ON ERROR,
+
       notas      VARCHAR(255)  PATH '$.notas'       NULL ON ERROR
+
     )) AS evt
+
     WHERE evt.fecha IS NOT NULL; -- la columna CotE_Fecha es NOT NULL
+
   END IF;
+
+
 
   COMMIT;
 
+
+
   /* 5) Salida */
+
   SELECT
+
     v_cot_id  AS idCotizacion,
+
     v_cli_id  AS clienteId,
+
     v_lead_id AS leadId,
+
     CASE WHEN v_cli_id IS NOT NULL THEN 'CLIENTE' ELSE 'LEAD' END AS origen;
+
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -590,100 +957,194 @@ DELIMITER ;
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_convertir_a_pedido"(
+
   IN  p_cot_id        INT,
+
   IN  p_empleado_id   INT,           -- FK_Em_Cod responsable del pedido
+
   IN  p_nombre_pedido VARCHAR(225),  -- opcional; si NULL se autogenera
+
   OUT o_pedido_id     INT
+
 )
 BEGIN
+
   DECLARE v_fk_cli      INT;
+
   DECLARE v_tipo_evento VARCHAR(40);
+
   DECLARE v_fecha_ev    DATE;
+
   DECLARE v_lugar       VARCHAR(150);
+
   DECLARE v_estado      VARCHAR(20);
+
   DECLARE v_nombre      VARCHAR(225);
 
+
+
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
   BEGIN
+
     ROLLBACK;
+
     RESIGNAL;
+
   END;
+
+
 
   START TRANSACTION;
 
+
+
   -- 1) Leer cotización y bloquearla
+
   SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, ec.ECot_Nombre
+
     INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_estado
+
   FROM T_Cotizacion c
+
   JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
   WHERE c.PK_Cot_Cod = p_cot_id
+
   FOR UPDATE;
 
+
+
   IF v_estado IS NULL THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cotización no encontrada';
+
   END IF;
+
+
 
   -- 2) Validar estado
+
   IF v_estado <> 'Aceptada' THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden migrar cotizaciones en estado Aceptada';
+
   END IF;
+
+
 
   -- 3) Validar cliente (cotización sin cliente no migra)
+
   IF v_fk_cli IS NULL THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotización no tiene cliente ni lead asociado';
+
   END IF;
 
+
+
   -- 4) Nombre de pedido
+
   SET v_nombre = COALESCE(
+
     p_nombre_pedido,
+
     CONCAT(
+
       COALESCE(v_tipo_evento,'Evento'),
+
       ' - ', DATE_FORMAT(COALESCE(v_fecha_ev, CURDATE()), '%Y-%m-%d'),
+
       COALESCE(CONCAT(' - ', v_lugar), '')
+
     )
+
   );
 
+
+
   -- 5) Insertar Pedido
+
   INSERT INTO T_Pedido
+
     (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento)
+
   VALUES
+
     (1, p_cot_id, v_fk_cli, 1, CURDATE(), CONCAT('Origen: Cotización #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev);
+
+
 
   SET o_pedido_id = LAST_INSERT_ID();
 
+
+
   /* 6) Insertar líneas (servicios) */
+
   INSERT INTO T_PedidoServicio
+
     (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_Nombre, PS_Descripcion, PS_Moneda, PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas)
+
   SELECT
+
     o_pedido_id,
+
     cs.FK_ExS_Cod,
+
     NULL,
+
     cs.CS_Nombre,
+
     cs.CS_Descripcion,
+
     cs.CS_Moneda,
+
     cs.CS_PrecioUnit,
+
     cs.CS_Cantidad,
+
     cs.CS_Descuento,
+
     cs.CS_Recargo,
+
     cs.CS_Notas
+
   FROM T_CotizacionServicio cs
+
   WHERE cs.FK_Cot_Cod = p_cot_id;
 
+
+
   /* 7) Migrar eventos/locaciones */
+
   INSERT INTO T_PedidoEvento
+
     (FK_P_Cod, PE_Fecha, PE_Hora, PE_Ubicacion, PE_Direccion, PE_Notas)
+
   SELECT
+
     o_pedido_id,
+
     ce.CotE_Fecha,
+
     ce.CotE_Hora,
+
     ce.CotE_Ubicacion,
+
     ce.CotE_Direccion,
+
     ce.CotE_Notas
+
   FROM T_CotizacionEvento ce
+
   WHERE ce.FK_Cot_Cod = p_cot_id;
 
+
+
   COMMIT;
+
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -692,118 +1153,230 @@ DELIMITER ;
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_estado_actualizar"(
+
   IN p_cot_id           INT,
+
   IN p_estado_nuevo     VARCHAR(20),   -- Borrador|Enviada|Aceptada|Rechazada
+
   IN p_estado_esperado  VARCHAR(20)    -- NULL = sin concurrencia optimista
+
 )
 BEGIN
+
   DECLARE v_estado_actual VARCHAR(20);
+
   DECLARE v_estado_nuevo_id INT;
 
+
+
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
   BEGIN
+
     ROLLBACK;
+
     RESIGNAL;
+
   END;
+
+
 
   START TRANSACTION;
 
+
+
   -- leer + lock
+
   SELECT ec.ECot_Nombre INTO v_estado_actual
+
   FROM defaultdb.T_Cotizacion c
+
   JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
   WHERE c.PK_Cot_Cod = p_cot_id
+
   FOR UPDATE;
 
+
+
   IF v_estado_actual IS NULL THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Quote not found';
+
   END IF;
+
+
 
   -- concurrencia optimista (opcional)
+
   IF p_estado_esperado IS NOT NULL AND p_estado_esperado <> v_estado_actual THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Version conflict';
+
   END IF;
+
+
 
   -- reglas de transicion (basicas, ajusta a tu flujo)
+
   IF v_estado_actual = 'Borrador' AND p_estado_nuevo NOT IN ('Enviada') THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid transition from Borrador';
+
   END IF;
+
+
 
   IF v_estado_actual = 'Enviada' AND p_estado_nuevo NOT IN ('Aceptada','Rechazada') THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid transition from Enviada';
+
   END IF;
+
+
 
   IF v_estado_actual IN ('Aceptada','Rechazada') THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Final state cannot transition';
+
   END IF;
+
+
 
   SELECT PK_ECot_Cod INTO v_estado_nuevo_id
+
   FROM defaultdb.T_Estado_Cotizacion
+
   WHERE ECot_Nombre = p_estado_nuevo
+
   LIMIT 1;
 
+
+
   IF v_estado_nuevo_id IS NULL THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+
   END IF;
 
+
+
   -- update
+
   UPDATE defaultdb.T_Cotizacion
+
   SET FK_ECot_Cod = v_estado_nuevo_id
+
   WHERE PK_Cot_Cod = p_cot_id;
 
+
+
   -- devolver JSON de detalle (lead o cliente)
+
   SELECT JSON_OBJECT(
+
     'id',              c.PK_Cot_Cod,
+
     'estado',          ec.ECot_Nombre,
+
     'fechaCreacion',   c.Cot_Fecha_Crea,
+
     'eventoId',        c.Cot_IdTipoEvento,
+
     'tipoEvento',      c.Cot_TipoEvento,
+
     'fechaEvento',     c.Cot_FechaEvento,
+
     'lugar',           c.Cot_Lugar,
+
     'horasEstimadas',  c.Cot_HorasEst,
+
     'mensaje',         c.Cot_Mensaje,
+
     'total',           COALESCE((
+
                         SELECT SUM(s.CS_Subtotal)
+
                         FROM defaultdb.T_CotizacionServicio s
+
                         WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
+
                       ),0),
+
     'contacto',
+
       CASE
+
         WHEN l.PK_Lead_Cod IS NOT NULL THEN
+
           JSON_OBJECT(
+
             'id',             l.PK_Lead_Cod,
+
             'nombre',         l.Lead_Nombre,
+
             'celular',        l.Lead_Celular,
+
             'origen',         'LEAD',
+
             'fechaCreacion',  l.Lead_Fecha_Crea
+
           )
+
         WHEN cli.PK_Cli_Cod IS NOT NULL THEN
+
           JSON_OBJECT(
+
             'id',             cli.PK_Cli_Cod,
+
             'nombre',         TRIM(CONCAT(COALESCE(u.U_Nombre,''),' ',COALESCE(u.U_Apellido,''))),
+
             'celular',        u.U_Celular,
+
             'origen',         'CLIENTE',
+
             'fechaCreacion',  c.Cot_Fecha_Crea
+
           )
+
         ELSE
+
           JSON_OBJECT(
+
             'id',             NULL,
+
             'nombre',         NULL,
+
             'celular',        NULL,
+
             'origen',         NULL,
+
             'fechaCreacion',  NULL
+
           )
+
       END
+
   ) AS detalle_json
+
   FROM defaultdb.T_Cotizacion c
+
   LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
   LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
+
   LEFT JOIN defaultdb.T_Cliente cli  ON cli.PK_Cli_Cod = c.FK_Cli_Cod
+
   LEFT JOIN defaultdb.T_Usuario u    ON u.PK_U_Cod = cli.FK_U_Cod
+
   WHERE c.PK_Cot_Cod = p_cot_id;
 
+
+
   COMMIT;
+
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -813,59 +1386,113 @@ DELIMITER ;
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_listar_general"()
 BEGIN
+
   SELECT
+
       c.PK_Cot_Cod        AS idCotizacion,
 
+
+
       -- Origen
+
       c.FK_Lead_Cod       AS idLead,
+
       c.FK_Cli_Cod        AS idCliente,
+
       CASE WHEN c.FK_Cli_Cod IS NOT NULL THEN 'CLIENTE' ELSE 'LEAD' END AS origen,
 
+
+
       -- Siempre "Nombre Apellido" si es CLIENTE; si es LEAD usa Lead_Nombre
+
       CASE
+
         WHEN c.FK_Cli_Cod IS NOT NULL THEN
+
           TRIM(CONCAT_WS(' ',
+
             NULLIF(u.U_Nombre, ''),
+
             NULLIF(u.U_Apellido, '')
+
           ))
+
         ELSE
+
           l.Lead_Nombre
+
       END AS contactoNombre,
 
+
+
       -- Celular segun origen
+
       CASE
+
         WHEN c.FK_Cli_Cod IS NOT NULL THEN u.U_Celular
+
         ELSE l.Lead_Celular
+
       END AS contactoCelular,
 
+
+
       -- Cabecera
+
       c.Cot_TipoEvento     AS tipoEvento,
+
       c.Cot_IdTipoEvento   AS idTipoEvento,
+
       c.Cot_FechaEvento    AS fechaEvento,
+
       c.Cot_Lugar          AS lugar,
+
       c.Cot_HorasEst       AS horasEstimadas,
+
       c.Cot_Mensaje        AS mensaje,
+
       ec.ECot_Nombre AS estado,
+
       c.Cot_Fecha_Crea     AS fechaCreacion,
 
+
+
       -- Total
+
       COALESCE((
+
         SELECT SUM(
+
           COALESCE(cs.CS_Subtotal,
+
                    COALESCE(cs.CS_PrecioUnit,0) * COALESCE(cs.CS_Cantidad,1)
+
                    - COALESCE(cs.CS_Descuento,0) + COALESCE(cs.CS_Recargo,0))
+
         )
+
         FROM defaultdb.T_CotizacionServicio cs
+
         WHERE cs.FK_Cot_Cod = c.PK_Cot_Cod
+
       ), 0) AS total
 
+
+
   FROM defaultdb.T_Cotizacion c
+
   LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
   LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
+
   LEFT JOIN defaultdb.T_Cliente cli ON cli.PK_Cli_Cod = c.FK_Cli_Cod
+
   LEFT JOIN defaultdb.T_Usuario u   ON u.PK_U_Cod    = cli.FK_U_Cod
+
   ORDER BY c.PK_Cot_Cod DESC;
+
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -874,177 +1501,348 @@ DELIMITER ;
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_obtener_json"(
+
   IN p_cot_id INT
+
 )
 BEGIN
+
   -- Validaciones básicas
+
   IF p_cot_id IS NULL OR p_cot_id <= 0 THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'p_cot_id inválido';
+
   END IF;
+
+
 
   IF (SELECT COUNT(*) FROM defaultdb.T_Cotizacion WHERE PK_Cot_Cod = p_cot_id) = 0 THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotización no existe';
+
   END IF;
 
+
+
   /*
+
     Soporte para:
+
     - Lead: c.FK_Lead_Cod no nulo
+
     - Cliente: c.FK_Cli_Cod no nulo (T_Cliente -> T_Usuario)
+
     El objeto 'contacto' unifica ambos casos.
+
   */
+
   SELECT
+
     JSON_OBJECT(
+
       'idCotizacion', c.PK_Cot_Cod,
 
+
+
       'contacto',
+
       CASE
+
         WHEN l.PK_Lead_Cod IS NOT NULL THEN
+
           JSON_OBJECT(
+
             'id',         l.PK_Lead_Cod,
+
             'nombre',     l.Lead_Nombre,
+
             'celular',    l.Lead_Celular,
+
             'origen',     'LEAD',
+
             'fechaCrea',  l.Lead_Fecha_Crea
+
           )
+
         WHEN cli.PK_Cli_Cod IS NOT NULL THEN
+
           JSON_OBJECT(
+
             'id',         cli.PK_Cli_Cod,
+
             'nombre',     CONCAT(COALESCE(u.U_Nombre,''), 
+
                                  CASE WHEN u.U_Nombre IS NOT NULL AND u.U_Apellido IS NOT NULL THEN ' ' ELSE '' END,
+
                                  COALESCE(u.U_Apellido,'')),
+
             'celular',    u.U_Celular,
+
             'origen',     'CLIENTE',
+
             'fechaCrea',  c.Cot_Fecha_Crea
+
           )
+
         ELSE
+
           JSON_OBJECT(
+
             'id',         NULL,
+
             'nombre',     NULL,
+
             'celular',    NULL,
+
             'origen',     NULL,
+
             'fechaCrea',  NULL
+
           )
+
       END,
 
+
+
       'cotizacion', JSON_OBJECT(
+
         'tipoEvento',     c.Cot_TipoEvento,
+
         'idTipoEvento',   c.Cot_IdTipoEvento,
+
         'fechaEvento',    c.Cot_FechaEvento,
+
         'lugar',          c.Cot_Lugar,
+
         'horasEstimadas', c.Cot_HorasEst,
+
         'mensaje',        c.Cot_Mensaje,
+
         'estado',         ec.ECot_Nombre,
+
         'fechaCreacion',  c.Cot_Fecha_Crea,
+
         'total',          COALESCE((
+
                            SELECT SUM(s.CS_Subtotal)
+
                            FROM defaultdb.T_CotizacionServicio s
+
                            WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
+
                          ),0)
+
       ),
 
+
+
       'items', COALESCE((
+
         SELECT JSON_ARRAYAGG(
+
                  JSON_OBJECT(
+
                    'idCotizacionServicio', s.PK_CotServ_Cod,
+
                    'idEventoServicio',     s.FK_ExS_Cod,
+
                    'eventoId',             s.CS_EventoId,
+
 				   'servicioId',           s.CS_ServicioId,
+
                    'nombre',               s.CS_Nombre,
+
                    'descripcion',          s.CS_Descripcion,
+
                    'moneda',               s.CS_Moneda,
+
                    'precioUnit',           s.CS_PrecioUnit,
+
                    'cantidad',             s.CS_Cantidad,
+
                    'descuento',            s.CS_Descuento,
+
                    'recargo',              s.CS_Recargo,
+
                    'subtotal',             s.CS_Subtotal,
+
                    'notas',                s.CS_Notas,
+
                    'horas',                s.CS_Horas,
+
                    'personal',             s.CS_Staff,
+
                    'fotosImpresas',        s.CS_FotosImpresas,
+
                    'trailerMin',           s.CS_TrailerMin,
+
                    'filmMin',              s.CS_FilmMin,
+
                    'eventoServicio',
+
                    CASE
+
                      WHEN s.FK_ExS_Cod IS NULL THEN NULL
+
                      ELSE (
+
                        SELECT JSON_OBJECT(
+
                          'id',               exs.PK_ExS_Cod,
+
                          'servicioId',       exs.PK_S_Cod,
+
                          'servicioNombre',   srv.S_Nombre,
+
                          'eventoId',         exs.PK_E_Cod,
+
                          'eventoNombre',     evt.E_Nombre,
+
                          'categoriaId',      exs.FK_ESC_Cod,
+
                          'categoriaNombre',  cat.ESC_Nombre,
+
                          'categoriaTipo',    cat.ESC_Tipo,
+
                          'titulo',           exs.ExS_Titulo,
+
                          'esAddon',          exs.ExS_EsAddon,
+
                          'precio',           exs.ExS_Precio,
+
                          'descripcion',      exs.ExS_Descripcion,
+
                          'horas',            exs.ExS_Horas,
+
                          'fotosImpresas',    exs.ExS_FotosImpresas,
+
                          'trailerMin',       exs.ExS_TrailerMin,
+
                          'filmMin',          exs.ExS_FilmMin,
+
                          'staff', COALESCE((
+
                            SELECT JSON_ARRAYAGG(
+
                                     JSON_OBJECT(
+
                                       'rol',      st.Staff_Rol,
+
                                       'cantidad', st.Staff_Cantidad
+
                                     )
+
                                   )
+
                            FROM defaultdb.T_EventoServicioStaff st
+
                            WHERE st.FK_ExS_Cod = exs.PK_ExS_Cod
+
                          ), JSON_ARRAY()),
+
                          'equipos', COALESCE((
+
                            SELECT JSON_ARRAYAGG(
+
                                     JSON_OBJECT(
+
                                       'tipoEquipoId',  eq.FK_TE_Cod,
+
                                       'tipoEquipo',    te.TE_Nombre,
+
                                       'cantidad',      eq.Cantidad,
+
                                       'notas',         eq.Notas
+
                                     )
+
                                   )
+
                            FROM defaultdb.T_EventoServicioEquipo eq
+
                            JOIN defaultdb.T_Tipo_Equipo te ON te.PK_TE_Cod = eq.FK_TE_Cod
+
                            WHERE eq.FK_ExS_Cod = exs.PK_ExS_Cod
+
                          ), JSON_ARRAY())
+
                        )
+
                        FROM defaultdb.T_EventoServicio exs
+
                        LEFT JOIN defaultdb.T_Servicios srv ON srv.PK_S_Cod = exs.PK_S_Cod
+
                        LEFT JOIN defaultdb.T_Eventos   evt ON evt.PK_E_Cod = exs.PK_E_Cod
+
                        LEFT JOIN defaultdb.T_EventoServicioCategoria cat ON cat.PK_ESC_Cod = exs.FK_ESC_Cod
+
                        WHERE exs.PK_ExS_Cod = s.FK_ExS_Cod
+
                        LIMIT 1
+
                      )
+
                    END
+
                  )
+
                )
+
         FROM defaultdb.T_CotizacionServicio s
+
         WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
+
       ), JSON_ARRAY()),
 
+
+
       'eventos', COALESCE((
+
         SELECT JSON_ARRAYAGG(
+
                  JSON_OBJECT(
+
                    'id',         e.PK_CotE_Cod,
+
                    'fecha',      e.CotE_Fecha,
+
                    'hora',       e.CotE_Hora,
+
                    'ubicacion',  e.CotE_Ubicacion,
+
                    'direccion',  e.CotE_Direccion,
+
                    'notas',      e.CotE_Notas
+
                  )
+
                )
+
         FROM defaultdb.T_CotizacionEvento e
+
         WHERE e.FK_Cot_Cod = c.PK_Cot_Cod
+
       ), JSON_ARRAY())
+
     ) AS cotizacion_json
 
+
+
   FROM defaultdb.T_Cotizacion c
+
   LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
   LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
+
   LEFT JOIN defaultdb.T_Cliente cli  ON cli.PK_Cli_Cod = c.FK_Cli_Cod
+
   LEFT JOIN defaultdb.T_Usuario u    ON u.PK_U_Cod = cli.FK_U_Cod
+
   WHERE c.PK_Cot_Cod = p_cot_id;
+
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1053,74 +1851,142 @@ DELIMITER ;
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_publica_crear"(
+
   IN p_lead_nombre    VARCHAR(80),
+
   IN p_lead_celular   VARCHAR(30),
+
   IN p_lead_origen    VARCHAR(40),
+
   IN p_tipo_evento    VARCHAR(40),
+
   IN p_id_tipo_evento INT,
+
   IN p_fecha_evento   DATE,
+
   IN p_lugar          VARCHAR(150),
+
   IN p_horas_est      DECIMAL(4,1),
+
   IN p_mensaje        VARCHAR(500)
+
 )
 BEGIN
+
   DECLARE v_lead_id INT;
+
   DECLARE v_cot_id  INT;
+
   DECLARE v_estado_id INT;
 
+
+
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
   BEGIN ROLLBACK; RESIGNAL; END;
+
+
 
   START TRANSACTION;
 
+
+
   -- dedup simple por celular (ajusta si luego agregas email)
+
   SELECT PK_Lead_Cod INTO v_lead_id
+
   FROM T_Lead
+
   WHERE p_lead_celular IS NOT NULL AND Lead_Celular = p_lead_celular
+
   LIMIT 1 FOR UPDATE;
 
+
+
   IF v_lead_id IS NULL THEN
+
     INSERT INTO T_Lead(Lead_Nombre, Lead_Celular, Lead_Origen)
+
     VALUES (p_lead_nombre, p_lead_celular, p_lead_origen);
+
     SET v_lead_id = LAST_INSERT_ID();
+
   END IF;
+
+
 
   SELECT PK_ECot_Cod INTO v_estado_id
+
   FROM T_Estado_Cotizacion
+
   WHERE ECot_Nombre = 'Borrador'
+
   LIMIT 1;
 
+
+
   IF v_estado_id IS NULL THEN
+
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+
   END IF;
 
+
+
   INSERT INTO T_Cotizacion(
+
     FK_Lead_Cod,
+
     Cot_TipoEvento,
+
     Cot_IdTipoEvento,
+
     Cot_FechaEvento,
+
     Cot_Lugar,
+
     Cot_HorasEst,
+
     Cot_Mensaje,
+
     FK_ECot_Cod
+
   )
+
   VALUES (
+
     v_lead_id,
+
     p_tipo_evento,
+
     p_id_tipo_evento,
+
     p_fecha_evento,
+
     p_lugar,
+
     p_horas_est,
+
     p_mensaje,
+
     v_estado_id
+
   );
+
+
 
   SET v_cot_id = LAST_INSERT_ID();
 
+
+
   COMMIT;
 
+
+
   SELECT v_lead_id AS lead_id, v_cot_id AS cotizacion_id;
+
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1163,6 +2029,7 @@ BEGIN
   -- opcional: devolver filas afectadas
   SELECT ROW_COUNT() AS rowsAffected;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1179,6 +2046,7 @@ BEGIN
   FROM T_Tipo_Empleado te
   ORDER BY te.TiEm_Cargo;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1192,6 +2060,7 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_empleado_crear"(
   IN p_correo     VARCHAR(120),
   IN p_celular    VARCHAR(32),
   IN p_doc        VARCHAR(32),
+  IN p_tipo_doc_id INT,
   IN p_direccion  VARCHAR(200),
   IN p_autonomo   TINYINT,  -- 1=SI, 0=NO (lo mapeamos a VARCHAR)
   IN p_cargo      INT       -- FK_Tipo_Emp_Cod (1..N en T_Tipo_Empleado)
@@ -1199,9 +2068,9 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_empleado_crear"(
 BEGIN
   -- 1) Crear usuario base
   INSERT INTO T_Usuario
-    (U_Nombre, U_Apellido, U_Correo, U_Contrasena, U_Celular, U_Numero_Documento, U_Direccion)
+    (U_Nombre, U_Apellido, U_Correo, U_Contrasena, U_Celular, U_Numero_Documento, FK_TD_Cod, U_Direccion)
   VALUES
-    (TRIM(p_nombre), TRIM(p_apellido), TRIM(p_correo), NULL, TRIM(p_celular), TRIM(p_doc), TRIM(p_direccion));
+    (TRIM(p_nombre), TRIM(p_apellido), TRIM(p_correo), NULL, TRIM(p_celular), TRIM(p_doc), p_tipo_doc_id, TRIM(p_direccion));
 
   SET @v_user_id := LAST_INSERT_ID();
 
@@ -1212,6 +2081,7 @@ BEGIN
   -- (Opcional) devolver los IDs creados
   SELECT @v_user_id AS userId, LAST_INSERT_ID() AS empleadoId;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1243,6 +2113,7 @@ BEGIN
   JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = e.FK_Estado_Emp_Cod
   ORDER BY e.PK_Em_Cod;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1275,6 +2146,7 @@ BEGIN
   WHERE e.PK_Em_Cod = p_id
   LIMIT 1;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1307,6 +2179,7 @@ BEGIN
     DEALLOCATE PREPARE stmt;
   END IF;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1422,6 +2295,7 @@ BEGIN
         END IF;
     END IF;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1544,6 +2418,7 @@ BEGIN
 
     SELECT v_id AS PK_ExS_Cod;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1554,7 +2429,7 @@ DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_evento_servicio_listar"(
     IN p_evento INT,
     IN p_serv   INT
-)
+  )
 BEGIN
     SELECT
         es.PK_ExS_Cod        AS idEventoServicio,
@@ -1563,6 +2438,8 @@ BEGIN
         cat.ESC_Nombre       AS categoriaNombre,
         cat.ESC_Tipo         AS categoriaTipo,
         es.ExS_EsAddon       AS esAddon,
+        es.FK_ESE_Cod        AS estadoId,
+        est.ESE_Nombre       AS estadoNombre,
         e.PK_E_Cod           AS idEvento,
         e.E_Nombre           AS evento,
         s.PK_S_Cod           AS idServicio,
@@ -1602,15 +2479,15 @@ BEGIN
           WHERE eq.FK_ExS_Cod = es.PK_ExS_Cod
         ) AS equipos
     FROM T_EventoServicio es
-    JOIN T_Eventos   e ON e.PK_E_Cod = es.PK_E_Cod
-    JOIN T_Servicios s ON s.PK_S_Cod = es.PK_S_Cod
-    LEFT JOIN T_EventoServicioCategoria cat
-           ON cat.PK_ESC_Cod = es.FK_ESC_Cod
-          AND cat.ESC_Activo = 1
+    JOIN T_Eventos e    ON e.PK_E_Cod = es.PK_E_Cod
+    JOIN T_Servicios s  ON s.PK_S_Cod = es.PK_S_Cod
+    LEFT JOIN T_EventoServicioCategoria cat ON cat.PK_ESC_Cod = es.FK_ESC_Cod
+    LEFT JOIN T_EventoServicioEstado est    ON est.PK_ESE_Cod = es.FK_ESE_Cod
     WHERE (p_evento IS NULL OR es.PK_E_Cod = p_evento)
       AND (p_serv   IS NULL OR es.PK_S_Cod = p_serv)
-    ORDER BY e.PK_E_Cod, s.PK_S_Cod;
-END ;;
+    ORDER BY es.PK_ExS_Cod DESC;
+  END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1620,7 +2497,7 @@ DELIMITER ;
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_evento_servicio_obtener"(
     IN p_id INT
-)
+  )
 BEGIN
     SELECT
         es.PK_ExS_Cod        AS id,
@@ -1629,6 +2506,8 @@ BEGIN
         cat.ESC_Nombre       AS categoriaNombre,
         cat.ESC_Tipo         AS categoriaTipo,
         es.ExS_EsAddon       AS esAddon,
+        es.FK_ESE_Cod        AS estadoId,
+        est.ESE_Nombre       AS estadoNombre,
         es.PK_E_Cod          AS idEvento,
         e.E_Nombre           AS evento,
         es.PK_S_Cod          AS idServicio,
@@ -1668,13 +2547,13 @@ BEGIN
           WHERE eq.FK_ExS_Cod = es.PK_ExS_Cod
         ) AS equipos
     FROM T_EventoServicio es
-    JOIN T_Eventos   e ON e.PK_E_Cod  = es.PK_E_Cod
-    JOIN T_Servicios s ON s.PK_S_Cod  = es.PK_S_Cod
-    LEFT JOIN T_EventoServicioCategoria cat
-           ON cat.PK_ESC_Cod = es.FK_ESC_Cod
-          AND cat.ESC_Activo = 1
+    JOIN T_Eventos e    ON e.PK_E_Cod = es.PK_E_Cod
+    JOIN T_Servicios s  ON s.PK_S_Cod = es.PK_S_Cod
+    LEFT JOIN T_EventoServicioCategoria cat ON cat.PK_ESC_Cod = es.FK_ESC_Cod
+    LEFT JOIN T_EventoServicioEstado est    ON est.PK_ESE_Cod = es.FK_ESE_Cod
     WHERE es.PK_ExS_Cod = p_id;
-END ;;
+  END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1791,6 +2670,7 @@ BEGIN
 
   COMMIT;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1806,6 +2686,7 @@ BEGIN
   FROM T_Metodo_Pago mp
   ORDER BY mp.PK_MP_Cod;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1835,6 +2716,7 @@ BEGIN
 
   SELECT ROW_COUNT() AS rowsAffected;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1851,6 +2733,7 @@ BEGIN
   ORDER BY PK_EP_Cod DESC
   LIMIT 1;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -1952,6 +2835,7 @@ BEGIN
 
   ORDER BY p.PK_P_Cod DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2040,6 +2924,7 @@ BEGIN
     it.totalCalculado
   ORDER BY p.P_Fecha_Creacion DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2135,6 +3020,7 @@ BEGIN
   WHERE ps.FK_P_Cod = p_pedido_id
   ORDER BY ps.PK_PS_Cod;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2163,6 +3049,7 @@ BEGIN
 
   SELECT v_next AS nextIndex;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2179,6 +3066,7 @@ BEGIN
   FROM V_Pedido_Saldos
   WHERE PedidoId = pPedidoId;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2191,11 +3079,13 @@ BEGIN
   SELECT
     s.PedidoId AS IdPed,
     COALESCE(s.Proyecto, CONCAT('Pedido ', s.PedidoId)) AS Nombre,
-    s.Fecha
+    s.Fecha,
+    s.FechaCreacion
   FROM V_Pedido_Saldos s
-  WHERE s.EstadoPagoId = 3           -- Pagado
+  WHERE s.EstadoPagoId = 3
   ORDER BY s.PedidoId DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2208,12 +3098,14 @@ BEGIN
   SELECT
     s.PedidoId AS IdPed,
     COALESCE(s.Proyecto, CONCAT('Pedido ', s.PedidoId)) AS Nombre,
-    s.Fecha
+    s.Fecha,
+    s.FechaCreacion
   FROM V_Pedido_Saldos s
-  WHERE s.EstadoPagoId = 2           -- Parcial
+  WHERE s.EstadoPagoId = 2
     AND s.EstadoPedidoId <> 6
   ORDER BY s.PedidoId DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2226,12 +3118,14 @@ BEGIN
   SELECT
     s.PedidoId AS IdPed,
     COALESCE(s.Proyecto, CONCAT('Pedido ', s.PedidoId)) AS Nombre,
-    s.Fecha
+    s.Fecha,
+    s.FechaCreacion
   FROM V_Pedido_Saldos s
-  WHERE s.EstadoPagoId = 1           -- Pendiente
-    AND s.EstadoPedidoId <> 6        -- no Cancelado (opcional)
+  WHERE s.EstadoPagoId = 1
+    AND s.EstadoPedidoId <> 6
   ORDER BY s.PedidoId DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2265,6 +3159,7 @@ BEGIN
   WHERE PK_Pro_Cod = p_id;
   SELECT ROW_COUNT() AS rowsAffected;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2297,6 +3192,7 @@ BEGIN
   );
   SELECT LAST_INSERT_ID() AS proyectoId;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2309,6 +3205,7 @@ BEGIN
   DELETE FROM T_Proyecto WHERE PK_Pro_Cod = p_id;
   SELECT ROW_COUNT() AS rowsAffected;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2337,6 +3234,7 @@ BEGIN
   LEFT JOIN T_Estado_Proyecto ep ON ep.PK_EPro_Cod = pr.Pro_Estado
   ORDER BY pr.PK_Pro_Cod DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2345,60 +3243,63 @@ DELIMITER ;
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_recurso_agregar"(
-  IN p_proyecto_id INT,
-  IN p_equipo_id   INT,
-  IN p_empleado_id INT,   -- puede ser NULL para equipos en reserva
-  IN p_fecha_inicio DATE,
-  IN p_fecha_fin     DATE,
-  IN p_notas         VARCHAR(255)
-)
-BEGIN
-  DECLARE v_recurso_id BIGINT;
-
-  IF p_fecha_inicio IS NULL OR p_fecha_fin IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaInicio y fechaFin son requeridos';
-  END IF;
-  IF p_fecha_fin < p_fecha_inicio THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaFin no puede ser menor a fechaInicio';
-  END IF;
-
-  START TRANSACTION;
-  /* Proyecto-Recurso: upsert por equipo+proyecto */
-  INSERT INTO T_Proyecto_Recurso (FK_Pro_Cod, FK_Eq_Cod, FK_Em_Cod)
-  VALUES (p_proyecto_id, p_equipo_id, p_empleado_id)
-  ON DUPLICATE KEY UPDATE FK_Em_Cod = VALUES(FK_Em_Cod);
-  SET v_recurso_id = LAST_INSERT_ID();
-  IF v_recurso_id = 0 THEN
-    SELECT PK_RxP_Cod INTO v_recurso_id
-    FROM T_Proyecto_Recurso
-    WHERE FK_Pro_Cod = p_proyecto_id AND FK_Eq_Cod = p_equipo_id;
-  END IF;
-
-  IF p_empleado_id IS NOT NULL THEN
-    INSERT INTO T_Empleado_Asignacion (
-      FK_Em_Cod, FK_Pro_Cod, EAsig_Fecha_Inicio, EAsig_Fecha_Fin, EAsig_Notas
-    ) VALUES (
-      p_empleado_id, p_proyecto_id, p_fecha_inicio, p_fecha_fin, p_notas
+      IN p_proyecto_id INT,
+      IN p_equipo_id   INT,
+      IN p_empleado_id INT,
+      IN p_fecha_inicio DATE,
+      IN p_fecha_fin     DATE,
+      IN p_notas         VARCHAR(255)
     )
-    ON DUPLICATE KEY UPDATE
-      EAsig_Fecha_Inicio = VALUES(EAsig_Fecha_Inicio),
-      EAsig_Fecha_Fin    = VALUES(EAsig_Fecha_Fin),
-      EAsig_Notas        = VALUES(EAsig_Notas);
-  END IF;
+BEGIN
+      DECLARE v_recurso_id BIGINT;
 
-  INSERT INTO T_Equipo_Asignacion (
-    FK_Eq_Cod, FK_Pro_Cod, EqAsig_Fecha_Inicio, EqAsig_Fecha_Fin, EqAsig_Notas
-  ) VALUES (
-    p_equipo_id, p_proyecto_id, p_fecha_inicio, p_fecha_fin, p_notas
-  )
-  ON DUPLICATE KEY UPDATE
-    EqAsig_Fecha_Inicio = VALUES(EqAsig_Fecha_Inicio),
-    EqAsig_Fecha_Fin    = VALUES(EqAsig_Fecha_Fin),
-    EqAsig_Notas        = VALUES(EqAsig_Notas);
+      IF p_fecha_inicio IS NULL OR p_fecha_fin IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaInicio y fechaFin son requeridos';
+      END IF;
+      IF p_fecha_fin < p_fecha_inicio THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaFin no puede ser menor a fechaInicio';
+      END IF;
 
-  COMMIT;
-  SELECT v_recurso_id AS recursoId;
-END ;;
+      START TRANSACTION;
+      /* Proyecto-Recurso: upsert por equipo+proyecto */
+      INSERT INTO T_Proyecto_Recurso (FK_Pro_Cod, FK_Eq_Cod, FK_Em_Cod)
+      VALUES (p_proyecto_id, p_equipo_id, p_empleado_id)
+      ON DUPLICATE KEY UPDATE FK_Em_Cod = VALUES(FK_Em_Cod);
+      SET v_recurso_id = LAST_INSERT_ID();
+      IF v_recurso_id = 0 THEN
+        SELECT PK_RxP_Cod INTO v_recurso_id
+        FROM T_Proyecto_Recurso
+        WHERE FK_Pro_Cod = p_proyecto_id AND FK_Eq_Cod = p_equipo_id;
+      END IF;
+
+      /* Agenda del empleado (solo si hay empleado) con upsert */
+      IF p_empleado_id IS NOT NULL THEN
+        INSERT INTO T_Empleado_Asignacion (
+          FK_Em_Cod, FK_Pro_Cod, EAsig_Fecha_Inicio, EAsig_Fecha_Fin, EAsig_Notas
+        ) VALUES (
+          p_empleado_id, p_proyecto_id, p_fecha_inicio, p_fecha_fin, p_notas
+        )
+        ON DUPLICATE KEY UPDATE
+          EAsig_Fecha_Inicio = VALUES(EAsig_Fecha_Inicio),
+          EAsig_Fecha_Fin    = VALUES(EAsig_Fecha_Fin),
+          EAsig_Notas        = VALUES(EAsig_Notas);
+      END IF;
+
+      /* Agenda del equipo con upsert */
+      INSERT INTO T_Equipo_Asignacion (
+        FK_Eq_Cod, FK_Pro_Cod, EqAsig_Fecha_Inicio, EqAsig_Fecha_Fin, EqAsig_Notas
+      ) VALUES (
+        p_equipo_id, p_proyecto_id, p_fecha_inicio, p_fecha_fin, p_notas
+      )
+      ON DUPLICATE KEY UPDATE
+        EqAsig_Fecha_Inicio = VALUES(EqAsig_Fecha_Inicio),
+        EqAsig_Fecha_Fin    = VALUES(EqAsig_Fecha_Fin),
+        EqAsig_Notas        = VALUES(EqAsig_Notas);
+
+      COMMIT;
+      SELECT v_recurso_id AS recursoId;
+    END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2408,30 +3309,28 @@ DELIMITER ;
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_obtener"(IN p_id INT)
 BEGIN
-  /* Result set 1: cabecera del proyecto */
   SELECT
-    pr.PK_Pro_Cod               AS proyectoId,
-    pr.Pro_Nombre               AS proyectoNombre,
-    pr.FK_P_Cod                 AS pedidoId,
-    pr.Pro_Estado               AS estadoId,
-    epCat.EPro_Nombre           AS estadoNombre,
-    pr.FK_Em_Cod                AS responsableId,
+    pr.PK_Pro_Cod              AS proyectoId,
+    pr.Pro_Nombre              AS proyectoNombre,
+    pr.FK_P_Cod                AS pedidoId,
+    pr.Pro_Estado              AS estadoId,
+    ep.EPro_Nombre             AS estadoNombre,
+    pr.FK_Em_Cod               AS responsableId,
     CONCAT(u.U_Nombre, ' ', u.U_Apellido) AS responsableNombre,
     pr.EPro_Fecha_Inicio_Edicion AS fechaInicioEdicion,
-    pr.Pro_Fecha_Fin_Edicion    AS fechaFinEdicion,
-    pr.Pro_Revision_Edicion     AS edicion,
-    pr.Pro_Revision_Multimedia  AS multimedia,
-    pr.Pro_Enlace               AS enlace,
-    pr.Pro_Notas                AS notas,
-    pr.created_at               AS createdAt,
-    pr.updated_at               AS updatedAt
+    pr.Pro_Fecha_Fin_Edicion   AS fechaFinEdicion,
+    pr.Pro_Revision_Edicion    AS edicion,
+    pr.Pro_Revision_Multimedia AS multimedia,
+    pr.Pro_Enlace              AS enlace,
+    pr.Pro_Notas               AS notas,
+    pr.created_at              AS createdAt,
+    pr.updated_at              AS updatedAt
   FROM T_Proyecto pr
-  LEFT JOIN T_Estado_Proyecto epCat ON epCat.PK_EPro_Cod = pr.Pro_Estado
-  LEFT JOIN T_Empleados em         ON em.PK_Em_Cod       = pr.FK_Em_Cod
-  LEFT JOIN T_Usuario u            ON u.PK_U_Cod         = em.FK_U_Cod
+  LEFT JOIN T_Estado_Proyecto ep ON ep.PK_EPro_Cod = pr.Pro_Estado
+  LEFT JOIN T_Empleados em       ON em.PK_Em_Cod   = pr.FK_Em_Cod
+  LEFT JOIN T_Usuario u          ON u.PK_U_Cod     = em.FK_U_Cod
   WHERE pr.PK_Pro_Cod = p_id;
 
-  /* Result set 2: recursos del proyecto */
   SELECT
     rxp.PK_RxP_Cod             AS recursoId,
     rxp.FK_Pro_Cod             AS proyectoId,
@@ -2450,6 +3349,7 @@ BEGIN
   LEFT JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
   WHERE rxp.FK_Pro_Cod = p_id;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2459,41 +3359,42 @@ DELIMITER ;
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_asignaciones"(IN p_proyecto_id INT)
 BEGIN
-  SELECT
-    r.PK_RxP_Cod              AS recursoId,
-    r.FK_Pro_Cod              AS proyectoId,
-    r.FK_Eq_Cod               AS equipoId,
-    eq.Eq_Serie               AS equipoSerie,
-    mo.NMo_Nombre             AS modelo,
-    te.TE_Nombre              AS tipoEquipo,
-    eq.FK_EE_Cod              AS estadoEquipoId,
-    r.FK_Em_Cod               AS empleadoId,
-    CONCAT(u.U_Nombre, ' ', u.U_Apellido) AS empleadoNombre,
-    ea.EAsig_Fecha_Inicio     AS empleadoFechaInicio,
-    ea.EAsig_Fecha_Fin        AS empleadoFechaFin,
-    ea.EAsig_Estado           AS empleadoEstado,
-    ea.EAsig_Notas            AS empleadoNotas,
-    eqas.EqAsig_Fecha_Inicio  AS equipoFechaInicio,
-    eqas.EqAsig_Fecha_Fin     AS equipoFechaFin,
-    eqas.EqAsig_Estado        AS equipoEstado,
-    eqas.EqAsig_Notas         AS equipoNotas,
-    eqas.EqAsig_Devuelto      AS equipoDevuelto,
-    eqas.EqAsig_Fecha_Devolucion  AS equipoFechaDevolucion,
-    eqas.EqAsig_Estado_Devolucion AS equipoEstadoDevolucion,
-    eqas.EqAsig_Notas_Devolucion  AS equipoNotasDevolucion,
-    eqas.EqAsig_Usuario_Devolucion AS equipoUsuarioDevolucion
-  FROM T_Proyecto_Recurso r
-  LEFT JOIN T_Equipo eq           ON eq.PK_Eq_Cod   = r.FK_Eq_Cod
-  LEFT JOIN T_Modelo mo           ON mo.PK_IMo_Cod  = eq.FK_IMo_Cod
-  LEFT JOIN T_Tipo_Equipo te      ON te.PK_TE_Cod   = mo.FK_TE_Cod
-  LEFT JOIN T_Empleados em        ON em.PK_Em_Cod   = r.FK_Em_Cod
-  LEFT JOIN T_Usuario u           ON u.PK_U_Cod     = em.FK_U_Cod
-  LEFT JOIN T_Empleado_Asignacion ea
-         ON ea.FK_Em_Cod = r.FK_Em_Cod AND ea.FK_Pro_Cod = r.FK_Pro_Cod
-  LEFT JOIN T_Equipo_Asignacion eqas
-         ON eqas.FK_Eq_Cod = r.FK_Eq_Cod AND eqas.FK_Pro_Cod = r.FK_Pro_Cod
-  WHERE r.FK_Pro_Cod = p_proyecto_id;
-END ;;
+      SELECT
+        r.PK_RxP_Cod              AS recursoId,
+        r.FK_Pro_Cod              AS proyectoId,
+        r.FK_Eq_Cod               AS equipoId,
+        eq.Eq_Serie               AS equipoSerie,
+        mo.NMo_Nombre             AS modelo,
+        te.TE_Nombre              AS tipoEquipo,
+        eq.FK_EE_Cod              AS estadoEquipoId,
+        r.FK_Em_Cod               AS empleadoId,
+        CONCAT(u.U_Nombre, ' ', u.U_Apellido) AS empleadoNombre,
+        ea.EAsig_Fecha_Inicio     AS empleadoFechaInicio,
+        ea.EAsig_Fecha_Fin        AS empleadoFechaFin,
+        ea.EAsig_Estado           AS empleadoEstado,
+        ea.EAsig_Notas            AS empleadoNotas,
+        eqas.EqAsig_Fecha_Inicio  AS equipoFechaInicio,
+        eqas.EqAsig_Fecha_Fin     AS equipoFechaFin,
+        eqas.EqAsig_Estado        AS equipoEstado,
+        eqas.EqAsig_Notas         AS equipoNotas,
+        eqas.EqAsig_Devuelto      AS equipoDevuelto,
+        eqas.EqAsig_Fecha_Devolucion  AS equipoFechaDevolucion,
+        eqas.EqAsig_Estado_Devolucion AS equipoEstadoDevolucion,
+        eqas.EqAsig_Notas_Devolucion  AS equipoNotasDevolucion,
+        eqas.EqAsig_Usuario_Devolucion AS equipoUsuarioDevolucion
+      FROM T_Proyecto_Recurso r
+      LEFT JOIN T_Equipo eq           ON eq.PK_Eq_Cod   = r.FK_Eq_Cod
+      LEFT JOIN T_Modelo mo           ON mo.PK_IMo_Cod  = eq.FK_IMo_Cod
+      LEFT JOIN T_Tipo_Equipo te      ON te.PK_TE_Cod   = mo.FK_TE_Cod
+      LEFT JOIN T_Empleados em        ON em.PK_Em_Cod   = r.FK_Em_Cod
+      LEFT JOIN T_Usuario u           ON u.PK_U_Cod     = em.FK_U_Cod
+      LEFT JOIN T_Empleado_Asignacion ea
+             ON ea.FK_Em_Cod = r.FK_Em_Cod AND ea.FK_Pro_Cod = r.FK_Pro_Cod
+      LEFT JOIN T_Equipo_Asignacion eqas
+             ON eqas.FK_Eq_Cod = r.FK_Eq_Cod AND eqas.FK_Pro_Cod = r.FK_Pro_Cod
+      WHERE r.FK_Pro_Cod = p_proyecto_id;
+    END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2503,206 +3404,207 @@ DELIMITER ;
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_recursos_reset"(IN p_proyecto_id INT)
 BEGIN
-  START TRANSACTION;
-    DELETE FROM T_Empleado_Asignacion WHERE FK_Pro_Cod = p_proyecto_id;
-    DELETE FROM T_Equipo_Asignacion   WHERE FK_Pro_Cod = p_proyecto_id;
-    DELETE FROM T_Proyecto_Recurso    WHERE FK_Pro_Cod = p_proyecto_id;
-  COMMIT;
-END ;;
+      START TRANSACTION;
+        DELETE FROM T_Empleado_Asignacion WHERE FK_Pro_Cod = p_proyecto_id;
+        DELETE FROM T_Equipo_Asignacion   WHERE FK_Pro_Cod = p_proyecto_id;
+        DELETE FROM T_Proyecto_Recurso    WHERE FK_Pro_Cod = p_proyecto_id;
+      COMMIT;
+    END ;;
+;;
 DELIMITER ;
 ```
 
 ## sp_proyecto_disponibilidad
 
 ```sql
-CREATE PROCEDURE sp_proyecto_disponibilidad(
-  IN p_fecha_inicio DATE,
-  IN p_fecha_fin    DATE,
-  IN p_proyecto_id  INT,
-  IN p_tipo_equipo  INT,
-  IN p_cargo_id     INT
-)
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_disponibilidad"(
+      IN p_fecha_inicio DATE,
+      IN p_fecha_fin    DATE,
+      IN p_proyecto_id  INT,
+      IN p_tipo_equipo  INT,
+      IN p_cargo_id     INT
+    )
 BEGIN
-  IF p_fecha_inicio IS NULL OR p_fecha_fin IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaInicio y fechaFin son requeridos';
-  END IF;
-  IF p_fecha_fin < p_fecha_inicio THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaFin no puede ser menor a fechaInicio';
-  END IF;
+      IF p_fecha_inicio IS NULL OR p_fecha_fin IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaInicio y fechaFin son requeridos';
+      END IF;
+      IF p_fecha_fin < p_fecha_inicio THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'fechaFin no puede ser menor a fechaInicio';
+      END IF;
 
-  /* Empleados operativos y activos */
-  SELECT
-    em.PK_Em_Cod           AS empleadoId,
-    u.PK_U_Cod             AS usuarioId,
-    u.U_Nombre             AS nombre,
-    u.U_Apellido           AS apellido,
-    te.PK_Tipo_Emp_Cod     AS cargoId,
-    te.TiEm_Cargo          AS cargo,
-    em.FK_Estado_Emp_Cod   AS estadoId,
-    ee.EsEm_Nombre         AS estado,
-    te.TiEm_OperativoCampo AS operativoCampo,
-    IF(conf.conflictos IS NULL, 1, 0)                 AS disponible,
-    COALESCE(conf.conflictos, JSON_ARRAY())           AS conflictos
-  FROM T_Empleados em
-  JOIN T_Usuario u            ON u.PK_U_Cod         = em.FK_U_Cod
-  JOIN T_Tipo_Empleado te     ON te.PK_Tipo_Emp_Cod = em.FK_Tipo_Emp_Cod
-  LEFT JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = em.FK_Estado_Emp_Cod
-  LEFT JOIN (
-    SELECT
-      ea.FK_Em_Cod AS empleadoId,
-      JSON_ARRAYAGG(
-        JSON_OBJECT(
-          'proyectoId',  ea.FK_Pro_Cod,
-          'fechaInicio', ea.EAsig_Fecha_Inicio,
-          'fechaFin',    ea.EAsig_Fecha_Fin,
-          'estado',      ea.EAsig_Estado
-        )
-      ) AS conflictos
-    FROM T_Empleado_Asignacion ea
-    WHERE (ea.EAsig_Estado IS NULL OR ea.EAsig_Estado NOT IN ('Cancelado', 'Anulado'))
-      AND ea.EAsig_Fecha_Inicio <= p_fecha_fin
-      AND ea.EAsig_Fecha_Fin    >= p_fecha_inicio
-      AND (p_proyecto_id IS NULL OR ea.FK_Pro_Cod <> p_proyecto_id)
-    GROUP BY ea.FK_Em_Cod
-  ) conf ON conf.empleadoId = em.PK_Em_Cod
-  WHERE te.TiEm_OperativoCampo = 1
-    AND em.FK_Estado_Emp_Cod = 1
-    AND (p_cargo_id IS NULL OR te.PK_Tipo_Emp_Cod = p_cargo_id)
-  ORDER BY disponible DESC, te.TiEm_Cargo, u.U_Nombre, u.U_Apellido;
+      /* Empleados operativos y activos */
+      SELECT
+        em.PK_Em_Cod           AS empleadoId,
+        u.PK_U_Cod             AS usuarioId,
+        u.U_Nombre             AS nombre,
+        u.U_Apellido           AS apellido,
+        te.PK_Tipo_Emp_Cod     AS cargoId,
+        te.TiEm_Cargo          AS cargo,
+        em.FK_Estado_Emp_Cod   AS estadoId,
+        ee.EsEm_Nombre         AS estado,
+        te.TiEm_OperativoCampo AS operativoCampo,
+        IF(conf.conflictos IS NULL, 1, 0)                 AS disponible,
+        COALESCE(conf.conflictos, JSON_ARRAY())           AS conflictos
+      FROM T_Empleados em
+      JOIN T_Usuario u            ON u.PK_U_Cod         = em.FK_U_Cod
+      JOIN T_Tipo_Empleado te     ON te.PK_Tipo_Emp_Cod = em.FK_Tipo_Emp_Cod
+      LEFT JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = em.FK_Estado_Emp_Cod
+      LEFT JOIN (
+        SELECT
+          ea.FK_Em_Cod AS empleadoId,
+          JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'proyectoId',  ea.FK_Pro_Cod,
+              'fechaInicio', ea.EAsig_Fecha_Inicio,
+              'fechaFin',    ea.EAsig_Fecha_Fin,
+              'estado',      ea.EAsig_Estado
+            )
+          ) AS conflictos
+        FROM T_Empleado_Asignacion ea
+        WHERE (ea.EAsig_Estado IS NULL OR ea.EAsig_Estado NOT IN ('Cancelado', 'Anulado'))
+          AND ea.EAsig_Fecha_Inicio <= p_fecha_fin
+          AND ea.EAsig_Fecha_Fin    >= p_fecha_inicio
+          AND (p_proyecto_id IS NULL OR ea.FK_Pro_Cod <> p_proyecto_id)
+        GROUP BY ea.FK_Em_Cod
+      ) conf ON conf.empleadoId = em.PK_Em_Cod
+      WHERE te.TiEm_OperativoCampo = 1
+        AND em.FK_Estado_Emp_Cod = 1
+        AND (p_cargo_id IS NULL OR te.PK_Tipo_Emp_Cod = p_cargo_id)
+      ORDER BY disponible DESC, te.TiEm_Cargo, u.U_Nombre, u.U_Apellido;
 
-  /* Equipos */
-  SELECT
-    eq.PK_Eq_Cod     AS idEquipo,
-    eq.Eq_Fecha_Ingreso AS fechaIngreso,
-    eq.Eq_Serie      AS serie,
-    mo.PK_IMo_Cod    AS idModelo,
-    mo.NMo_Nombre    AS nombreModelo,
-    ma.PK_IMa_Cod    AS idMarca,
-    ma.NMa_Nombre    AS nombreMarca,
-    teq.PK_TE_Cod    AS idTipoEquipo,
-    teq.TE_Nombre    AS nombreTipoEquipo,
-    eq.FK_EE_Cod     AS idEstado,
-    eeq.EE_Nombre    AS nombreEstado,
-    IF(confEq.conflictos IS NULL, 1, 0)       AS disponible,
-    COALESCE(confEq.conflictos, JSON_ARRAY()) AS conflictos
-  FROM T_Equipo eq
-  JOIN T_Modelo mo       ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
-  JOIN T_Marca  ma       ON ma.PK_IMa_Cod = mo.FK_IMa_Cod
-  JOIN T_Tipo_Equipo teq ON teq.PK_TE_Cod = mo.FK_TE_Cod
-  JOIN T_Estado_Equipo eeq ON eeq.PK_EE_Cod = eq.FK_EE_Cod
-  LEFT JOIN (
-    SELECT
-      ea.FK_Eq_Cod AS equipoId,
-      JSON_ARRAYAGG(
-        JSON_OBJECT(
-          'proyectoId',  ea.FK_Pro_Cod,
-          'fechaInicio', ea.EqAsig_Fecha_Inicio,
-          'fechaFin',    ea.EqAsig_Fecha_Fin,
-          'estado',      ea.EqAsig_Estado
-        )
-      ) AS conflictos
-    FROM T_Equipo_Asignacion ea
-    WHERE (ea.EqAsig_Estado IS NULL OR ea.EqAsig_Estado NOT IN ('Cancelado', 'Anulado'))
-      AND ea.EqAsig_Fecha_Inicio <= p_fecha_fin
-      AND ea.EqAsig_Fecha_Fin    >= p_fecha_inicio
-      AND (p_proyecto_id IS NULL OR ea.FK_Pro_Cod <> p_proyecto_id)
-    GROUP BY ea.FK_Eq_Cod
-  ) confEq ON confEq.equipoId = eq.PK_Eq_Cod
-  WHERE eeq.EE_Nombre = 'Disponible'
-    AND (p_tipo_equipo IS NULL OR teq.PK_TE_Cod = p_tipo_equipo)
-  ORDER BY disponible DESC, teq.TE_Nombre, mo.NMo_Nombre, eq.PK_Eq_Cod;
-END;
+      /* Equipos */
+      SELECT
+        eq.PK_Eq_Cod     AS idEquipo,
+        eq.Eq_Fecha_Ingreso AS fechaIngreso,
+        eq.Eq_Serie      AS serie,
+        mo.PK_IMo_Cod    AS idModelo,
+        mo.NMo_Nombre    AS nombreModelo,
+        ma.PK_IMa_Cod    AS idMarca,
+        ma.NMa_Nombre    AS nombreMarca,
+        teq.PK_TE_Cod    AS idTipoEquipo,
+        teq.TE_Nombre    AS nombreTipoEquipo,
+        eq.FK_EE_Cod     AS idEstado,
+        eeq.EE_Nombre    AS nombreEstado,
+        IF(confEq.conflictos IS NULL, 1, 0)       AS disponible,
+        COALESCE(confEq.conflictos, JSON_ARRAY()) AS conflictos
+      FROM T_Equipo eq
+      JOIN T_Modelo mo       ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
+      JOIN T_Marca  ma       ON ma.PK_IMa_Cod = mo.FK_IMa_Cod
+      JOIN T_Tipo_Equipo teq ON teq.PK_TE_Cod = mo.FK_TE_Cod
+      JOIN T_Estado_Equipo eeq ON eeq.PK_EE_Cod = eq.FK_EE_Cod
+      LEFT JOIN (
+        SELECT
+          ea.FK_Eq_Cod AS equipoId,
+          JSON_ARRAYAGG(
+            JSON_OBJECT(
+              'proyectoId',  ea.FK_Pro_Cod,
+              'fechaInicio', ea.EqAsig_Fecha_Inicio,
+              'fechaFin',    ea.EqAsig_Fecha_Fin,
+              'estado',      ea.EqAsig_Estado
+            )
+          ) AS conflictos
+        FROM T_Equipo_Asignacion ea
+        WHERE (ea.EqAsig_Estado IS NULL OR ea.EqAsig_Estado NOT IN ('Cancelado', 'Anulado'))
+          AND ea.EqAsig_Fecha_Inicio <= p_fecha_fin
+          AND ea.EqAsig_Fecha_Fin    >= p_fecha_inicio
+          AND (p_proyecto_id IS NULL OR ea.FK_Pro_Cod <> p_proyecto_id)
+        GROUP BY ea.FK_Eq_Cod
+      ) confEq ON confEq.equipoId = eq.PK_Eq_Cod
+      WHERE eeq.EE_Nombre = 'Disponible'
+        AND (p_tipo_equipo IS NULL OR teq.PK_TE_Cod = p_tipo_equipo)
+      ORDER BY disponible DESC, teq.TE_Nombre, mo.NMo_Nombre, eq.PK_Eq_Cod;
+    END ;;
+;;
+DELIMITER ;
 ```
 
 ## sp_equipo_inhabilitar
 
-Pensado para el `PATCH /inventario/equipos/{idEquipo}/estado` cuando el nuevo estado lo deja inhabilitado (mantenimiento/baja). Cancela únicamente las asignaciones futuras de ese equipo, actualiza el estado y retorna los proyectos afectados.
-
 ```sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_equipo_inhabilitar"(
-  IN p_equipo_id INT,
-  IN p_estado_id INT,
-  IN p_fecha_hoy DATE,
-  IN p_proyecto_excluir INT
-)
+      IN p_equipo_id INT,
+      IN p_estado_id INT,
+      IN p_fecha_hoy DATE,
+      IN p_proyecto_excluir INT
+    )
 BEGIN
-  DECLARE v_today DATE;
-  SET v_today = IFNULL(p_fecha_hoy, CURDATE());
+      DECLARE v_today DATE;
+      SET v_today = IFNULL(p_fecha_hoy, CURDATE());
 
-  /* Proyectos impactados por la cancelación del equipo (solo asignaciones futuras) */
-  CREATE TEMPORARY TABLE IF NOT EXISTS tmp_equipo_afectado (
-    id                BIGINT AUTO_INCREMENT PRIMARY KEY,
-    proyectoId        INT,
-    nombreProyecto    VARCHAR(255),
-    fechaEventoInicio DATE,
-    fechaInicio       DATE,
-    fechaFin          DATE,
-    empleadoId        INT,
-    empleadoNombre    VARCHAR(255),
-    nota              VARCHAR(255)
-  );
-  TRUNCATE TABLE tmp_equipo_afectado;
-
-  INSERT INTO tmp_equipo_afectado (proyectoId, nombreProyecto, fechaEventoInicio, fechaInicio, fechaFin, empleadoId, empleadoNombre, nota)
-  SELECT
-    r.FK_Pro_Cod                              AS proyectoId,
-    pr.Pro_Nombre                             AS nombreProyecto,
-    (SELECT MIN(pe.PE_Fecha)
-       FROM T_PedidoEvento pe
-      WHERE pe.FK_P_Cod = pr.FK_P_Cod)        AS fechaEventoInicio,
-    ea.EqAsig_Fecha_Inicio                    AS fechaInicio,
-    ea.EqAsig_Fecha_Fin                       AS fechaFin,
-    r.FK_Em_Cod                               AS empleadoId,
-    CONCAT(u.U_Nombre, ' ', u.U_Apellido)     AS empleadoNombre,
-    ea.EqAsig_Notas                           AS nota
-  FROM T_Equipo_Asignacion ea
-  JOIN T_Proyecto_Recurso r
-       ON r.FK_Pro_Cod = ea.FK_Pro_Cod AND r.FK_Eq_Cod = ea.FK_Eq_Cod
-  LEFT JOIN T_Proyecto pr  ON pr.PK_Pro_Cod = r.FK_Pro_Cod
-  LEFT JOIN T_Empleados em ON em.PK_Em_Cod  = r.FK_Em_Cod
-  LEFT JOIN T_Usuario u    ON u.PK_U_Cod    = em.FK_U_Cod
-  WHERE ea.FK_Eq_Cod = p_equipo_id
-    AND ea.EqAsig_Fecha_Fin >= v_today
-    AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir);
-
-  START TRANSACTION;
-    /* Borra recurso-equipo solo si había asignaciones futuras de ese equipo */
-    DELETE r
-    FROM T_Proyecto_Recurso r
-    WHERE r.FK_Eq_Cod = p_equipo_id
-      AND (p_proyecto_excluir IS NULL OR r.FK_Pro_Cod <> p_proyecto_excluir)
-      AND EXISTS (
-        SELECT 1
-        FROM T_Equipo_Asignacion ea
-        WHERE ea.FK_Eq_Cod = r.FK_Eq_Cod
-          AND ea.FK_Pro_Cod = r.FK_Pro_Cod
-          AND ea.EqAsig_Fecha_Fin >= v_today
-          AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir)
+      /* Proyectos impactados por la cancelación del equipo (solo asignaciones futuras) */
+      CREATE TEMPORARY TABLE IF NOT EXISTS tmp_equipo_afectado (
+        id                BIGINT AUTO_INCREMENT PRIMARY KEY,
+        proyectoId        INT,
+        nombreProyecto    VARCHAR(255),
+        fechaEventoInicio DATE,
+        fechaInicio       DATE,
+        fechaFin          DATE,
+        empleadoId        INT,
+        empleadoNombre    VARCHAR(255),
+        nota              VARCHAR(255)
       );
+      TRUNCATE TABLE tmp_equipo_afectado;
 
-    /* Borra asignaciones futuras del equipo (no toca T_Empleado_Asignacion) */
-    DELETE ea
-    FROM T_Equipo_Asignacion ea
-    WHERE ea.FK_Eq_Cod = p_equipo_id
-      AND ea.EqAsig_Fecha_Fin >= v_today
-      AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir);
+      INSERT INTO tmp_equipo_afectado (proyectoId, nombreProyecto, fechaEventoInicio, fechaInicio, fechaFin, empleadoId, empleadoNombre, nota)
+      SELECT
+        r.FK_Pro_Cod                              AS proyectoId,
+        pr.Pro_Nombre                             AS nombreProyecto,
+        (SELECT MIN(pe.PE_Fecha)
+           FROM T_PedidoEvento pe
+          WHERE pe.FK_P_Cod = pr.FK_P_Cod)        AS fechaEventoInicio,
+        ea.EqAsig_Fecha_Inicio                    AS fechaInicio,
+        ea.EqAsig_Fecha_Fin                       AS fechaFin,
+        r.FK_Em_Cod                               AS empleadoId,
+        CONCAT(u.U_Nombre, ' ', u.U_Apellido)     AS empleadoNombre,
+        ea.EqAsig_Notas                           AS nota
+      FROM T_Equipo_Asignacion ea
+      JOIN T_Proyecto_Recurso r
+           ON r.FK_Pro_Cod = ea.FK_Pro_Cod AND r.FK_Eq_Cod = ea.FK_Eq_Cod
+      LEFT JOIN T_Proyecto pr  ON pr.PK_Pro_Cod = r.FK_Pro_Cod
+      LEFT JOIN T_Empleados em ON em.PK_Em_Cod  = r.FK_Em_Cod
+      LEFT JOIN T_Usuario u    ON u.PK_U_Cod    = em.FK_U_Cod
+      WHERE ea.FK_Eq_Cod = p_equipo_id
+        AND ea.EqAsig_Fecha_Fin >= v_today
+        AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir);
 
-    /* Actualiza estado del equipo */
-    UPDATE T_Equipo
-      SET FK_EE_Cod = p_estado_id
-      WHERE PK_Eq_Cod = p_equipo_id;
-  COMMIT;
+      START TRANSACTION;
+        /* Borra recurso-equipo solo si había asignaciones futuras de ese equipo (excluyendo proyecto actual si se envía) */
+        DELETE r
+        FROM T_Proyecto_Recurso r
+        WHERE r.FK_Eq_Cod = p_equipo_id
+          AND (p_proyecto_excluir IS NULL OR r.FK_Pro_Cod <> p_proyecto_excluir)
+          AND EXISTS (
+            SELECT 1
+            FROM T_Equipo_Asignacion ea
+            WHERE ea.FK_Eq_Cod = r.FK_Eq_Cod
+              AND ea.FK_Pro_Cod = r.FK_Pro_Cod
+              AND ea.EqAsig_Fecha_Fin >= v_today
+              AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir)
+          );
 
-  SELECT * FROM tmp_equipo_afectado;
-  DROP TEMPORARY TABLE IF EXISTS tmp_equipo_afectado;
-END ;;
+        /* Borra asignaciones futuras del equipo (no toca T_Empleado_Asignacion) */
+        DELETE ea
+        FROM T_Equipo_Asignacion ea
+        WHERE ea.FK_Eq_Cod = p_equipo_id
+          AND ea.EqAsig_Fecha_Fin >= v_today
+          AND (p_proyecto_excluir IS NULL OR ea.FK_Pro_Cod <> p_proyecto_excluir);
+
+        /* Actualiza estado del equipo */
+        UPDATE T_Equipo
+          SET FK_EE_Cod = p_estado_id
+          WHERE PK_Eq_Cod = p_equipo_id;
+      COMMIT;
+
+      SELECT * FROM tmp_equipo_afectado;
+      DROP TEMPORARY TABLE IF EXISTS tmp_equipo_afectado;
+    END ;;
+;;
 DELIMITER ;
 ```
 
 ## sp_equipo_proyectos_afectados
-
-Devuelve proyectos en los que un equipo está asignado con fechas futuras (o desde una fecha dada), incluyendo la fecha de inicio del evento (primer registro en T_PedidoEvento).
 
 ```sql
 DELIMITER ;;
@@ -2730,6 +3632,7 @@ BEGIN
     AND ea.EqAsig_Fecha_Fin >= v_desde
   ORDER BY ea.EqAsig_Fecha_Inicio;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2746,6 +3649,7 @@ BEGIN
   FROM T_Servicios s
   ORDER BY s.S_Nombre;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2790,6 +3694,7 @@ BEGIN
 
   SELECT LAST_INSERT_ID() AS idVoucher;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2808,6 +3713,7 @@ BEGIN
           ON ev.PK_EV_Cod = v.FK_EV_Cod
   ORDER BY v.PK_Pa_Cod ASC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2832,6 +3738,7 @@ BEGIN
   WHERE v.FK_P_Cod = p_idPedido
   ORDER BY v.PK_Pa_Cod DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2853,6 +3760,7 @@ BEGIN
   WHERE v.FK_P_Cod = pPedidoId
   ORDER BY v.PK_Pa_Cod DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2886,6 +3794,7 @@ BEGIN
   WHERE v.FK_EV_Cod = p_idEstado
   ORDER BY p.PK_P_Cod DESC;
 END ;;
+;;
 DELIMITER ;
 ```
 
@@ -2912,5 +3821,6 @@ BEGIN
       SELECT MAX(v2.PK_Pa_Cod) FROM T_Voucher v2 WHERE v2.FK_P_Cod = p_idPedido
     );
 END ;;
+;;
 DELIMITER ;
 ```

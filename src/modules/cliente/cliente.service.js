@@ -79,6 +79,16 @@ async function create(payload) {
   ["nombre", "apellido", "correo", "numDoc", "celular", "direccion"].forEach(
     (field) => assertString(payload[field], field)
   );
+  if (payload.razonSocial != null && typeof payload.razonSocial !== "string") {
+    const err = new Error("Campo 'razonSocial' debe ser texto");
+    err.status = 400;
+    throw err;
+  }
+  assertMaxLength(payload.razonSocial, "razonSocial", 150);
+  payload.tipoDocumentoId = assertPositiveInt(
+    payload.tipoDocumentoId,
+    "tipoDocumentoId"
+  );
 
   const plainPassword = buildInitialPassword(payload.nombre, payload.apellido);
   const contrasenaHash = hashPassword(plainPassword);

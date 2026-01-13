@@ -12,9 +12,22 @@ module.exports = function errorHandler(err, req, res, next) {
     "Unhandled error"
   );
 
-  const status = err?.status || 500;
-  res.status(status).json({
-    success: false,
-    message: err?.message || "Internal Server Error",
-  });
+  let status = err?.status || 500;
+  let message = err?.message || "Internal Server Error";
+
+  if (err?.code === "ER_DUP_ENTRY") {
+    status = 409;
+    const sqlMessage = String(err?.message || "");
+    if (sqlMessage.includes("UQ_T_Usuario_Correo")) {
+      message = "El correo ya está registrado.";
+    } else if (sqlMessage.includes("UQ_T_Usuario_Celular")) {
+      message = "El celular ya está registrado.";
+    } else if (sqlMessage.includes("UQ_T_Usuario_NumDoc")) {
+      message = "El número de documento ya está registrado.";
+    } else {
+      message = "Registro duplicado.";
+    }
+  }
+
+  res.status(status).json({ success: false, message });
 };

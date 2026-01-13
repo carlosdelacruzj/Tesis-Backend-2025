@@ -66,6 +66,18 @@ async function create(payload) {
   ["nombre", "apellido", "correo", "celular", "documento", "direccion"].forEach(
     (f) => assertString(payload[f], f)
   );
+  if (payload.tipoDocumentoId == null) {
+    const err = new Error("tipoDocumentoId es requerido");
+    err.status = 400;
+    throw err;
+  }
+  const tipoDocumentoId = Number(payload.tipoDocumentoId);
+  if (!Number.isInteger(tipoDocumentoId) || tipoDocumentoId <= 0) {
+    const err = new Error("tipoDocumentoId invalido");
+    err.status = 400;
+    throw err;
+  }
+  payload.tipoDocumentoId = tipoDocumentoId;
 
   if (payload.autonomo != null) {
     const a = Number(payload.autonomo);

@@ -82,13 +82,14 @@ async function getById(id) {
 }
 
 // Escrituras
-async function create({ nombre, apellido, correo, celular, documento, direccion, autonomo, cargo }) {
-  await runCall("CALL sp_empleado_crear(?,?,?,?,?,?,?,?)", [
+async function create({ nombre, apellido, correo, celular, documento, tipoDocumentoId, direccion, autonomo, cargo }) {
+  await runCall("CALL sp_empleado_crear(?,?,?,?,?,?,?,?,?)", [
     t(nombre),
     t(apellido),
     t(correo),
     t(celular),
     t(documento),
+    Number(tipoDocumentoId),
     t(direccion),
     autonomo != null ? Number(autonomo) : null,
     cargo != null ? Number(cargo) : null,
