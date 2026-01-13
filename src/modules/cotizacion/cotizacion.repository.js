@@ -36,7 +36,7 @@ async function listAll({ estado } = {}) {
       id: Number(r.idCotizacion),
       codigo: formatCodigo("COT", r.idCotizacion),
       estado: String(r.estado),
-      fechaCreacion: r.fechaCreacion,
+      fechaCreacion: r.fechaCreacion ?? r.Cot_Fecha_Crea,
       eventoId: r.idTipoEvento ?? null, // <- del SP: Cot_IdTipoEvento AS idTipoEvento
       tipoEvento: r.tipoEvento,
       fechaEvento: r.fechaEvento,
@@ -277,8 +277,14 @@ async function rechazarVencidas(fechaCorte) {
      JOIN T_Estado_Cotizacion ec_e ON ec_e.ECot_Nombre = 'Enviada'
      SET c.FK_ECot_Cod = ec_r.PK_ECot_Cod
      WHERE c.FK_ECot_Cod IN (ec_b.PK_ECot_Cod, ec_e.PK_ECot_Cod)
-       AND c.Cot_FechaEvento <= ?`,
-    [fecha]
+       AND (
+         c.Cot_Fecha_Crea <= DATE_SUB(?, INTERVAL 90 DAY)
+         OR (
+           c.Cot_FechaEvento <= DATE_ADD(?, INTERVAL 7 DAY)
+           AND NOT (DATEDIFF(c.Cot_FechaEvento, c.Cot_Fecha_Crea) BETWEEN 1 AND 7)
+         )
+       )`,
+    [fecha, fecha]
   );
 }
 

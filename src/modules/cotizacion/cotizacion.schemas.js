@@ -199,7 +199,7 @@
  *       properties:
  *         id:             { type: integer, description: "ID unificado de cotizaciÃ³n (mapeado desde idCotizacion)" }
 *         estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada, Expirada] }
- *         fechaCreacion:  { type: string, format: date, description: "YYYY-MM-DD" }
+ *         fechaCreacion:  { type: string, format: date-time, description: "YYYY-MM-DD HH:mm:ss" }
  *         eventoId:       { type: integer, nullable: true, example: 1, description: "Mapeado desde idTipoEvento" }
  *         tipoEvento:     { type: string }
  *         fechaEvento:    { type: string, format: date, nullable: true }
@@ -221,7 +221,7 @@
 *       example:
 *         - id: 42
 *           estado: "Borrador"
-*           fechaCreacion: "2025-10-12"
+*           fechaCreacion: "2025-10-12 09:30:00"
 *           eventoId: 1
 *           tipoEvento: "Boda"
 *           fechaEvento: "2025-10-20"
@@ -236,7 +236,7 @@
  *             celular: "999888777"
 *         - id: 41
 *           estado: "Enviada"
-*           fechaCreacion: "2025-10-11"
+*           fechaCreacion: "2025-10-11 14:15:00"
 *           eventoId: 2
 *           tipoEvento: "CumpleaÃ±os"
 *           fechaEvento: "2025-10-25"
