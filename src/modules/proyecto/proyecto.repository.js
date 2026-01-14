@@ -1,5 +1,6 @@
 const pool = require("../../db");
 const { formatCodigo } = require("../../utils/codigo");
+const { getLimaDateTimeString } = require("../../utils/dates");
 
 async function runCall(sql, params = []) {
   const [rows] = await pool.query(sql, params);
@@ -83,7 +84,8 @@ async function postProyecto(payload) {
   } = payload;
   const estadoDefaultId =
     estadoId == null ? await getEstadoProyectoIdByNombre("Planificado") : estadoId;
-  return runCall("CALL sp_proyecto_crear(?,?,?,?,?,?,?,?,?,?)", [
+  const fechaCreacion = getLimaDateTimeString();
+  return runCall("CALL sp_proyecto_crear(?,?,?,?,?,?,?,?,?,?,?,?)", [
     proyectoNombre ?? null,
     Number(pedidoId),
     estadoDefaultId,
@@ -94,6 +96,8 @@ async function postProyecto(payload) {
     notas ?? null,
     multimedia ?? null,
     edicion ?? null,
+    fechaCreacion,
+    fechaCreacion,
   ]);
 }
 
@@ -109,7 +113,7 @@ async function putProyectoById(id, payload) {
     multimedia,
     edicion,
   } = payload;
-  return runCall("CALL sp_proyecto_actualizar(?,?,?,?,?,?,?,?,?,?)", [
+  return runCall("CALL sp_proyecto_actualizar(?,?,?,?,?,?,?,?,?,?,?)", [
     Number(id),
     proyectoNombre ?? null,
     fechaInicioEdicion ?? null,
@@ -120,6 +124,7 @@ async function putProyectoById(id, payload) {
     enlace ?? null,
     multimedia ?? null,
     edicion ?? null,
+    getLimaDateTimeString(),
   ]);
 }
 
@@ -182,6 +187,8 @@ async function patchProyectoById(id, payload = {}) {
     return { affectedRows: 0 };
   }
 
+  fields.push("updated_at = ?");
+  params.push(getLimaDateTimeString());
   params.push(Number(id));
 
   const [result] = await pool.query(
@@ -316,16 +323,18 @@ async function marcarDevolucion({
   estadoDevolucion,
   notas,
   usuarioId = null,
+  fechaDevolucion,
 }) {
   await pool.query(
     `UPDATE T_Equipo_Asignacion
        SET EqAsig_Devuelto = 1,
-           EqAsig_Fecha_Devolucion = NOW(),
+           EqAsig_Fecha_Devolucion = ?,
            EqAsig_Estado_Devolucion = ?,
            EqAsig_Notas_Devolucion = ?,
            EqAsig_Usuario_Devolucion = ?
      WHERE FK_Pro_Cod = ? AND FK_Eq_Cod = ?`,
     [
+      fechaDevolucion ?? getLimaDateTimeString(),
       estadoDevolucion ?? null,
       notas ?? null,
       usuarioId ?? null,

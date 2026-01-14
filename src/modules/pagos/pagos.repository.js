@@ -1,4 +1,5 @@
-﻿const pool = require("../../db");
+const pool = require("../../db");
+const { getLimaDateTimeString } = require("../../utils/dates");
 
 async function runCall(sql, params = []) {
   const [rows] = await pool.query(sql, params);
@@ -84,10 +85,12 @@ async function getResumenByPedido(pedidoId) {
   return runCall("CALL sp_pedido_pago_resumen(?)", [Number(pedidoId)]);
 }
 async function listVouchersByPedido(pedidoId) {
-  return runCall("CALL sp_voucher_listar_por_pedido_detalle(?)", [Number(pedidoId)]);
+  return runCall("CALL sp_voucher_listar_por_pedido_detalle(?,?)", [
+    Number(pedidoId),
+    getLimaDateTimeString(),
+  ]);
 }
-
-// === CatÃ¡logos ===
+// === Catálogos ===
 async function listMetodos() {
   return runCall("CALL sp_metodo_pago_listar()");
 }
@@ -112,7 +115,7 @@ async function updatePedidoEstadoPago(pedidoId, estadoPagoId) {
 }
 
 // === Crear voucher ===
-// Si tu SP admite 'fecha', acÃ¡ agregas ese parÃ¡metro (y en service/controller lo enviamos)
+// Si tu SP admite 'fecha', acá agregas ese parámetro (y en service/controller lo enviamos)
 async function insertVoucher({
   monto,
   metodoPagoId,
@@ -128,7 +131,7 @@ async function insertVoucher({
     monto,
     metodoPagoId,
     estadoVoucherId,
-    imagen, // Buffer â†’ BLOB
+    imagen, // Buffer → BLOB
     pedidoId,
     fecha,
     mime,
@@ -276,4 +279,6 @@ module.exports = {
   updatePedidoEstadoPago,
   deleteVoucher,
 };
+
+
 
