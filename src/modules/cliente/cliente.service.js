@@ -98,7 +98,7 @@ async function create(payload) {
 }
 
 async function update(payload) {
-  const { idCliente, correo, celular, direccion } = payload;
+  const { idCliente, correo, celular, direccion, nombre, apellido, razonSocial } = payload;
 
   const idNum = Number(idCliente);
   if (idCliente == null || Number.isNaN(idNum) || idNum <= 0) {
@@ -107,21 +107,44 @@ async function update(payload) {
     throw err;
   }
 
-  if (!correo && !celular && !direccion) {
+  const nombreTrim = typeof nombre === "string" ? nombre.trim() : null;
+  const apellidoTrim = typeof apellido === "string" ? apellido.trim() : null;
+  const razonSocialTrim = typeof razonSocial === "string" ? razonSocial.trim() : null;
+
+  if (
+    !correo &&
+    !celular &&
+    !direccion &&
+    !nombreTrim &&
+    !apellidoTrim &&
+    !razonSocialTrim
+  ) {
     const err = new Error(
-      "al menos uno de [correo, celular, direccion] es requerido"
+      "al menos uno de [nombre, apellido, correo, celular, direccion, razonSocial] es requerido"
     );
     err.status = 400;
     throw err;
   }
 
-  // Validaciones de longitud según SP sp_cliente_actualizar
+  // Validaciones de longitud segun SP sp_cliente_actualizar
+  assertMaxLength(nombreTrim, "nombre", 25);
+  assertMaxLength(apellidoTrim, "apellido", 25);
   assertMaxLength(correo, "correo", 250);
   assertMaxLength(celular, "celular", 25);
   assertMaxLength(direccion, "direccion", 150);
+  assertMaxLength(razonSocialTrim, "razonSocial", 150);
 
-  await repo.updateById({ idCliente: idNum, correo, celular, direccion });
-  return { Status: "Actualizacion exitosa" };
+  const updated = await repo.updateById({
+    idCliente: idNum,
+    nombre: nombreTrim,
+    apellido: apellidoTrim,
+    correo,
+    celular,
+    direccion,
+    razonSocial: razonSocialTrim,
+  });
+  const normalized = Array.isArray(updated) ? updated[0] : updated;
+  return normalized || { Status: "Actualizacion exitosa" };
 }
 
 async function autocomplete({ query, limit = 10 }) {

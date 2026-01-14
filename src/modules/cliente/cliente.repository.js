@@ -71,12 +71,15 @@ async function create({
   ]);
 }
 
-async function updateById({ idCliente, correo, celular, direccion }) {
-  await runCall("CALL sp_cliente_actualizar(?,?,?,?)", [
+async function updateById({ idCliente, nombre, apellido, correo, celular, direccion, razonSocial }) {
+  return runCall("CALL sp_cliente_actualizar(?,?,?,?,?,?,?)", [
     Number(idCliente),
+    t(nombre),
+    t(apellido),
     t(correo),
     t(celular),
     t(direccion),
+    t(razonSocial),
   ]);
 }
 
