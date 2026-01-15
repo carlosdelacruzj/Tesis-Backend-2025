@@ -252,6 +252,7 @@ async function createNewPedido(payload) {
       ...payload.pedido,
       observaciones: (payload.pedido.observaciones || "").trim() || null,
       cotizacionId: payload.pedido.cotizacionId,
+      idTipoEvento: payload.pedido.idTipoEvento ?? null,
     },
     eventos: payload.eventos.map((e, idx) => ({
       clientEventKey: e.clientEventKey ?? idx + 1, // fallback a índice base 1
@@ -262,8 +263,11 @@ async function createNewPedido(payload) {
       notas: (e.notas || "").trim() || null,
     })),
     items: payload.items.map((it) => ({
-      exsId: it.exsId ?? null,
-      eventoCodigo: it.eventoCodigo ?? null, // si traes asociación, se mapeará luego
+      exsId: it.exsId ?? it.idEventoServicio ?? null,
+      idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
+      eventoId: it.eventoId ?? null,
+      servicioId: it.servicioId ?? null,
+      eventoCodigo: it.eventoCodigo ?? null, // si traes asociaci?n, se mapear? luego
       // cambia a "PEN" si tu negocio factura en soles
       moneda: (it.moneda || "USD").toUpperCase(),
       nombre: it.nombre.trim(),
@@ -273,6 +277,11 @@ async function createNewPedido(payload) {
       descuento: Number(it.descuento ?? 0),
       recargo: Number(it.recargo ?? 0),
       notas: (it.notas || "").trim() || null,
+      horas: it.horas ?? null,
+      personal: it.personal ?? it.staff ?? null,
+      fotosImpresas: it.fotosImpresas ?? null,
+      trailerMin: it.trailerMin ?? null,
+      filmMin: it.filmMin ?? null,
     })),
   };
 
@@ -311,6 +320,7 @@ async function updatePedidoById(payload) {
       nombrePedido: pedido.nombrePedido ?? null,
       observaciones: (pedido.observaciones ?? "").trim() || null,
       cotizacionId: pedido.cotizacionId ?? null,
+      idTipoEvento: pedido.idTipoEvento ?? null,
     },
     eventos: Array.isArray(ev)
       ? ev.map((e, idx) => ({
@@ -328,7 +338,10 @@ async function updatePedidoById(payload) {
     items: Array.isArray(its)
       ? its.map((it) => ({
           id: it.id ?? null,
-          exsId: it.exsId ?? null,
+          exsId: it.exsId ?? it.idEventoServicio ?? null,
+          idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
+          eventoId: it.eventoId ?? null,
+          servicioId: it.servicioId ?? null,
           eventoCodigo: it.eventoCodigo ?? null,
           moneda: (it.moneda || "USD").toUpperCase(),
           nombre: it.nombre != null ? it.nombre.trim() : null,
@@ -338,6 +351,11 @@ async function updatePedidoById(payload) {
           descuento: Number(it.descuento ?? 0),
           recargo: Number(it.recargo ?? 0),
           notas: (it.notas || "").trim() || null,
+          horas: it.horas ?? null,
+          personal: it.personal ?? it.staff ?? null,
+          fotosImpresas: it.fotosImpresas ?? null,
+          trailerMin: it.trailerMin ?? null,
+          filmMin: it.filmMin ?? null,
         }))
       : its === null
       ? null
