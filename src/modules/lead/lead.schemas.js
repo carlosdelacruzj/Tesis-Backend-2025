@@ -19,6 +19,12 @@
  *         numDoc:
  *           type: string
  *           description: DNI (8) o RUC (11) requerido cuando se crea el usuario
+ *         tipoDocumentoId:
+ *           type: integer
+ *           description: Opcional; si no se envia, se infiere por la longitud de numDoc
+ *         razonSocial:
+ *           type: string
+ *           description: Requerido cuando el documento es RUC
  *         direccion:
  *           type: string
  *       example:
@@ -27,6 +33,8 @@
  *         nombre: Carla
  *         apellido: Diaz
  *         numDoc: "71234567"
+ *         tipoDocumentoId: 1
+ *         razonSocial: "Empresa SAC"
  *         direccion: "Av Siempre Viva 123"
  *
  *     LeadConvertResponse:

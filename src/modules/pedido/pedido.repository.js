@@ -1,7 +1,6 @@
 // pedido.repository.js
 const pool = require("../../db");
 const { formatCodigo } = require("../../utils/codigo");
-const { getLimaDateTimeString } = require("../../utils/dates");
 
 // ------------------------------
 // Helpers de formato
@@ -58,7 +57,7 @@ async function runCallMulti(sql, params = []) {
 // Consultas / Procedures existentes
 // ------------------------------
 async function getAll() {
-  const rows = await runCall("CALL sp_pedido_listar(?)", [getLimaDateTimeString()]);
+  const rows = await runCall("CALL sp_pedido_listar()");
   return rows.map((r) => {
     const id = r.ID ?? r.id ?? r.pedidoId ?? r.idPedido;
     return { ...r, codigo: formatCodigo("PED", id) };

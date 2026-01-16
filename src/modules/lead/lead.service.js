@@ -34,6 +34,12 @@ async function convertirACliente(leadId, payload = {}) {
 
   const id = assertPositiveInt(leadId, "leadId");
   const correo = assertNonEmptyString(payload.correo, "correo");
+  const numDoc = cleanString(payload.numDoc);
+  const razonSocial = cleanString(payload.razonSocial);
+
+  if (numDoc && numDoc.length === 11 && !razonSocial) {
+    throw badRequest("razonSocial es requerida para RUC");
+  }
 
   const result = await repo.convertirACliente({
     leadId: id,
@@ -41,7 +47,9 @@ async function convertirACliente(leadId, payload = {}) {
     celular: cleanString(payload.celular),
     nombre: cleanString(payload.nombre),
     apellido: cleanString(payload.apellido),
-    numDoc: cleanString(payload.numDoc),
+    numDoc,
+    tipoDocumentoId: payload.tipoDocumentoId ?? null,
+    razonSocial,
     direccion: cleanString(payload.direccion),
     tipoCliente: 1,
     estadoCliente: 1,
