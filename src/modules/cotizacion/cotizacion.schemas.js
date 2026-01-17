@@ -1,4 +1,4 @@
-﻿/**
+/**
  * @swagger
  * components:
  *   schemas:
@@ -12,7 +12,7 @@
  *         eventoId:             { type: integer, nullable: true, example: 1, description: "ID del evento referenciado (solo informativo)" }
  *         servicioId:           { type: integer, nullable: true, example: 7, description: "ID del servicio referenciado (solo informativo)" }
  *         nombre:               { type: string, example: "Video Trailer" }
- *         descripcion:          { type: string, nullable: true, example: "Trailer cinematogrÃ¡fico" }
+ *         descripcion:          { type: string, nullable: true, example: "Trailer cinematográfico" }
  *         moneda:               { type: string, example: "USD" }
  *         precioUnit:           { type: number, format: float, example: 350.0 }
  *         cantidad:             { type: number, format: float, example: 1.0 }
@@ -31,7 +31,7 @@
  *           properties:
  *             id:             { type: integer, example: 13 }
  *             servicioId:     { type: integer, example: 3 }
- *             servicioNombre: { type: string, example: "Fotografía Premium" }
+ *             servicioNombre: { type: string, example: "Fotograf�a Premium" }
  *             eventoId:       { type: integer, example: 1 }
  *             eventoNombre:   { type: string, example: "Boda" }
  *             categoriaId:    { type: integer, nullable: true, example: 2 }
@@ -40,7 +40,7 @@
  *             titulo:         { type: string, example: "Cobertura Completa" }
  *             esAddon:        { type: integer, enum: [0,1], example: 0 }
  *             precio:         { type: number, format: float, nullable: true, example: 1200.0 }
- *             descripcion:    { type: string, nullable: true, example: "Incluye álbum." }
+ *             descripcion:    { type: string, nullable: true, example: "Incluye �lbum." }
  *             horas:          { type: number, format: float, nullable: true, example: 8.0 }
  *             fotosImpresas:  { type: integer, nullable: true, example: 30 }
  *             trailerMin:     { type: integer, nullable: true, example: 2 }
@@ -50,7 +50,7 @@
  *               items:
  *                 type: object
  *                 properties:
- *                   rol:      { type: string, example: "Fotógrafo" }
+ *                   rol:      { type: string, example: "Fot�grafo" }
  *                   cantidad: { type: integer, example: 2 }
  *             equipos:
  *               type: array
@@ -58,14 +58,14 @@
  *                 type: object
  *                 properties:
  *                   tipoEquipoId: { type: integer, example: 3 }
- *                   tipoEquipo:   { type: string, example: "Cámara DSLR" }
+ *                   tipoEquipo:   { type: string, example: "C�mara DSLR" }
  *                   cantidad:     { type: integer, example: 2 }
- *                   notas:        { type: string, nullable: true, example: "Baterías extra" }
+ *                   notas:        { type: string, nullable: true, example: "Bater�as extra" }
  *
  *     CotizacionEventoInput:
  *       type: object
  *       required: [fecha]
- *       description: Fecha y ubicaciÃ³n opcional asociada a la cotizaciÃ³n.
+ *       description: Fecha y ubicación opcional asociada a la cotización.
  *       properties:
  *         fecha:      { type: string, format: date, example: "2025-11-15" }
  *         hora:       { type: string, format: time, nullable: true, example: "18:00:00" }
@@ -94,6 +94,7 @@
  *             fechaEvento:    { type: string, format: date, example: "2025-10-20" }
  *             lugar:          { type: string, example: "Cusco - Catedral" }
  *             horasEstimadas: { type: number, format: float, example: 8.0 }
+ *             dias:           { type: integer, nullable: true, example: 2 }
  *             mensaje:        { type: string, example: "Agregar paquete premium" }
 *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada, Expirada], example: "Enviada" }
  *             total:          { type: number, format: float, example: 1150.0 }
@@ -103,7 +104,7 @@
  *           items: { $ref: '#/components/schemas/CotizacionItemSP' }
  *         eventos:
  *           type: array
- *           description: "Fechas y ubicaciones calendarizadas para la cotizaciÃ³n."
+ *           description: "Fechas y ubicaciones calendarizadas para la cotización."
  *           items:
  *             type: object
  *             properties:
@@ -126,7 +127,8 @@
  *           idTipoEvento: 1
  *           fechaEvento: "2025-10-20"
  *           lugar: "Cusco - Catedral"
- *           horasEstimadas: 8.0
+ *           horasEstimadas: 8
+ *           dias: 2
  *           mensaje: "Agregar paquete premium"
  *           estado: "Enviada"
  *           total: 1150.0
@@ -136,15 +138,15 @@
  *             idEventoServicio: 11
  *             eventoId: 1
  *             servicioId: 7
- *             nombre: "Cobertura Fotografía"
- *             descripcion: "SesiÃ³n completa con Ã¡lbum"
+ *             nombre: "Cobertura Fotograf�a"
+ *             descripcion: "Sesión completa con álbum"
  *             moneda: "USD"
  *             precioUnit: 800.0
  *             cantidad: 1.0
  *             descuento: 0.0
  *             recargo: 0.0
  *             subtotal: 800.0
- *             notas: "Incluye sesiÃ³n pre-boda"
+ *             notas: "Incluye sesión pre-boda"
  *             horas: 6.0
  *             personal: 2
  *             fotosImpresas: 20
@@ -152,21 +154,21 @@
  *             filmMin: 0
  *             eventoServicio:
  *               id: 11
- *               servicioNombre: "Fotografía Premium"
+ *               servicioNombre: "Fotograf�a Premium"
  *               eventoNombre: "Boda"
  *               categoriaNombre: "Paquetes Deluxe"
  *               staff:
- *                 - rol: "Fotógrafo"
+ *                 - rol: "Fot�grafo"
  *                   cantidad: 2
  *               equipos:
- *                 - tipoEquipo: "Cámara DSLR"
+ *                 - tipoEquipo: "C�mara DSLR"
  *                   cantidad: 2
  *           - idCotizacionServicio: 2
  *             idEventoServicio: 13
  *             eventoId: 2
  *             servicioId: 8
  *             nombre: "Video Trailer"
- *             descripcion: "Trailer cinematogrÃ¡fico"
+ *             descripcion: "Trailer cinematográfico"
  *             moneda: "USD"
  *             precioUnit: 350.0
  *             cantidad: 1.0
@@ -197,7 +199,7 @@
  *     CotizacionListItem:
  *       type: object
  *       properties:
- *         id:             { type: integer, description: "ID unificado de cotizaciÃ³n (mapeado desde idCotizacion)" }
+ *         id:             { type: integer, description: "ID unificado de cotización (mapeado desde idCotizacion)" }
 *         estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada, Expirada] }
  *         fechaCreacion:  { type: string, format: date-time, description: "YYYY-MM-DD HH:mm:ss" }
  *         eventoId:       { type: integer, nullable: true, example: 1, description: "Mapeado desde idTipoEvento" }
@@ -205,6 +207,7 @@
  *         fechaEvento:    { type: string, format: date, nullable: true }
  *         lugar:          { type: string, nullable: true }
  *         horasEstimadas: { type: number, format: float, nullable: true }
+ *         dias:           { type: integer, nullable: true }
  *         mensaje:        { type: string, nullable: true }
  *         total:          { type: number, format: float, nullable: true, example: 1150 }
  *         contacto:
@@ -227,21 +230,23 @@
 *           fechaEvento: "2025-10-20"
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: 8
+ *           dias: 2
  *           mensaje: "Paquete premium"
  *           total: 1150
  *           contacto:
  *             id: 101
  *             origen: "CLIENTE"
- *             nombre: "Ana PÃ©rez"
+ *             nombre: "Ana Pérez"
  *             celular: "999888777"
 *         - id: 41
 *           estado: "Enviada"
 *           fechaCreacion: "2025-10-11 14:15:00"
 *           eventoId: 2
-*           tipoEvento: "CumpleaÃ±os"
+*           tipoEvento: "Cumpleaños"
 *           fechaEvento: "2025-10-25"
  *           lugar: "Miraflores"
  *           horasEstimadas: 6
+ *           dias: 1
  *           mensaje: "Agregar trailer"
  *           total: 4600
  *           contacto:
@@ -250,7 +255,7 @@
  *             nombre: "Carlos"
 *             celular: "999663047"
 *
- *     # ===================== MIGRACIÃ“N A PEDIDO =====================
+ *     # ===================== MIGRACIÓN A PEDIDO =====================
  *     CotizacionMigrarPedidoRequest:
  *       type: object
  *       required: [empleadoId]
@@ -288,7 +293,8 @@
  *             fechaEvento:    { type: string, format: date, example: "2025-10-20" }
  *             lugar:          { type: string, example: "Cusco" }
  *             horasEstimadas: { type: number, format: float, example: 8 }
- *             mensaje:        { type: string, example: "Cobertura bÃ¡sica" }
+ *             dias:           { type: integer, nullable: true, example: 2 }
+ *             mensaje:        { type: string, example: "Cobertura básica" }
  *
  *     # ===================== (ACTUALIZADO) CREATE ADMIN (v3 compatible) =====================
  *     CotizacionCreateAdmin:
@@ -296,7 +302,7 @@
  *       required: [cotizacion]
  *       description: |
  *         Prioriza **cliente**: si `cliente.id > 0`, no se crea lead.
- *         Si no se envÃ­a `cliente.id`, se crearÃ¡ un **lead** con los datos de `lead`.
+ *         Si no se envía `cliente.id`, se creará un **lead** con los datos de `lead`.
  *         Nuevo: en cada item puedes enviar opcionalmente `eventoId` y `servicioId`; se guardan solo como referencia.
  *       properties:
  *         cliente:
@@ -318,19 +324,20 @@
  *             fechaEvento:    { type: string, format: date, example: "2025-10-20" }
  *             lugar:          { type: string, example: "Cusco - Catedral" }
  *             horasEstimadas: { type: number, format: float, example: 8 }
+ *             dias:           { type: integer, nullable: true, example: 2 }
  *             mensaje:        { type: string, example: "Paquete premium" }
  *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada], example: "Borrador" }
  *         items:
  *           type: array
- *           description: "Ãtems con claves en UI; el backend los normaliza al JSON del SP"
+ *           description: "Ítems con claves en UI; el backend los normaliza al JSON del SP"
  *           items:
  *             type: object
  *             properties:
  *               idEventoServicio: { type: integer, nullable: true, example: 11 }
  *               eventoId:         { type: integer, nullable: true, example: 1, description: "ID del evento asociado (solo informativo)" }
  *               servicioId:       { type: integer, nullable: true, example: 7, description: "ID del servicio asociado (solo informativo)" }
- *               titulo:           { type: string, example: "Cobertura FotografÃ­a" }
- *               descripcion:      { type: string, nullable: true, example: "SesiÃ³n completa con Ã¡lbum" }
+ *               titulo:           { type: string, example: "Cobertura Fotografía" }
+ *               descripcion:      { type: string, nullable: true, example: "Sesión completa con álbum" }
  *               moneda:           { type: string, example: "USD" }
  *               precioUnitario:   { type: number, format: float, example: 800 }
  *               cantidad:         { type: number, format: float, example: 1 }
@@ -342,7 +349,7 @@
  *               filmMin:          { type: integer, nullable: true, example: 0 }
  *         eventos:
  *           type: array
- *           description: "Fechas y ubicaciones asociadas a la cotizaciÃ³n."
+ *           description: "Fechas y ubicaciones asociadas a la cotización."
  *           items: { $ref: '#/components/schemas/CotizacionEventoInput' }
  *           example:
  *             - fecha: "2025-11-15"
@@ -380,6 +387,7 @@
  *             fechaEvento:    { type: string, format: date }
  *             lugar:          { type: string }
  *             horasEstimadas: { type: number, format: float }
+ *             dias:           { type: integer }
  *             mensaje:        { type: string }
  *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada] }
  *         items:
@@ -391,8 +399,8 @@
  *               idEventoServicio: { type: integer, nullable: true, example: 11 }
  *               eventoId:         { type: integer, nullable: true, example: 1, description: "ID del evento asociado (solo informativo)" }
  *               servicioId:       { type: integer, nullable: true, example: 7, description: "ID del servicio asociado (solo informativo)" }
- *               titulo:           { type: string, example: "Cobertura FotografÃ­a" }
- *               descripcion:      { type: string, nullable: true, example: "SesiÃ³n completa" }
+ *               titulo:           { type: string, example: "Cobertura Fotografía" }
+ *               descripcion:      { type: string, nullable: true, example: "Sesión completa" }
  *               moneda:           { type: string, example: "USD" }
  *               precioUnitario:   { type: number, format: float, example: 800 }
  *               cantidad:         { type: number, format: float, example: 1 }
@@ -413,14 +421,15 @@
  *           fechaEvento: "2025-10-20"
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: 8
+ *           dias: 2
  *           mensaje: "Paquete premium actualizado"
  *           estado: "Enviada"
  *         items:
  *           - idEventoServicio: 11
  *             eventoId: 1
  *             servicioId: 7
- *             titulo: "Cobertura FotografÃ­a"
- *             descripcion: "SesiÃ³n completa con Ã¡lbum + preboda"
+ *             titulo: "Cobertura Fotografía"
+ *             descripcion: "Sesión completa con álbum + preboda"
  *             moneda: "USD"
  *             precioUnitario: 900
  *             cantidad: 1
@@ -473,6 +482,7 @@
  *           fechaEvento: "2025-10-20"
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: "8.0"
+ *           dias: 2
  *           mensaje: "Agregar paquete premium"
  *           total: "4600.00"
  *           lead:
@@ -484,3 +494,12 @@
  */
 
 module.exports = {};
+
+
+
+
+
+
+
+
+

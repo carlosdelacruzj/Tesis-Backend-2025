@@ -337,6 +337,7 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_actualizar"(
   IN p_lugar           VARCHAR(150),
 
   IN p_horas_est       DECIMAL(4,1),
+  IN p_dias            SMALLINT,
 
   IN p_mensaje         VARCHAR(500),
 
@@ -414,6 +415,7 @@ BEGIN
       Cot_Lugar        = COALESCE(p_lugar,          Cot_Lugar),
 
       Cot_HorasEst     = COALESCE(p_horas_est,      Cot_HorasEst),
+      Cot_Dias         = COALESCE(p_dias,           Cot_Dias),
 
       Cot_Mensaje      = COALESCE(p_mensaje,        Cot_Mensaje),
 
@@ -626,14 +628,15 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_crear_v3"(
   IN p_lugar           VARCHAR(150),
 
   IN p_horas_est       DECIMAL(4,1),
+  IN p_dias            SMALLINT,
 
   IN p_mensaje         VARCHAR(500),
 
   IN p_estado          VARCHAR(20),    -- 'Borrador' | 'Enviada' (opcional)
 
+  IN p_fecha_crea      DATETIME,
 
-
-  IN p_items_json      JSON,           -- array de ítems
+  IN p_items_json      JSON,           -- array de items
 
   IN p_eventos_json    JSON            -- array de eventos { fecha, hora?, ubicacion?, direccion?, notas? }
 
@@ -751,7 +754,7 @@ BEGIN
 
     Cot_TipoEvento, Cot_IdTipoEvento, Cot_FechaEvento,
 
-    Cot_Lugar, Cot_HorasEst, Cot_Mensaje, FK_ECot_Cod
+    Cot_Lugar, Cot_HorasEst, Cot_Dias, Cot_Mensaje, FK_ECot_Cod, Cot_Fecha_Crea
 
   )
 
@@ -770,10 +773,13 @@ BEGIN
     p_lugar,
 
     p_horas_est,
+    p_dias,
 
     p_mensaje,
 
-    v_estado_id
+    v_estado_id,
+
+    COALESCE(p_fecha_crea, NOW())
 
   );
 
@@ -783,7 +789,7 @@ BEGIN
 
 
 
-  /* 3) Ítems (si viene array JSON) */
+  /* 3) Items (si viene array JSON) */
 
   IF p_items_json IS NOT NULL AND JSON_TYPE(p_items_json) = 'ARRAY' THEN
 
@@ -959,6 +965,7 @@ BEGIN
   DECLARE v_nombre      VARCHAR(225);
   DECLARE v_fecha_ref   DATE;
   DECLARE v_id_tipo_evento INT;
+  DECLARE v_dias        SMALLINT;
 
   DECLARE EXIT HANDLER FOR SQLEXCEPTION
   BEGIN
@@ -970,8 +977,8 @@ BEGIN
 
   SET v_fecha_ref = COALESCE(p_fecha_hoy, CURDATE());
 
-  SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, c.Cot_IdTipoEvento, ec.ECot_Nombre
-    INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_id_tipo_evento, v_estado
+  SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, c.Cot_IdTipoEvento, c.Cot_Dias, ec.ECot_Nombre
+    INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_id_tipo_evento, v_dias,     v_estado
   FROM T_Cotizacion c
   JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
   WHERE c.PK_Cot_Cod = p_cot_id
@@ -999,9 +1006,9 @@ BEGIN
   );
 
   INSERT INTO T_Pedido
-    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento, P_IdTipoEvento)
+    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento, P_IdTipoEvento, P_Dias)
   VALUES
-    (1, p_cot_id, v_fk_cli, 1, v_fecha_ref, CONCAT('Origen: Cotizacion #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev, v_id_tipo_evento);
+    (1, p_cot_id, v_fk_cli, 1, v_fecha_ref, CONCAT('Origen: Cotizacion #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev, v_id_tipo_evento, v_dias);
 
   SET o_pedido_id = LAST_INSERT_ID();
 
@@ -1345,6 +1352,7 @@ BEGIN
       c.Cot_Lugar          AS lugar,
 
       c.Cot_HorasEst       AS horasEstimadas,
+      c.Cot_Dias           AS dias,
 
       c.Cot_Mensaje        AS mensaje,
 
@@ -1509,6 +1517,7 @@ BEGIN
         'lugar',          c.Cot_Lugar,
 
         'horasEstimadas', c.Cot_HorasEst,
+        'dias',           c.Cot_Dias,
 
         'mensaje',        c.Cot_Mensaje,
 
@@ -1755,8 +1764,10 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_publica_crear"(
   IN p_lugar          VARCHAR(150),
 
   IN p_horas_est      DECIMAL(4,1),
+  IN p_dias           SMALLINT,
 
-  IN p_mensaje        VARCHAR(500)
+  IN p_mensaje        VARCHAR(500),
+  IN p_fecha_crea     DATETIME
 
 )
 BEGIN
@@ -1834,8 +1845,10 @@ BEGIN
     Cot_Lugar,
 
     Cot_HorasEst,
+    Cot_Dias,
 
     Cot_Mensaje,
+    Cot_Fecha_Crea,
 
     FK_ECot_Cod
 
@@ -1854,8 +1867,10 @@ BEGIN
     p_lugar,
 
     p_horas_est,
+    p_dias,
 
     p_mensaje,
+    COALESCE(p_fecha_crea, NOW()),
 
     v_estado_id
 
@@ -2622,6 +2637,7 @@ BEGIN
     END                                                  AS Cliente,
     u.U_Numero_Documento                                 AS Documento,
     p.P_Fecha_Creacion                                   AS Creado,
+    p.P_Dias                                             AS dias,
 
     -- Próximo evento elegido (futuro más cercano; si no hay, el primero)
     evProx.PE_Fecha                                      AS ProxFecha,
@@ -2802,17 +2818,16 @@ BEGIN
     p.FK_ESP_Cod       AS estadoPagoId,
     p.P_FechaEvento    AS fechaEvento,
     p.P_IdTipoEvento   AS idTipoEvento,
+    p.P_Dias           AS dias,
     p.P_Observaciones  AS observaciones,
     p.P_Nombre_Pedido  AS nombrePedido,
     u.U_Numero_Documento AS clienteDocumento,
     CASE
       WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
-      ELSE u.U_Nombre
-    END                 AS clienteNombres,
-    CASE
-      WHEN td.TD_Codigo = 'RUC' THEN NULL
-      ELSE u.U_Apellido
-    END                 AS clienteApellidos,
+      ELSE NULL
+    END                 AS clienteRazonSocial,
+    u.U_Nombre           AS clienteNombres,
+    u.U_Apellido         AS clienteApellidos,
     u.U_Celular          AS clienteCelular,
     u.U_Correo           AS clienteCorreo,
     u.U_Direccion        AS clienteDireccion,
@@ -3550,4 +3565,6 @@ BEGIN
     );
 END ;;
 DELIMITER ;
+
+
 

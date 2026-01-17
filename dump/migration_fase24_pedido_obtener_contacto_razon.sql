@@ -31,12 +31,10 @@ BEGIN
     u.U_Numero_Documento AS clienteDocumento,
     CASE
       WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
-      ELSE u.U_Nombre
-    END               AS clienteNombres,
-    CASE
-      WHEN td.TD_Codigo = 'RUC' THEN NULL
-      ELSE u.U_Apellido
-    END               AS clienteApellidos,
+      ELSE NULL
+    END                 AS clienteRazonSocial,
+    u.U_Nombre           AS clienteNombres,
+    u.U_Apellido         AS clienteApellidos,
     u.U_Celular          AS clienteCelular,
     u.U_Correo           AS clienteCorreo,
     u.U_Direccion        AS clienteDireccion,

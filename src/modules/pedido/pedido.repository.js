@@ -104,9 +104,11 @@ async function getById(id) {
     estadoPagoId: cab.estadoPagoId,
     observaciones: cab.observaciones ?? null,
     idTipoEvento: cab.idTipoEvento ?? null,
+    dias: cab.dias ?? null,
     cliente: {
       id: cab.clienteId,
       documento: cab.clienteDocumento,
+      razonSocial: cab.clienteRazonSocial ?? null,
       nombres: cab.clienteNombres,
       apellidos: cab.clienteApellidos,
       celular: cab.clienteCelular,
@@ -200,8 +202,8 @@ async function createComposite({ pedido, eventos, items }) {
     const [rPedido] = await conn.query(
       `
       INSERT INTO T_Pedido
-      (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_IdTipoEvento)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_IdTipoEvento, P_Dias)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         pedido.estadoPedidoId,
@@ -213,6 +215,7 @@ async function createComposite({ pedido, eventos, items }) {
         pedido.empleadoId,
         pedido.nombrePedido,
         pedido.idTipoEvento ?? null,
+        pedido.dias ?? null,
       ]
     );
     const pedidoId = rPedido.insertId;
@@ -399,6 +402,10 @@ async function updateCompositeById(
     if (pedido?.idTipoEvento != null) {
       updFields.push("P_IdTipoEvento = ?");
       updParams.push(pedido.idTipoEvento);
+    }
+    if (pedido?.dias != null) {
+      updFields.push("P_Dias = ?");
+      updParams.push(pedido.dias);
     }
     if (pedido?.cotizacionId != null) {
       updFields.push("FK_Cot_Cod = ?");

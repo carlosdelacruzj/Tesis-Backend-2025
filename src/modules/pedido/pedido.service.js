@@ -51,6 +51,12 @@ function validatePayload(payload) {
   );
   assert(Number.isInteger(pedido.estadoPedidoId), "estadoPedidoId inválido");
   assert(Number.isInteger(pedido.estadoPagoId), "estadoPagoId inválido");
+  if (pedido.dias != null) {
+    assert(
+      Number.isInteger(pedido.dias) && pedido.dias > 0,
+      'dias invalido'
+    );
+  }
 
   // eventos
   assert(
@@ -142,6 +148,11 @@ function validateUpdatePayload(payload) {
   if (pedido.estadoPedidoId != null)
     assert(Number.isInteger(pedido.estadoPedidoId), "estadoPedidoId inválido");
   if (pedido.estadoPagoId != null)
+  if (pedido.dias != null)
+    assert(
+      Number.isInteger(pedido.dias) && pedido.dias > 0,
+      'dias invalido'
+    );
     assert(Number.isInteger(pedido.estadoPagoId), "estadoPagoId inválido");
   if (pedido.cotizacionId != null) {
     assert(
@@ -253,6 +264,7 @@ async function createNewPedido(payload) {
       observaciones: (payload.pedido.observaciones || "").trim() || null,
       cotizacionId: payload.pedido.cotizacionId,
       idTipoEvento: payload.pedido.idTipoEvento ?? null,
+      dias: payload.pedido.dias ?? null,
     },
     eventos: payload.eventos.map((e, idx) => ({
       clientEventKey: e.clientEventKey ?? idx + 1, // fallback a índice base 1
@@ -321,6 +333,7 @@ async function updatePedidoById(payload) {
       observaciones: (pedido.observaciones ?? "").trim() || null,
       cotizacionId: pedido.cotizacionId ?? null,
       idTipoEvento: pedido.idTipoEvento ?? null,
+      dias: pedido.dias ?? null,
     },
     eventos: Array.isArray(ev)
       ? ev.map((e, idx) => ({

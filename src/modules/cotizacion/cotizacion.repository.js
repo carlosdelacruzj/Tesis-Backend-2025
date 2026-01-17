@@ -44,6 +44,7 @@ async function listAll({ estado } = {}) {
       lugar: r.lugar,
       horasEstimadas:
       r.horasEstimadas != null ? Number(r.horasEstimadas) : null,
+      dias: r.dias != null ? Number(r.dias) : (r.Cot_Dias != null ? Number(r.Cot_Dias) : null),
       mensaje: r.mensaje,
       total: r.total != null ? Number(r.total) : null,
 
@@ -137,6 +138,7 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = 
     s(cotizacion?.fechaEvento), // 'YYYY-MM-DD'
     s(cotizacion?.lugar),
     n(cotizacion?.horasEstimadas),
+    n(cotizacion?.dias),
     s(cotizacion?.mensaje),
     s(cotizacion?.estado ?? "Borrador"),
     // 12) fecha creacion Lima
@@ -149,7 +151,7 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = 
 
   try {
     const [rows0] = await callSP(
-      "CALL defaultdb.sp_cotizacion_admin_crear_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "CALL defaultdb.sp_cotizacion_admin_crear_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       params
     );
     const out = rows0?.[0] || {};
@@ -190,11 +192,12 @@ async function createPublic({ lead, cotizacion }) {
     s(cotizacion?.fechaEvento),
     s(cotizacion?.lugar),
     n(cotizacion?.horasEstimadas),
+    n(cotizacion?.dias),
     s(cotizacion?.mensaje),
     fechaCreacion,
   ];
   const [rows0] = await callSP(
-    "CALL defaultdb.sp_cotizacion_publica_crear(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "CALL defaultdb.sp_cotizacion_publica_crear(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     params
   );
   // SP retorna una fila con { lead_id, cotizacion_id }
@@ -248,6 +251,7 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
     s(cotizacion.fechaEvento ?? null),
     s(cotizacion.lugar ?? null),
     n(cotizacion.horasEstimadas ?? null),
+    n(cotizacion.dias ?? null),
     s(cotizacion.mensaje ?? null),
     s(cotizacion.estado ?? null),
     itemsMapped ? JSON.stringify(itemsMapped) : null,
@@ -255,7 +259,7 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
   ];
 
   await callSP(
-    "CALL defaultdb.sp_cotizacion_admin_actualizar(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "CALL defaultdb.sp_cotizacion_admin_actualizar(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     params
   );
   return { updated: true };

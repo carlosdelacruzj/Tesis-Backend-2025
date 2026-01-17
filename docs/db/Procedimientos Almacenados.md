@@ -3439,12 +3439,10 @@ BEGIN
     u.U_Numero_Documento AS clienteDocumento,
     CASE
       WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
-      ELSE u.U_Nombre
-    END                 AS clienteNombres,
-    CASE
-      WHEN td.TD_Codigo = 'RUC' THEN NULL
-      ELSE u.U_Apellido
-    END                 AS clienteApellidos,
+      ELSE NULL
+    END                 AS clienteRazonSocial,
+    u.U_Nombre           AS clienteNombres,
+    u.U_Apellido         AS clienteApellidos,
     u.U_Celular          AS clienteCelular,
     u.U_Correo           AS clienteCorreo,
     u.U_Direccion        AS clienteDireccion,
@@ -3453,6 +3451,7 @@ BEGIN
   FROM T_Pedido p
   JOIN T_Cliente c   ON c.PK_Cli_Cod = p.FK_Cli_Cod
   JOIN T_Usuario u   ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_Empleados e ON e.PK_Em_Cod = p.FK_Em_Cod
   LEFT JOIN T_Usuario  ue ON ue.PK_U_Cod = e.FK_U_Cod
@@ -3525,12 +3524,10 @@ BEGIN
     u.U_Numero_Documento AS clienteDocumento,
     CASE
       WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
-      ELSE u.U_Nombre
-    END                 AS clienteNombres,
-    CASE
-      WHEN td.TD_Codigo = 'RUC' THEN NULL
-      ELSE u.U_Apellido
-    END                 AS clienteApellidos,
+      ELSE NULL
+    END                 AS clienteRazonSocial,
+    u.U_Nombre           AS clienteNombres,
+    u.U_Apellido         AS clienteApellidos,
     u.U_Celular          AS clienteCelular,
     u.U_Correo           AS clienteCorreo,
     u.U_Direccion        AS clienteDireccion,
@@ -3539,6 +3536,7 @@ BEGIN
   FROM T_Pedido p
   JOIN T_Cliente c   ON c.PK_Cli_Cod = p.FK_Cli_Cod
   JOIN T_Usuario u   ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_Empleados e ON e.PK_Em_Cod = p.FK_Em_Cod
   LEFT JOIN T_Usuario  ue ON ue.PK_U_Cod = e.FK_U_Cod
@@ -3624,12 +3622,10 @@ BEGIN
     u.U_Numero_Documento AS clienteDocumento,
     CASE
       WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
-      ELSE u.U_Nombre
-    END                 AS clienteNombres,
-    CASE
-      WHEN td.TD_Codigo = 'RUC' THEN NULL
-      ELSE u.U_Apellido
-    END                 AS clienteApellidos,
+      ELSE NULL
+    END                 AS clienteRazonSocial,
+    u.U_Nombre           AS clienteNombres,
+    u.U_Apellido         AS clienteApellidos,
     u.U_Celular           AS clienteCelular,
     u.U_Correo            AS clienteCorreo,
     u.U_Direccion         AS clienteDireccion,
@@ -3640,6 +3636,7 @@ BEGIN
   FROM T_Pedido p
   JOIN T_Cliente c   ON c.PK_Cli_Cod = p.FK_Cli_Cod
   JOIN T_Usuario u   ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_Empleados e ON e.PK_Em_Cod = p.FK_Em_Cod
   LEFT JOIN T_Usuario  ue ON ue.PK_U_Cod = e.FK_U_Cod
