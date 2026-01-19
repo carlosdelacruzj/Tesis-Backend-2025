@@ -396,14 +396,20 @@ async function getRequerimientos(pedidoId) {
     throw e;
   }
 
-  const { pedido, items = [] } = data;
-  const exsIds = [
-    ...new Set(
-      items
-        .map((it) => (it.exsId != null ? Number(it.exsId) : null))
-        .filter((n) => Number.isFinite(n) && n > 0)
-    ),
-  ];
+    const { pedido, items = [] } = data;
+    const exsIds = [
+      ...new Set(
+        items
+          .map((it) =>
+            it.exsId != null
+              ? Number(it.exsId)
+              : it.idEventoServicio != null
+              ? Number(it.idEventoServicio)
+              : null
+          )
+          .filter((n) => Number.isFinite(n) && n > 0)
+      ),
+    ];
 
   const totPersonal = new Map();
   const totEquipos = new Map();
