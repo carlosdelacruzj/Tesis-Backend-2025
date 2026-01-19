@@ -8,6 +8,7 @@
  *         proyectoId:          { type: integer }
  *         proyectoNombre:      { type: string }
  *         pedidoId:            { type: integer }
+ *         pedidoCodigo:        { type: string, nullable: true }
  *         fechaInicioEdicion:  { type: string, format: date }
  *         fechaFinEdicion:     { type: string, format: date, nullable: true }
  *         estadoId:            { type: integer }

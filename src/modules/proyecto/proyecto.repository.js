@@ -50,6 +50,7 @@ async function getAllProyecto() {
     ? rows.map((r) => ({
         ...r,
         codigo: formatCodigo("PRO", r.proyectoId ?? r.id ?? r.ID),
+        pedidoCodigo: formatCodigo("PED", r.pedidoId ?? r.PedidoId ?? r.FK_Ped_Cod),
       }))
     : rows;
 }
@@ -60,8 +61,14 @@ async function getByIdProyecto(id) {
   //   result set 1: lista de recursos asociados al proyecto
   const sets = await runCallMulti("CALL sp_proyecto_obtener(?)", [Number(id)]);
   const proyectoRaw = sets[0]?.[0] || null;
+  const pedidoId =
+    proyectoRaw?.pedidoId ?? proyectoRaw?.PedidoId ?? proyectoRaw?.FK_Ped_Cod ?? null;
   const proyecto = proyectoRaw
-    ? { ...proyectoRaw, codigo: formatCodigo("PRO", proyectoRaw.proyectoId ?? proyectoRaw.id) }
+    ? {
+        ...proyectoRaw,
+        codigo: formatCodigo("PRO", proyectoRaw.proyectoId ?? proyectoRaw.id),
+        pedidoCodigo: pedidoId == null ? null : formatCodigo("PED", pedidoId),
+      }
     : null;
   return {
     proyecto,
