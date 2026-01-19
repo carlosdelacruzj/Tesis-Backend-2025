@@ -36,6 +36,14 @@
  *             estadoPagoId:
  *               type: integer
  *               example: 1
+ *             idTipoEvento:
+ *               type: integer
+ *               nullable: true
+ *               example: 3
+ *             dias:
+ *               type: integer
+ *               nullable: true
+ *               example: 2
  *             nombrePedido:
  *               type: string
  *               example: "Boda de Renzo y Pablo"
@@ -80,6 +88,18 @@
  *                 type: integer
  *                 nullable: true
  *                 example: 11
+ *               idEventoServicio:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 11
+ *               eventoId:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 3
+ *               servicioId:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
  *               eventoCodigo:
  *                 type: integer
  *                 nullable: true
@@ -111,6 +131,25 @@
  *                 type: number
  *                 default: 0
  *                 example: 0
+ *               horas:
+ *                 type: number
+ *                 example: 6
+ *               personal:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 3
+ *               fotosImpresas:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 100
+ *               trailerMin:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *               filmMin:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 25
  *               notas:
  *                 type: string
  *                 maxLength: 150
@@ -156,6 +195,14 @@
  *             estadoPagoId:
  *               type: integer
  *               example: 1
+ *             idTipoEvento:
+ *               type: integer
+ *               nullable: true
+ *               example: 3
+ *             dias:
+ *               type: integer
+ *               nullable: true
+ *               example: 2
  *             nombrePedido:
  *               type: string
  *               example: "Boda de Renzo y Pablo"
@@ -206,6 +253,18 @@
  *                 type: integer
  *                 nullable: true
  *                 example: 11
+ *               idEventoServicio:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 11
+ *               eventoId:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 3
+ *               servicioId:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
  *               eventoCodigo:
  *                 type: integer
  *                 nullable: true
@@ -234,6 +293,25 @@
  *               recargo:
  *                 type: number
  *                 example: 0
+ *               horas:
+ *                 type: number
+ *                 example: 6
+ *               personal:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 3
+ *               fotosImpresas:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 100
+ *               trailerMin:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 2
+ *               filmMin:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 25
  *               notas:
  *                 type: string
  *                 maxLength: 150

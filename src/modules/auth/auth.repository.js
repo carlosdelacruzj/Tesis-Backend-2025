@@ -32,17 +32,17 @@ async function findByCorreo(correo) {
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 }
 
-async function updatePasswordByCorreo(correo, hash) {
+async function updatePasswordByCorreo(correo, hash, fechaUpd) {
   const email = normalizeEmail(correo);
   if (!email) return 0;
 
   const [result] = await pool.query(
     `
       UPDATE T_Usuario
-      SET U_Contrasena = ?, U_Fecha_Upd = NOW()
+      SET U_Contrasena = ?, U_Fecha_Upd = ?
       WHERE LOWER(U_Correo) = ?
     `,
-    [hash, email]
+    [hash, fechaUpd, email]
   );
 
   return result.affectedRows || 0;

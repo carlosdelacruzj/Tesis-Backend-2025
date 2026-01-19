@@ -8,7 +8,15 @@ const router = Router();
  *   get:
  *     tags: [cliente]
  *     summary: Listar clientes
- *     responses: { '200': { description: OK } }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/Cliente'
  */
 router.get("/", ctrl.getAllCliente);
 
@@ -51,7 +59,12 @@ router.get("/estados", ctrl.listEstadosCliente);
  *         schema: { type: integer, minimum: 1, maximum: 50, default: 10 }
  *         description: Máximo de resultados a retornar
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ClientesAutocompleteResponse'
  *       '400': { description: Parámetros inválidos }
  */
 router.get("/buscar", ctrl.buscarClientes);
@@ -121,7 +134,12 @@ router.get("/:id/cotizaciones", ctrl.getCotizacionesCliente);
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cliente'
  *       '404': { description: No encontrado }
  */
 router.get("/:id", ctrl.getByIdCliente);
@@ -175,7 +193,7 @@ router.post("/", ctrl.postCliente);
  * /clientes/{id}:
  *   put:
  *     tags: [cliente]
- *     summary: Actualizar cliente (correo/celular/direccion)
+ *     summary: Actualizar cliente (contacto y datos de contacto)
  *     parameters:
  *       - in: path
  *         name: id
@@ -186,7 +204,13 @@ router.post("/", ctrl.postCliente);
  *       content:
  *         application/json:
  *           schema: { $ref: '#/components/schemas/ClienteUpdate' }
- *     responses: { '200': { description: Actualizado } }
+ *     responses:
+ *       '200':
+ *         description: Actualizado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Cliente'
  */
 router.put("/:id", ctrl.putClienteById);
 

@@ -103,9 +103,12 @@ async function getById(id) {
     estadoPedidoId: cab.estadoPedidoId,
     estadoPagoId: cab.estadoPagoId,
     observaciones: cab.observaciones ?? null,
+    idTipoEvento: cab.idTipoEvento ?? null,
+    dias: cab.dias ?? null,
     cliente: {
       id: cab.clienteId,
       documento: cab.clienteDocumento,
+      razonSocial: cab.clienteRazonSocial ?? null,
       nombres: cab.clienteNombres,
       apellidos: cab.clienteApellidos,
       celular: cab.clienteCelular,
@@ -132,7 +135,9 @@ async function getById(id) {
     id: it.id,
     pedidoId: it.pedidoId,
     eventoCodigo: it.eventoCodigo ?? null,
-    exsId: it.exsId ?? null,
+    idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
+    eventoId: it.eventoId ?? null,
+    servicioId: it.servicioId ?? null,
     nombre: it.nombre,
     descripcion: it.descripcion,
     moneda: it.moneda,
@@ -141,6 +146,12 @@ async function getById(id) {
     descuento: Number(it.descuento || 0),
     recargo: Number(it.recargo || 0),
     notas: it.notas || "",
+    horas: it.horas != null ? Number(it.horas) : null,
+    personal: it.personal != null ? Number(it.personal) : null,
+    fotosImpresas: it.fotosImpresas != null ? Number(it.fotosImpresas) : null,
+    trailerMin: it.trailerMin != null ? Number(it.trailerMin) : null,
+    filmMin: it.filmMin != null ? Number(it.filmMin) : null,
+    subtotal: it.subtotal != null ? Number(it.subtotal) : null,
   }));
 
   return { pedido, eventos: eventosOut, items: itemsOut };
@@ -191,8 +202,8 @@ async function createComposite({ pedido, eventos, items }) {
     const [rPedido] = await conn.query(
       `
       INSERT INTO T_Pedido
-      (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_IdTipoEvento, P_Dias)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         pedido.estadoPedidoId,
@@ -203,6 +214,8 @@ async function createComposite({ pedido, eventos, items }) {
         pedido.observaciones,
         pedido.empleadoId,
         pedido.nombrePedido,
+        pedido.idTipoEvento ?? null,
+        pedido.dias ?? null,
       ]
     );
     const pedidoId = rPedido.insertId;
@@ -210,7 +223,7 @@ async function createComposite({ pedido, eventos, items }) {
     // (Opcional) validar exsId para evitar FK rotas
     const exsIds = [
       ...new Set(
-        items.map((it) => it.exsId).filter((v) => v !== null && v !== undefined)
+        items.map((it) => it.exsId ?? it.idEventoServicio).filter((v) => v !== null && v !== undefined)
       ),
     ];
     if (exsIds.length) {
@@ -260,6 +273,14 @@ async function createComposite({ pedido, eventos, items }) {
 
     // 4) Insertar T_PedidoServicio
     for (const it of items) {
+      const exsId = it.exsId ?? it.idEventoServicio ?? null;
+      const eventoId = it.eventoId ?? null;
+      const servicioId = it.servicioId ?? null;
+      const horas = it.horas ?? null;
+      const personal = it.personal ?? it.staff ?? null;
+      const fotosImpresas = it.fotosImpresas ?? null;
+      const trailerMin = it.trailerMin ?? null;
+      const filmMin = it.filmMin ?? null;
       let fkPe = null;
       if (it.eventoCodigo !== null && it.eventoCodigo !== undefined) {
         fkPe = eventKeyToPeId.get(String(it.eventoCodigo)) || null;
@@ -267,15 +288,18 @@ async function createComposite({ pedido, eventos, items }) {
       await conn.query(
         `
         INSERT INTO T_PedidoServicio
-        (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod,
+        (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_EventoId, PS_ServicioId,
          PS_Nombre, PS_Descripcion, PS_Moneda,
-         PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas,
+         PS_Horas, PS_Staff, PS_FotosImpresas, PS_TrailerMin, PS_FilmMin)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
       `,
         [
           pedidoId,
-          it.exsId,
+          exsId,
           fkPe,
+          eventoId,
+          servicioId,
           it.nombre,
           it.descripcion,
           it.moneda || "USD",
@@ -284,6 +308,11 @@ async function createComposite({ pedido, eventos, items }) {
           it.descuento ?? 0,
           it.recargo ?? 0,
           it.notas,
+          horas,
+          personal,
+          fotosImpresas,
+          trailerMin,
+          filmMin,
         ]
       );
     }
@@ -370,6 +399,14 @@ async function updateCompositeById(
       updFields.push("P_Nombre_Pedido = ?");
       updParams.push(pedido.nombrePedido);
     }
+    if (pedido?.idTipoEvento != null) {
+      updFields.push("P_IdTipoEvento = ?");
+      updParams.push(pedido.idTipoEvento);
+    }
+    if (pedido?.dias != null) {
+      updFields.push("P_Dias = ?");
+      updParams.push(pedido.dias);
+    }
     if (pedido?.cotizacionId != null) {
       updFields.push("FK_Cot_Cod = ?");
       updParams.push(pedido.cotizacionId);
@@ -385,7 +422,7 @@ async function updateCompositeById(
 
     // 3) Validar exsId de items (como en createComposite)
     const exsIds = [
-      ...new Set(items.map((it) => it.exsId).filter((v) => v != null)),
+      ...new Set(items.map((it) => it.exsId ?? it.idEventoServicio).filter((v) => v != null)),
     ];
     if (exsIds.length) {
       const [rowsExS] = await conn.query(
@@ -481,8 +518,15 @@ async function updateCompositeById(
     // 7) UPSERT de items
     const incomingItemIds = new Set();
     for (const it of items || []) {
+      const eventoId = it.eventoId ?? null;
+      const servicioId = it.servicioId ?? null;
+      const horas = it.horas ?? null;
+      const personal = it.personal ?? it.staff ?? null;
+      const fotosImpresas = it.fotosImpresas ?? null;
+      const trailerMin = it.trailerMin ?? null;
+      const filmMin = it.filmMin ?? null;
       const iid = it.id ?? null; // <- si existe, actualiza
-      const exsId = it.exsId ?? null; // FK a T_EventoServicio (obligatorio)
+      const exsId = it.exsId ?? it.idEventoServicio ?? null; // FK a T_EventoServicio (obligatorio)
       const fkPe = it.eventoCodigo ?? null; // si asocias item a un evento específico
 
       if (iid) {
@@ -490,14 +534,17 @@ async function updateCompositeById(
         await conn.query(
           `
           UPDATE T_PedidoServicio
-          SET FK_ExS_Cod = ?, FK_PE_Cod = ?,
+          SET FK_ExS_Cod = ?, FK_PE_Cod = ?, PS_EventoId = ?, PS_ServicioId = ?,
               PS_Nombre = ?, PS_Descripcion = ?, PS_Moneda = ?,
-              PS_PrecioUnit = ?, PS_Cantidad = ?, PS_Descuento = ?, PS_Recargo = ?, PS_Notas = ?
+              PS_PrecioUnit = ?, PS_Cantidad = ?, PS_Descuento = ?, PS_Recargo = ?, PS_Notas = ?,
+              PS_Horas = ?, PS_Staff = ?, PS_FotosImpresas = ?, PS_TrailerMin = ?, PS_FilmMin = ?
           WHERE PK_PS_Cod = ? AND FK_P_Cod = ?
           `,
           [
             exsId,
             fkPe,
+            eventoId,
+            servicioId,
             it.nombre,
             it.descripcion,
             it.moneda || "USD",
@@ -506,6 +553,11 @@ async function updateCompositeById(
             it.descuento ?? 0,
             it.recargo ?? 0,
             it.notas ?? null,
+            horas,
+            personal,
+            fotosImpresas,
+            trailerMin,
+            filmMin,
             iid,
             pedidoId,
           ]
@@ -514,15 +566,18 @@ async function updateCompositeById(
         const [rIt] = await conn.query(
           `
           INSERT INTO T_PedidoServicio
-          (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod,
+          (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_EventoId, PS_ServicioId,
            PS_Nombre, PS_Descripcion, PS_Moneda,
-           PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+           PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas,
+           PS_Horas, PS_Staff, PS_FotosImpresas, PS_TrailerMin, PS_FilmMin)
+          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           `,
           [
             pedidoId,
             exsId,
             fkPe,
+            eventoId,
+            servicioId,
             it.nombre,
             it.descripcion,
             it.moneda || "USD",
@@ -531,6 +586,11 @@ async function updateCompositeById(
             it.descuento ?? 0,
             it.recargo ?? 0,
             it.notas ?? null,
+            horas,
+            personal,
+            fotosImpresas,
+            trailerMin,
+            filmMin,
           ]
         );
         incomingItemIds.add(rIt.insertId);

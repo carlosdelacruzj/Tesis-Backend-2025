@@ -1,5 +1,6 @@
 const repo = require("./proyecto.repository");
 const equipoService = require("../inventario/equipo/equipo.service");
+const { getLimaDateTimeString } = require("../../utils/dates");
 
 function ensurePositiveInt(value, field) {
   const num = Number(value);
@@ -246,6 +247,7 @@ async function registrarDevolucion(proyectoId, payload = {}, { usuarioId = null 
       estadoDevolucion,
       notas,
       usuarioId: usuarioId == null ? null : ensurePositiveInt(usuarioId, "usuarioId"),
+      fechaDevolucion: getLimaDateTimeString(),
     });
 
     let nuevoEstado = null;

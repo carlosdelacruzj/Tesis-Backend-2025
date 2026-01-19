@@ -64,6 +64,72 @@
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_actualizar"(
       IN pIdCliente INT,
+      IN pNombre    VARCHAR(100),
+      IN pApellido  VARCHAR(100),
+      IN pCorreo    VARCHAR(250),
+      IN pCelular   VARCHAR(25),
+      IN pDireccion VARCHAR(250),
+      IN pRazonSocial VARCHAR(150)
+    )
+BEGIN
+      DECLARE vUserId INT;
+      DECLARE vTdCodigo VARCHAR(10);
+
+      SELECT c.FK_U_Cod, td.TD_Codigo INTO vUserId, vTdCodigo
+      FROM T_Cliente c
+      JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+      JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+      WHERE c.PK_Cli_Cod = pIdCliente;
+
+      IF vUserId IS NULL THEN
+        SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe';
+      END IF;
+
+      IF vTdCodigo = 'RUC' THEN
+        IF pRazonSocial IS NOT NULL AND TRIM(pRazonSocial) = '' THEN
+          SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Razon social es requerida para RUC';
+        END IF;
+      END IF;
+
+      UPDATE T_Usuario
+         SET U_Nombre   = COALESCE(NULLIF(TRIM(pNombre), ''), U_Nombre),
+             U_Apellido = COALESCE(NULLIF(TRIM(pApellido), ''), U_Apellido),
+             U_Correo   = COALESCE(pCorreo,    U_Correo),
+             U_Celular  = COALESCE(pCelular,   U_Celular),
+             U_Direccion = COALESCE(pDireccion, U_Direccion)
+       WHERE PK_U_Cod = vUserId;
+
+      IF vTdCodigo = 'RUC' THEN
+        UPDATE T_Cliente
+           SET Cli_RazonSocial = COALESCE(NULLIF(TRIM(pRazonSocial), ''), Cli_RazonSocial)
+         WHERE PK_Cli_Cod = pIdCliente;
+      END IF;
+
+      SELECT
+        c.PK_Cli_Cod                               AS idCliente,
+        CONCAT('CLI-', LPAD(c.PK_Cli_Cod, 6, '0')) AS codigoCliente,
+        u.PK_U_Cod                                 AS idUsuario,
+        u.U_Nombre                                 AS nombre,
+        u.U_Apellido                               AS apellido,
+        u.U_Correo                                 AS correo,
+        u.U_Celular                                AS celular,
+        u.U_Numero_Documento                       AS doc,
+        u.U_Direccion                              AS direccion,
+        u.FK_TD_Cod                                AS tipoDocumentoId,
+        td.TD_Codigo                               AS tipoDocumentoCodigo,
+        td.TD_Nombre                               AS tipoDocumentoNombre,
+        c.Cli_RazonSocial                          AS razonSocial,
+        c.Cli_Tipo_Cliente                         AS tipoCliente
+      FROM T_Cliente c
+      JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+      JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+      WHERE c.PK_Cli_Cod = pIdCliente;
+    END ;;
+```
+sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_actualizar"(
+      IN pIdCliente INT,
       IN pCorreo    VARCHAR(250),
       IN pCelular   VARCHAR(25),
       IN pDireccion VARCHAR(250)
@@ -282,6 +348,33 @@ DELIMITER ;
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_listar"()
 BEGIN
+  SELECT
+    c.PK_Cli_Cod AS idCliente,
+    CONCAT('CLI-', LPAD(c.PK_Cli_Cod, 6, '0')) AS codigoCliente,
+    u.U_Nombre  AS nombre,
+    u.U_Apellido AS apellido,
+    u.U_Correo  AS correo,
+    u.U_Celular AS celular,
+    u.U_Numero_Documento AS doc,
+    u.U_Direccion AS direccion,
+    u.FK_TD_Cod AS tipoDocumentoId,
+    td.TD_Codigo AS tipoDocumentoCodigo,
+    td.TD_Nombre AS tipoDocumentoNombre,
+    c.Cli_RazonSocial AS razonSocial,
+    c.Cli_Tipo_Cliente AS tipoCliente,
+    ec.PK_ECli_Cod AS idEstadoCliente,
+    ec.ECli_Nombre AS estadoCliente
+  FROM T_Cliente c
+  JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+  JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+  JOIN T_Estado_Cliente ec ON ec.PK_ECli_Cod = c.FK_ECli_Cod
+  ORDER BY c.PK_Cli_Cod;
+END ;;
+```
+sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_listar"()
+BEGIN
   -- ajusta tu SP_getAllClientes
 SELECT
   c.PK_Cli_Cod AS idCliente,                           -- usar en rutas/trackBy
@@ -304,6 +397,34 @@ DELIMITER ;
 ## sp_cliente_obtener
 
 ```sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_obtener"(IN pId INT)
+BEGIN
+  SELECT
+    c.PK_Cli_Cod                               AS idCliente,
+    CONCAT('CLI-', LPAD(c.PK_Cli_Cod, 6, '0')) AS codigoCliente,
+    u.PK_U_Cod                                 AS idUsuario,
+    u.U_Nombre                                 AS nombre,
+    u.U_Apellido                               AS apellido,
+    u.U_Correo                                 AS correo,
+    u.U_Celular                                AS celular,
+    u.U_Numero_Documento                       AS doc,
+    u.U_Direccion                              AS direccion,
+    u.FK_TD_Cod                                AS tipoDocumentoId,
+    td.TD_Codigo                               AS tipoDocumentoCodigo,
+    td.TD_Nombre                               AS tipoDocumentoNombre,
+    c.Cli_Tipo_Cliente                         AS tipoCliente,
+    c.Cli_RazonSocial                          AS razonSocial,
+    ec.PK_ECli_Cod                             AS idEstadoCliente,
+    ec.ECli_Nombre                             AS estadoCliente
+  FROM T_Cliente c
+  JOIN T_Usuario u         ON u.PK_U_Cod     = c.FK_U_Cod
+  JOIN T_TipoDocumento td  ON td.PK_TD_Cod   = u.FK_TD_Cod
+  JOIN T_Estado_Cliente ec ON ec.PK_ECli_Cod = c.FK_ECli_Cod
+  WHERE c.PK_Cli_Cod = pId;
+END ;;
+```
+sql
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_obtener"(IN pId INT)
 BEGIN
@@ -956,6 +1077,310 @@ DELIMITER ;
 
 ```sql
 DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE `sp_cotizacion_convertir_a_pedido`(
+  IN  p_cot_id        INT,
+  IN  p_empleado_id   INT,
+  IN  p_nombre_pedido VARCHAR(225),
+  IN  p_fecha_hoy     DATE,
+  OUT o_pedido_id     INT
+)
+BEGIN
+  DECLARE v_fk_cli      INT;
+  DECLARE v_tipo_evento VARCHAR(40);
+  DECLARE v_fecha_ev    DATE;
+  DECLARE v_lugar       VARCHAR(150);
+  DECLARE v_estado      VARCHAR(20);
+  DECLARE v_nombre      VARCHAR(225);
+  DECLARE v_fecha_ref   DATE;
+  DECLARE v_id_tipo_evento INT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SET v_fecha_ref = COALESCE(p_fecha_hoy, CURDATE());
+
+  SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, c.Cot_IdTipoEvento, ec.ECot_Nombre
+    INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_id_tipo_evento, v_estado
+  FROM T_Cotizacion c
+  JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+  WHERE c.PK_Cot_Cod = p_cot_id
+  FOR UPDATE;
+
+  IF v_estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cotizacion no encontrada';
+  END IF;
+
+  IF v_estado <> 'Aceptada' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden migrar cotizaciones en estado Aceptada';
+  END IF;
+
+  IF v_fk_cli IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotizacion no tiene cliente ni lead asociado';
+  END IF;
+
+  SET v_nombre = COALESCE(
+    p_nombre_pedido,
+    CONCAT(
+      COALESCE(v_tipo_evento,'Evento'),
+      ' - ', DATE_FORMAT(COALESCE(v_fecha_ev, v_fecha_ref), '%Y-%m-%d'),
+      COALESCE(CONCAT(' - ', v_lugar), '')
+    )
+  );
+
+  INSERT INTO T_Pedido
+    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento, P_IdTipoEvento)
+  VALUES
+    (1, p_cot_id, v_fk_cli, 1, v_fecha_ref, CONCAT('Origen: Cotizacion #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev, v_id_tipo_evento);
+
+  SET o_pedido_id = LAST_INSERT_ID();
+
+  INSERT INTO T_PedidoServicio
+    (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_EventoId, PS_ServicioId,
+     PS_Nombre, PS_Descripcion, PS_Moneda, PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas,
+     PS_Horas, PS_Staff, PS_FotosImpresas, PS_TrailerMin, PS_FilmMin)
+  SELECT
+    o_pedido_id,
+    cs.FK_ExS_Cod,
+    NULL,
+    cs.CS_EventoId,
+    cs.CS_ServicioId,
+    cs.CS_Nombre,
+    cs.CS_Descripcion,
+    cs.CS_Moneda,
+    cs.CS_PrecioUnit,
+    cs.CS_Cantidad,
+    cs.CS_Descuento,
+    cs.CS_Recargo,
+    cs.CS_Notas,
+    cs.CS_Horas,
+    cs.CS_Staff,
+    cs.CS_FotosImpresas,
+    cs.CS_TrailerMin,
+    cs.CS_FilmMin
+  FROM T_CotizacionServicio cs
+  WHERE cs.FK_Cot_Cod = p_cot_id;
+
+  INSERT INTO T_PedidoEvento
+    (FK_P_Cod, PE_Fecha, PE_Hora, PE_Ubicacion, PE_Direccion, PE_Notas)
+  SELECT
+    o_pedido_id,
+    ce.CotE_Fecha,
+    ce.CotE_Hora,
+    ce.CotE_Ubicacion,
+    ce.CotE_Direccion,
+    ce.CotE_Notas
+  FROM T_CotizacionEvento ce
+  WHERE ce.FK_Cot_Cod = p_cot_id;
+
+  COMMIT;
+END ;;
+```
+sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE `sp_cotizacion_convertir_a_pedido`(
+  IN  p_cot_id        INT,
+  IN  p_empleado_id   INT,
+  IN  p_nombre_pedido VARCHAR(225),
+  IN  p_fecha_hoy     DATE,
+  OUT o_pedido_id     INT
+)
+BEGIN
+  DECLARE v_fk_cli      INT;
+  DECLARE v_tipo_evento VARCHAR(40);
+  DECLARE v_fecha_ev    DATE;
+  DECLARE v_lugar       VARCHAR(150);
+  DECLARE v_estado      VARCHAR(20);
+  DECLARE v_nombre      VARCHAR(225);
+  DECLARE v_fecha_ref   DATE;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SET v_fecha_ref = COALESCE(p_fecha_hoy, CURDATE());
+
+  SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, ec.ECot_Nombre
+    INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_estado
+  FROM T_Cotizacion c
+  JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+  WHERE c.PK_Cot_Cod = p_cot_id
+  FOR UPDATE;
+
+  IF v_estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cotizacion no encontrada';
+  END IF;
+
+  IF v_estado <> 'Aceptada' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden migrar cotizaciones en estado Aceptada';
+  END IF;
+
+  IF v_fk_cli IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotizacion no tiene cliente ni lead asociado';
+  END IF;
+
+  SET v_nombre = COALESCE(
+    p_nombre_pedido,
+    CONCAT(
+      COALESCE(v_tipo_evento,'Evento'),
+      ' - ', DATE_FORMAT(COALESCE(v_fecha_ev, v_fecha_ref), '%Y-%m-%d'),
+      COALESCE(CONCAT(' - ', v_lugar), '')
+    )
+  );
+
+  INSERT INTO T_Pedido
+    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento)
+  VALUES
+    (1, p_cot_id, v_fk_cli, 1, v_fecha_ref, CONCAT('Origen: Cotizacion #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev);
+
+  SET o_pedido_id = LAST_INSERT_ID();
+
+  INSERT INTO T_PedidoServicio
+    (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_EventoId, PS_ServicioId,
+     PS_Nombre, PS_Descripcion, PS_Moneda, PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas,
+     PS_Horas, PS_Staff, PS_FotosImpresas, PS_TrailerMin, PS_FilmMin)
+  SELECT
+    o_pedido_id,
+    cs.FK_ExS_Cod,
+    NULL,
+    cs.CS_EventoId,
+    cs.CS_ServicioId,
+    cs.CS_Nombre,
+    cs.CS_Descripcion,
+    cs.CS_Moneda,
+    cs.CS_PrecioUnit,
+    cs.CS_Cantidad,
+    cs.CS_Descuento,
+    cs.CS_Recargo,
+    cs.CS_Notas,
+    cs.CS_Horas,
+    cs.CS_Staff,
+    cs.CS_FotosImpresas,
+    cs.CS_TrailerMin,
+    cs.CS_FilmMin
+  FROM T_CotizacionServicio cs
+  WHERE cs.FK_Cot_Cod = p_cot_id;
+
+  INSERT INTO T_PedidoEvento
+    (FK_P_Cod, PE_Fecha, PE_Hora, PE_Ubicacion, PE_Direccion, PE_Notas)
+  SELECT
+    o_pedido_id,
+    ce.CotE_Fecha,
+    ce.CotE_Hora,
+    ce.CotE_Ubicacion,
+    ce.CotE_Direccion,
+    ce.CotE_Notas
+  FROM T_CotizacionEvento ce
+  WHERE ce.FK_Cot_Cod = p_cot_id;
+
+  COMMIT;
+END ;;
+```
+sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_convertir_a_pedido"(
+  IN  p_cot_id        INT,
+  IN  p_empleado_id   INT,
+  IN  p_nombre_pedido VARCHAR(225),
+  IN  p_fecha_hoy     DATE,
+  OUT o_pedido_id     INT
+)
+BEGIN
+  DECLARE v_fk_cli      INT;
+  DECLARE v_tipo_evento VARCHAR(40);
+  DECLARE v_fecha_ev    DATE;
+  DECLARE v_lugar       VARCHAR(150);
+  DECLARE v_estado      VARCHAR(20);
+  DECLARE v_nombre      VARCHAR(225);
+  DECLARE v_fecha_ref   DATE;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SET v_fecha_ref = COALESCE(p_fecha_hoy, CURDATE());
+
+  SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, ec.ECot_Nombre
+    INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_estado
+  FROM T_Cotizacion c
+  JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+  WHERE c.PK_Cot_Cod = p_cot_id
+  FOR UPDATE;
+
+  IF v_estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cotizacion no encontrada';
+  END IF;
+
+  IF v_estado <> 'Aceptada' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden migrar cotizaciones en estado Aceptada';
+  END IF;
+
+  IF v_fk_cli IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotizacion no tiene cliente ni lead asociado';
+  END IF;
+
+  SET v_nombre = COALESCE(
+    p_nombre_pedido,
+    CONCAT(
+      COALESCE(v_tipo_evento,'Evento'),
+      ' - ', DATE_FORMAT(COALESCE(v_fecha_ev, v_fecha_ref), '%Y-%m-%d'),
+      COALESCE(CONCAT(' - ', v_lugar), '')
+    )
+  );
+
+  INSERT INTO T_Pedido
+    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento)
+  VALUES
+    (1, p_cot_id, v_fk_cli, 1, v_fecha_ref, CONCAT('Origen: Cotizacion #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev);
+
+  SET o_pedido_id = LAST_INSERT_ID();
+
+  INSERT INTO T_PedidoServicio
+    (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_Nombre, PS_Descripcion, PS_Moneda, PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas)
+  SELECT
+    o_pedido_id,
+    cs.FK_ExS_Cod,
+    NULL,
+    cs.CS_Nombre,
+    cs.CS_Descripcion,
+    cs.CS_Moneda,
+    cs.CS_PrecioUnit,
+    cs.CS_Cantidad,
+    cs.CS_Descuento,
+    cs.CS_Recargo,
+    cs.CS_Notas
+  FROM T_CotizacionServicio cs
+  WHERE cs.FK_Cot_Cod = p_cot_id;
+
+  INSERT INTO T_PedidoEvento
+    (FK_P_Cod, PE_Fecha, PE_Hora, PE_Ubicacion, PE_Direccion, PE_Notas)
+  SELECT
+    o_pedido_id,
+    ce.CotE_Fecha,
+    ce.CotE_Hora,
+    ce.CotE_Ubicacion,
+    ce.CotE_Direccion,
+    ce.CotE_Notas
+  FROM T_CotizacionEvento ce
+  WHERE ce.FK_Cot_Cod = p_cot_id;
+
+  COMMIT;
+END ;;
+```
+sql
+DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_convertir_a_pedido"(
 
   IN  p_cot_id        INT,
@@ -1403,19 +1828,25 @@ BEGIN
 
 
 
-      -- Siempre "Nombre Apellido" si es CLIENTE; si es LEAD usa Lead_Nombre
+      -- Si CLIENTE y es RUC devuelve razon social; si es LEAD usa Lead_Nombre
 
       CASE
 
         WHEN c.FK_Cli_Cod IS NOT NULL THEN
 
-          TRIM(CONCAT_WS(' ',
+          CASE
 
-            NULLIF(u.U_Nombre, ''),
+            WHEN td.TD_Codigo = 'RUC' THEN cli.Cli_RazonSocial
 
-            NULLIF(u.U_Apellido, '')
+            ELSE TRIM(CONCAT_WS(' ',
 
-          ))
+              NULLIF(u.U_Nombre, ''),
+
+              NULLIF(u.U_Apellido, '')
+
+            ))
+
+          END
 
         ELSE
 
@@ -1488,6 +1919,7 @@ BEGIN
   LEFT JOIN defaultdb.T_Cliente cli ON cli.PK_Cli_Cod = c.FK_Cli_Cod
 
   LEFT JOIN defaultdb.T_Usuario u   ON u.PK_U_Cod    = cli.FK_U_Cod
+  LEFT JOIN defaultdb.T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
 
   ORDER BY c.PK_Cot_Cod DESC;
 
@@ -2564,10 +2996,12 @@ DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_lead_convertir_cliente"(
   IN  p_lead_id        INT,
   IN  p_correo         VARCHAR(250),   -- obligatorio
-  IN  p_celular        VARCHAR(25),    -- si viene vacío se usa el del lead
+  IN  p_celular        VARCHAR(25),    -- si viene vacio se usa el del lead
   IN  p_nombre         VARCHAR(25),    -- opcional
   IN  p_apellido       VARCHAR(25),    -- opcional
-  IN  p_num_doc        VARCHAR(11),    -- OBLIGATORIO (8 u 11 dígitos) para crear usuario
+  IN  p_num_doc        VARCHAR(11),    -- obligatorio para crear usuario
+  IN  p_tipo_doc_id    INT,            -- opcional (si no viene, se infiere por longitud)
+  IN  p_razon_social   VARCHAR(150),   -- requerido si es RUC
   IN  p_direccion      VARCHAR(100),
   IN  p_tipo_cliente   INT,            -- puede ser NULL
   IN  p_estado_cliente INT,            -- requerido por FK a T_Estado_Cliente
@@ -2582,6 +3016,10 @@ BEGIN
   DECLARE v_nombre        VARCHAR(25);
   DECLARE v_apellido      VARCHAR(25);
   DECLARE v_celular       VARCHAR(25);
+  DECLARE v_tipo_doc_id   INT;
+  DECLARE v_td_codigo     VARCHAR(10);
+  DECLARE v_tipo_cliente  INT;
+  DECLARE v_razon_social  VARCHAR(150);
 
   DECLARE v_exists_mail   INT;
   DECLARE v_exists_cel    INT;
@@ -2595,7 +3033,7 @@ BEGIN
 
   START TRANSACTION;
 
-  /* 1) Lock y validación del lead */
+  /* 1) Lock y validacion del lead */
   SELECT Lead_Nombre, Lead_Celular
     INTO v_lead_nombre, v_lead_celular
   FROM T_Lead
@@ -2612,7 +3050,7 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Correo es obligatorio';
   END IF;
   IF v_celular IS NULL OR v_celular = '' THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Celular es obligatorio (no está en payload ni en el lead)';
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Celular es obligatorio (no esta en payload ni en el lead)';
   END IF;
   IF p_num_doc IS NULL OR p_num_doc = '' THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Documento obligatorio para crear usuario';
@@ -2629,7 +3067,43 @@ BEGIN
                     ), 25
                   );
 
-  /* 3) Verificar que NO exista usuario (esta es precondición de negocio) */
+  /* 3) Resolver tipo de documento */
+  SET v_tipo_doc_id = NULL;
+  SET v_td_codigo = NULL;
+
+  IF p_tipo_doc_id IS NOT NULL THEN
+    SELECT PK_TD_Cod, TD_Codigo INTO v_tipo_doc_id, v_td_codigo
+    FROM T_TipoDocumento
+    WHERE PK_TD_Cod = p_tipo_doc_id
+    LIMIT 1;
+  ELSEIF CHAR_LENGTH(p_num_doc) = 8 THEN
+    SELECT PK_TD_Cod, TD_Codigo INTO v_tipo_doc_id, v_td_codigo
+    FROM T_TipoDocumento
+    WHERE TD_Codigo = 'DNI'
+    LIMIT 1;
+  ELSEIF CHAR_LENGTH(p_num_doc) = 11 THEN
+    SELECT PK_TD_Cod, TD_Codigo INTO v_tipo_doc_id, v_td_codigo
+    FROM T_TipoDocumento
+    WHERE TD_Codigo = 'RUC'
+    LIMIT 1;
+  END IF;
+
+  IF v_tipo_doc_id IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tipo de documento invalido';
+  END IF;
+
+  IF v_td_codigo = 'RUC' THEN
+    SET v_tipo_cliente = 2;
+    SET v_razon_social = NULLIF(TRIM(p_razon_social), '');
+    IF v_razon_social IS NULL THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Razon social es requerida para RUC';
+    END IF;
+  ELSE
+    SET v_tipo_cliente = COALESCE(p_tipo_cliente, 1);
+    SET v_razon_social = NULL;
+  END IF;
+
+  /* 4) Verificar que NO exista usuario (precondicion de negocio) */
   SELECT COUNT(*) INTO v_exists_mail FROM T_Usuario WHERE U_Correo = p_correo FOR UPDATE;
   IF v_exists_mail > 0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Conflicto: ya existe un usuario con ese correo';
@@ -2645,23 +3119,23 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Conflicto: ya existe un usuario con ese documento';
   END IF;
 
-  /* 4) Crear usuario (siempre) */
+  /* 5) Crear usuario */
   INSERT INTO T_Usuario
-      (U_Nombre, U_Apellido, U_Correo, U_Contrasena, U_Celular, U_Numero_Documento, U_Direccion)
+      (U_Nombre, U_Apellido, U_Correo, U_Contrasena, U_Celular, U_Numero_Documento, FK_TD_Cod, U_Direccion)
   VALUES
-      (v_nombre, v_apellido, p_correo, NULL, v_celular, p_num_doc, p_direccion);
+      (v_nombre, v_apellido, p_correo, NULL, v_celular, p_num_doc, v_tipo_doc_id, p_direccion);
 
   SET o_usuario_id     = LAST_INSERT_ID();
   SET o_usuario_accion = 'CREADO';
 
-  /* 5) Crear cliente (siempre) */
-  INSERT INTO T_Cliente (FK_U_Cod, Cli_Tipo_Cliente, FK_ECli_Cod)
-  VALUES (o_usuario_id, p_tipo_cliente, p_estado_cliente);
+  /* 6) Crear cliente */
+  INSERT INTO T_Cliente (FK_U_Cod, Cli_Tipo_Cliente, FK_ECli_Cod, Cli_RazonSocial)
+  VALUES (o_usuario_id, v_tipo_cliente, p_estado_cliente, v_razon_social);
 
   SET o_cliente_id     = LAST_INSERT_ID();
   SET o_cliente_accion = 'CREADO';
 
-  /* 6) Migrar cotizaciones de ese lead al nuevo cliente */
+  /* 7) Migrar cotizaciones del lead */
   UPDATE T_Cotizacion
      SET FK_Cli_Cod  = o_cliente_id,
          FK_Lead_Cod = NULL
@@ -2670,9 +3144,9 @@ BEGIN
 
   COMMIT;
 END ;;
-;;
-DELIMITER ;
+DELIMITER ;;
 ```
+
 
 ## sp_metodo_pago_listar
 
@@ -2763,7 +3237,10 @@ BEGIN
   SELECT
     p.PK_P_Cod                                           AS ID,
     CONCAT('Pedido ', p.PK_P_Cod)                        AS Nombre,
-    CONCAT_WS(' ', u.U_Nombre, u.U_Apellido)             AS Cliente,
+    CASE
+      WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
+      ELSE CONCAT_WS(' ', u.U_Nombre, u.U_Apellido)
+    END                                                  AS Cliente,
     u.U_Numero_Documento                                 AS Documento,
     p.P_Fecha_Creacion                                   AS Creado,
 
@@ -2814,6 +3291,7 @@ BEGIN
   FROM T_Pedido p
   JOIN T_Cliente c      ON c.PK_Cli_Cod = p.FK_Cli_Cod
   JOIN T_Usuario u      ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_Estado_Pedido ep ON ep.PK_EP_Cod  = p.FK_EP_Cod     -- <- quítalo si no existe
   LEFT JOIN T_Estado_Pago  esp ON esp.PK_ESP_Cod = p.FK_ESP_Cod   -- <- quítalo si no existe
 
@@ -2854,6 +3332,7 @@ BEGIN
   SELECT
     p.PK_P_Cod AS pedidoId,
     p.FK_Cli_Cod AS clienteId,
+    p.FK_Cot_Cod AS cotizacionId,
     p.P_Fecha_Creacion AS fechaCreacion,
     p.P_Nombre_Pedido AS nombrePedido,
     p.P_Observaciones AS observaciones,
@@ -2932,6 +3411,177 @@ DELIMITER ;
 
 ```sql
 DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE `sp_pedido_obtener`(IN p_pedido_id INT)
+BEGIN
+  DECLARE v_exists INT DEFAULT 0;
+
+  SELECT COUNT(*) INTO v_exists
+  FROM T_Pedido
+  WHERE PK_P_Cod = p_pedido_id;
+
+  IF v_exists = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Pedido no encontrado';
+  END IF;
+
+  SELECT
+    p.PK_P_Cod         AS id,
+    p.FK_Cli_Cod       AS clienteId,
+    p.FK_Cot_Cod       AS cotizacionId,
+    p.FK_Em_Cod        AS empleadoId,
+    p.P_Fecha_Creacion AS fechaCreacion,
+    p.FK_EP_Cod        AS estadoPedidoId,
+    p.FK_ESP_Cod       AS estadoPagoId,
+    p.P_FechaEvento    AS fechaEvento,
+    p.P_IdTipoEvento   AS idTipoEvento,
+    p.P_Observaciones  AS observaciones,
+    p.P_Nombre_Pedido  AS nombrePedido,
+    u.U_Numero_Documento AS clienteDocumento,
+    CASE
+      WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
+      ELSE NULL
+    END                 AS clienteRazonSocial,
+    u.U_Nombre           AS clienteNombres,
+    u.U_Apellido         AS clienteApellidos,
+    u.U_Celular          AS clienteCelular,
+    u.U_Correo           AS clienteCorreo,
+    u.U_Direccion        AS clienteDireccion,
+    ue.U_Nombre        AS empleadoNombres,
+    ue.U_Apellido      AS empleadoApellidos
+  FROM T_Pedido p
+  JOIN T_Cliente c   ON c.PK_Cli_Cod = p.FK_Cli_Cod
+  JOIN T_Usuario u   ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+  LEFT JOIN T_Empleados e ON e.PK_Em_Cod = p.FK_Em_Cod
+  LEFT JOIN T_Usuario  ue ON ue.PK_U_Cod = e.FK_U_Cod
+  WHERE p.PK_P_Cod = p_pedido_id;
+
+  SELECT
+    pe.PK_PE_Cod    AS id,
+    pe.FK_P_Cod     AS pedidoId,
+    pe.PE_Fecha     AS fecha,
+    pe.PE_Hora      AS hora,
+    pe.PE_Ubicacion AS ubicacion,
+    pe.PE_Direccion AS direccion,
+    pe.PE_Notas     AS notas
+  FROM T_PedidoEvento pe
+  WHERE pe.FK_P_Cod = p_pedido_id
+  ORDER BY pe.PE_Fecha, pe.PE_Hora, pe.PK_PE_Cod;
+
+  SELECT
+    ps.PK_PS_Cod     AS id,
+    ps.FK_P_Cod      AS pedidoId,
+    ps.FK_PE_Cod     AS eventoCodigo,
+    ps.FK_ExS_Cod    AS idEventoServicio,
+    ps.PS_EventoId   AS eventoId,
+    ps.PS_ServicioId AS servicioId,
+    ps.PS_Nombre     AS nombre,
+    ps.PS_Descripcion AS descripcion,
+    ps.PS_Moneda     AS moneda,
+    ps.PS_PrecioUnit AS precioUnit,
+    ps.PS_Cantidad   AS cantidad,
+    ps.PS_Descuento  AS descuento,
+    ps.PS_Recargo    AS recargo,
+    ps.PS_Notas      AS notas,
+    ps.PS_Horas      AS horas,
+    ps.PS_Staff      AS personal,
+    ps.PS_FotosImpresas AS fotosImpresas,
+    ps.PS_TrailerMin AS trailerMin,
+    ps.PS_FilmMin    AS filmMin,
+    ps.PS_Subtotal   AS subtotal
+  FROM T_PedidoServicio ps
+  WHERE ps.FK_P_Cod = p_pedido_id
+  ORDER BY ps.PK_PS_Cod;
+END ;;
+```
+sql
+DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_obtener"(IN p_pedido_id INT)
+BEGIN
+  DECLARE v_exists INT DEFAULT 0;
+
+  SELECT COUNT(*) INTO v_exists
+  FROM T_Pedido
+  WHERE PK_P_Cod = p_pedido_id;
+
+  IF v_exists = 0 THEN
+    SIGNAL SQLSTATE '45000'
+      SET MESSAGE_TEXT = 'Pedido no encontrado';
+  END IF;
+
+  SELECT
+    p.PK_P_Cod         AS id,
+    p.FK_Cli_Cod       AS clienteId,
+    p.FK_Cot_Cod       AS cotizacionId,
+    p.FK_Em_Cod        AS empleadoId,
+    p.P_Fecha_Creacion AS fechaCreacion,
+    p.FK_EP_Cod        AS estadoPedidoId,
+    p.FK_ESP_Cod       AS estadoPagoId,
+    p.P_FechaEvento    AS fechaEvento,
+    p.P_Observaciones  AS observaciones,
+    p.P_Nombre_Pedido  AS nombrePedido,
+    u.U_Numero_Documento AS clienteDocumento,
+    CASE
+      WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
+      ELSE NULL
+    END                 AS clienteRazonSocial,
+    u.U_Nombre           AS clienteNombres,
+    u.U_Apellido         AS clienteApellidos,
+    u.U_Celular          AS clienteCelular,
+    u.U_Correo           AS clienteCorreo,
+    u.U_Direccion        AS clienteDireccion,
+    ue.U_Nombre        AS empleadoNombres,
+    ue.U_Apellido      AS empleadoApellidos
+  FROM T_Pedido p
+  JOIN T_Cliente c   ON c.PK_Cli_Cod = p.FK_Cli_Cod
+  JOIN T_Usuario u   ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+  LEFT JOIN T_Empleados e ON e.PK_Em_Cod = p.FK_Em_Cod
+  LEFT JOIN T_Usuario  ue ON ue.PK_U_Cod = e.FK_U_Cod
+  WHERE p.PK_P_Cod = p_pedido_id;
+
+  SELECT
+    pe.PK_PE_Cod    AS id,
+    pe.FK_P_Cod     AS pedidoId,
+    pe.PE_Fecha     AS fecha,
+    pe.PE_Hora      AS hora,
+    pe.PE_Ubicacion AS ubicacion,
+    pe.PE_Direccion AS direccion,
+    pe.PE_Notas     AS notas
+  FROM T_PedidoEvento pe
+  WHERE pe.FK_P_Cod = p_pedido_id
+  ORDER BY pe.PE_Fecha, pe.PE_Hora, pe.PK_PE_Cod;
+
+  SELECT
+    ps.PK_PS_Cod     AS id,
+    ps.FK_P_Cod      AS pedidoId,
+    ps.FK_PE_Cod     AS eventoCodigo,
+    ps.FK_ExS_Cod    AS idEventoServicio,
+    ps.PS_EventoId   AS eventoId,
+    ps.PS_ServicioId AS servicioId,
+    ps.PS_Nombre     AS nombre,
+    ps.PS_Descripcion AS descripcion,
+    ps.PS_Moneda     AS moneda,
+    ps.PS_PrecioUnit AS precioUnit,
+    ps.PS_Cantidad   AS cantidad,
+    ps.PS_Descuento  AS descuento,
+    ps.PS_Recargo    AS recargo,
+    ps.PS_Notas      AS notas,
+    ps.PS_Horas      AS horas,
+    ps.PS_Staff      AS personal,
+    ps.PS_FotosImpresas AS fotosImpresas,
+    ps.PS_TrailerMin AS trailerMin,
+    ps.PS_FilmMin    AS filmMin,
+    ps.PS_Subtotal   AS subtotal
+  FROM T_PedidoServicio ps
+  WHERE ps.FK_P_Cod = p_pedido_id
+  ORDER BY ps.PK_PS_Cod;
+END ;;
+```
+sql
+DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_obtener"(IN p_pedido_id INT)
 BEGIN
   /*
@@ -2959,6 +3609,7 @@ BEGIN
   SELECT
     p.PK_P_Cod         AS id,
     p.FK_Cli_Cod       AS clienteId,
+    p.FK_Cot_Cod       AS cotizacionId,
     p.FK_Em_Cod        AS empleadoId,
     p.P_Fecha_Creacion AS fechaCreacion,
     p.FK_EP_Cod        AS estadoPedidoId,
@@ -2969,6 +3620,10 @@ BEGIN
 	p.P_Nombre_Pedido   AS nombrePedido,
     /* Datos del cliente (usuario del cliente) */
     u.U_Numero_Documento AS clienteDocumento,
+    CASE
+      WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
+      ELSE NULL
+    END                 AS clienteRazonSocial,
     u.U_Nombre           AS clienteNombres,
     u.U_Apellido         AS clienteApellidos,
     u.U_Celular           AS clienteCelular,
@@ -2981,6 +3636,8 @@ BEGIN
   FROM T_Pedido p
   JOIN T_Cliente c   ON c.PK_Cli_Cod = p.FK_Cli_Cod
   JOIN T_Usuario u   ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_Empleados e ON e.PK_Em_Cod = p.FK_Em_Cod
   LEFT JOIN T_Usuario  ue ON ue.PK_U_Cod = e.FK_U_Cod
   WHERE p.PK_P_Cod = p_pedido_id;

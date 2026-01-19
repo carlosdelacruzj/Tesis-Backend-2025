@@ -10,7 +10,8 @@ const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
  * Convierte un lead en cliente invocando el SP:
  *   sp_lead_convertir_cliente(
  *     IN p_lead_id, IN p_correo, IN p_celular, IN p_nombre, IN p_apellido,
- *     IN p_num_doc, IN p_direccion, IN p_tipo_cliente, IN p_estado_cliente,
+ *     IN p_num_doc, IN p_tipo_doc_id, IN p_razon_social, IN p_direccion,
+ *     IN p_tipo_cliente, IN p_estado_cliente,
  *     OUT o_usuario_id, OUT o_cliente_id, OUT o_usuario_accion, OUT o_cliente_accion
  *   )
  *
@@ -21,6 +22,8 @@ const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
  * @param {string} [p.nombre]
  * @param {string} [p.apellido]
  * @param {string} [p.numDoc]               - DNI(8) o RUC(11); requerido si se crea usuario
+ * @param {number} [p.tipoDocumentoId]     - FK a T_TipoDocumento (opcional)
+ * @param {string} [p.razonSocial]         - requerido si es RUC
  * @param {string} [p.direccion]
  * @param {number} [p.tipoCliente]          - Puede ser null
  * @param {number} p.estadoCliente          - FK a T_Estado_Cliente (obligatorio)
@@ -33,6 +36,8 @@ async function convertirACliente({
   nombre,
   apellido,
   numDoc,
+  tipoDocumentoId,
+  razonSocial,
   direccion,
   tipoCliente,
   estadoCliente,
@@ -57,7 +62,7 @@ async function convertirACliente({
 
     // Ejecuta el SP (misma conexión para conservar @vars)
     await conn.query(
-      "CALL sp_lead_convertir_cliente(?,?,?,?,?,?,?,?,?, @o_usuario_id, @o_cliente_id, @o_usuario_accion, @o_cliente_accion)",
+      "CALL sp_lead_convertir_cliente(?,?,?,?,?,?,?,?,?,?,?, @o_usuario_id, @o_cliente_id, @o_usuario_accion, @o_cliente_accion)",
       [
         Number(leadId),
         t(correo),
@@ -65,6 +70,10 @@ async function convertirACliente({
         t(nombre),
         t(apellido),
         t(numDoc),
+        Number.isFinite(Number(tipoDocumentoId))
+          ? Number(tipoDocumentoId)
+          : null,
+        t(razonSocial),
         t(direccion),
         Number.isFinite(Number(tipoCliente)) ? Number(tipoCliente) : null,
         Number(estadoCliente),

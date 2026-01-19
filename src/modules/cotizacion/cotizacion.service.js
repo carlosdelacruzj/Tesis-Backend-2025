@@ -15,6 +15,7 @@ const fs = require("fs");
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€ utils â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function badRequest(message){ const err=new Error(message); err.status=400; return err; }
 function assertPositiveInt(v,f){ const n=Number(v); if(!Number.isInteger(n)||n<=0) throw badRequest(`${f} invÃ¡lido`); return n; }
+function assertOptionalPositiveInt(v,f){ if(v==null) return null; return assertPositiveInt(v,f); }
 function assertString(v,f){ if(typeof v!=="string"||!v.trim()) throw badRequest(`Campo '${f}' es requerido`); return v.trim(); }
 function assertDate(v,f){ if(v==null) return null; if(typeof v!=="string"||!ISO_DATE.test(v)) throw badRequest(`Campo '${f}' debe ser YYYY-MM-DD`); return v; }
 function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(); if(!ESTADOS_VALIDOS.has(e)) throw badRequest(`estado invÃ¡lido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`); return e; }
@@ -217,6 +218,9 @@ async function list({ estado } = {}) {
       horasEstimadas:
         r.horasEstimadas != null ? Number(r.horasEstimadas)
         : (r.Cot_HorasEst != null ? Number(r.Cot_HorasEst) : null),
+      dias:
+        r.dias != null ? Number(r.dias)
+        : (r.Cot_Dias != null ? Number(r.Cot_Dias) : null),
 
       mensaje: r.mensaje ?? r.Cot_Mensaje,
       total:
@@ -236,6 +240,7 @@ async function createPublic(payload = {}) {
   assertString(lead?.nombre ?? "", "lead.nombre");
   assertString(cotizacion?.tipoEvento ?? "", "cotizacion.tipoEvento");
   assertDate(cotizacion?.fechaEvento, "cotizacion.fechaEvento");
+  if (cotizacion?.dias != null) assertOptionalPositiveInt(cotizacion.dias, "cotizacion.dias");
   return await repo.createPublic({ lead, cotizacion });
 }
 
@@ -245,6 +250,9 @@ async function createAdmin(payload = {}) {
     throw badRequest("Campo 'eventos' debe ser un arreglo");
   if (payload?.cotizacion?.estado != null) {
     assertEstado(payload.cotizacion.estado);
+  }
+  if (payload?.cotizacion?.dias != null) {
+    assertOptionalPositiveInt(payload.cotizacion.dias, "cotizacion.dias");
   }
   return await repo.createAdmin(payload);
 }
@@ -256,6 +264,9 @@ async function update(id, body = {}) {
     throw badRequest("Campo 'eventos' debe ser un arreglo");
   if (body?.cotizacion?.estado != null) {
     assertEstado(body.cotizacion.estado);
+  }
+  if (body?.cotizacion?.dias != null) {
+    assertOptionalPositiveInt(body.cotizacion.dias, "cotizacion.dias");
   }
 
   await rechazarVencidasLocal();

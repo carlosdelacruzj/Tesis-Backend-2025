@@ -711,6 +711,24 @@ INSERT INTO `T_CotizacionServicio` (`PK_CotServ_Cod`, `FK_Cot_Cod`, `FK_ExS_Cod`
 -- T_CotizacionEvento
 INSERT INTO `T_CotizacionEvento` (`PK_CotE_Cod`, `FK_Cot_Cod`, `CotE_Fecha`, `CotE_Hora`, `CotE_Ubicacion`, `CotE_Direccion`, `CotE_Notas`) VALUES
 (3, 3, '2026-03-20', '09:00:00', 'Lima', 'San Isidro', 'Evento enviada');
+-- T_Cotizacion (seed para reglas de vencimiento, usando fecha real)
+INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`) VALUES
+(4, NULL, 'Boda', '2026-02-15', 'Lima', 6.0, 'Caso expirado por vigencia comercial', 1, '2025-10-01 10:00:00', 1, 1),
+(5, NULL, 'Corporativo', '2026-01-18', 'Lima', 5.0, 'Caso expirado por vigencia operativa (no urgente)', 2, '2025-12-01 09:00:00', 3, 1),
+(6, NULL, 'Cumpleanos', '2026-01-16', 'Arequipa', 4.0, 'Caso urgente (no debe expirar por operativa)', 2, '2026-01-10 12:00:00', 2, 2),
+(7, NULL, 'Boda', '2026-03-01', 'Cusco', 8.0, 'Caso vigente normal', 1, '2025-12-20 15:30:00', 1, 3);
+-- T_CotizacionServicio (reglas de vencimiento)
+INSERT INTO `T_CotizacionServicio` (`PK_CotServ_Cod`, `FK_Cot_Cod`, `FK_ExS_Cod`, `CS_EventoId`, `CS_ServicioId`, `CS_Nombre`, `CS_Descripcion`, `CS_Moneda`, `CS_PrecioUnit`, `CS_Cantidad`, `CS_Descuento`, `CS_Recargo`, `CS_Notas`, `CS_Horas`, `CS_Staff`, `CS_FotosImpresas`, `CS_TrailerMin`, `CS_FilmMin`) VALUES
+(4, 4, 1, 1, 1, 'Fotografia Boda Standard', 'Caso comercial vencido', 'USD', 1000.00, 1, 0, 0, 'Regla 90 dias', 6.0, 2, 40, 0, 0),
+(5, 5, 16, 3, 2, 'Video Corporativo', 'Caso operativa vencida', 'USD', 2500.00, 1, 0, 0, 'Regla 7 dias', 5.0, NULL, NULL, 1, 15),
+(6, 6, 8, 2, 1, 'Fotografia Cumple Express', 'Caso urgente', 'USD', 900.00, 1, 0, 0, 'Urgente', 4.0, NULL, 0, NULL, NULL),
+(7, 7, 1, 1, 1, 'Fotografia Boda Standard', 'Caso vigente', 'USD', 1300.00, 1, 0, 0, 'Normal', 8.0, 2, 50, 0, 0);
+-- T_CotizacionEvento (reglas de vencimiento)
+INSERT INTO `T_CotizacionEvento` (`PK_CotE_Cod`, `FK_Cot_Cod`, `CotE_Fecha`, `CotE_Hora`, `CotE_Ubicacion`, `CotE_Direccion`, `CotE_Notas`) VALUES
+(4, 4, '2026-02-15', '18:00:00', 'Lima', 'Miraflores', 'Evento comercial'),
+(5, 5, '2026-01-18', '09:00:00', 'Lima', 'San Isidro', 'Evento operativa'),
+(6, 6, '2026-01-16', '19:30:00', 'Arequipa', 'Cercado', 'Evento urgente'),
+(7, 7, '2026-03-01', '17:00:00', 'Cusco', 'Centro', 'Evento vigente');
 -- Ajusta AUTO_INCREMENT para continuar desde MAX(id)+1
 ALTER TABLE `T_Estado_Cliente` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Empleado` AUTO_INCREMENT = 1;
@@ -735,7 +753,18 @@ ALTER TABLE `T_Cliente` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Empleados` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Equipo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Cotizacion` AUTO_INCREMENT = 1;
+ALTER TABLE `T_CotizacionServicio` AUTO_INCREMENT = 1;
+ALTER TABLE `T_CotizacionEvento` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Lead` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Contrato` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Pedido` AUTO_INCREMENT = 1;
+ALTER TABLE `T_PedidoServicio` AUTO_INCREMENT = 1;
+ALTER TABLE `T_PedidoEvento` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Voucher` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Proyecto` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Proyecto_Recurso` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Equipo_Asignacion` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Empleado_Asignacion` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicio` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicioEquipo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicioStaff` AUTO_INCREMENT = 1;

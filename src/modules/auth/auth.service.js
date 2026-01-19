@@ -1,6 +1,7 @@
 const jwt = require("jsonwebtoken");
 const repo = require("./auth.repository");
 const { hashPassword } = require("../../utils/password");
+const { getLimaDateTimeString } = require("../../utils/dates");
 
 function assertString(value, field) {
   if (typeof value !== "string" || !value.trim()) {
@@ -74,7 +75,11 @@ async function setPassword({ correo, contrasena }) {
   }
 
   const hash = hashPassword(contrasena);
-  const updated = await repo.updatePasswordByCorreo(correo, hash);
+  const updated = await repo.updatePasswordByCorreo(
+    correo,
+    hash,
+    getLimaDateTimeString()
+  );
 
   if (!updated) {
     const err = new Error("No se pudo actualizar la contraseña");

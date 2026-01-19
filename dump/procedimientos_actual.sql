@@ -1,26 +1,46 @@
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_actualizar"(
       IN pIdCliente INT,
+      IN pNombre    VARCHAR(100),
+      IN pApellido  VARCHAR(100),
       IN pCorreo    VARCHAR(250),
       IN pCelular   VARCHAR(25),
-      IN pDireccion VARCHAR(250)
+      IN pDireccion VARCHAR(250),
+      IN pRazonSocial VARCHAR(150)
     )
 BEGIN
       DECLARE vUserId INT;
+      DECLARE vTdCodigo VARCHAR(10);
 
-      SELECT FK_U_Cod INTO vUserId
-      FROM T_Cliente
-      WHERE PK_Cli_Cod = pIdCliente;
+      SELECT c.FK_U_Cod, td.TD_Codigo INTO vUserId, vTdCodigo
+      FROM T_Cliente c
+      JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+      JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+      WHERE c.PK_Cli_Cod = pIdCliente;
 
       IF vUserId IS NULL THEN
         SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe';
       END IF;
 
+      IF vTdCodigo = 'RUC' THEN
+        IF pRazonSocial IS NOT NULL AND TRIM(pRazonSocial) = '' THEN
+          SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Razon social es requerida para RUC';
+        END IF;
+      END IF;
+
       UPDATE T_Usuario
-         SET U_Correo    = COALESCE(pCorreo,    U_Correo),
-             U_Celular   = COALESCE(pCelular,   U_Celular),
+         SET U_Nombre   = COALESCE(NULLIF(TRIM(pNombre), ''), U_Nombre),
+             U_Apellido = COALESCE(NULLIF(TRIM(pApellido), ''), U_Apellido),
+             U_Correo   = COALESCE(pCorreo,    U_Correo),
+             U_Celular  = COALESCE(pCelular,   U_Celular),
              U_Direccion = COALESCE(pDireccion, U_Direccion)
        WHERE PK_U_Cod = vUserId;
+
+      IF vTdCodigo = 'RUC' THEN
+        UPDATE T_Cliente
+           SET Cli_RazonSocial = COALESCE(NULLIF(TRIM(pRazonSocial), ''), Cli_RazonSocial)
+         WHERE PK_Cli_Cod = pIdCliente;
+      END IF;
 
       SELECT
         c.PK_Cli_Cod                               AS idCliente,
@@ -32,9 +52,14 @@ BEGIN
         u.U_Celular                                AS celular,
         u.U_Numero_Documento                       AS doc,
         u.U_Direccion                              AS direccion,
+        u.FK_TD_Cod                                AS tipoDocumentoId,
+        td.TD_Codigo                               AS tipoDocumentoCodigo,
+        td.TD_Nombre                               AS tipoDocumentoNombre,
+        c.Cli_RazonSocial                          AS razonSocial,
         c.Cli_Tipo_Cliente                         AS tipoCliente
       FROM T_Cliente c
       JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+      JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
       WHERE c.PK_Cli_Cod = pIdCliente;
     END ;;
 DELIMITER ;
@@ -85,26 +110,35 @@ BEGIN
       CAST(NULL AS CHAR)   AS correo,
       CAST(NULL AS CHAR)   AS celular,
       CAST(NULL AS CHAR)   AS doc,
-      CAST(NULL AS CHAR)   AS direccion
+      CAST(NULL AS CHAR)   AS direccion,
+      CAST(NULL AS SIGNED) AS tipoDocumentoId,
+      CAST(NULL AS CHAR)   AS tipoDocumentoCodigo,
+      CAST(NULL AS CHAR)   AS tipoDocumentoNombre
     WHERE 1=0;
 
   ELSEIF v_t2 IS NOT NULL THEN
     SELECT
       c.PK_Cli_Cod AS idCliente,
       CONCAT('CLI-', LPAD(c.PK_Cli_Cod, 6, '0')) AS codigoCliente,
-      u.U_Nombre   AS nombre,
-      u.U_Apellido AS apellido,
+      CASE WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial ELSE u.U_Nombre END AS nombre,
+      CASE WHEN td.TD_Codigo = 'RUC' THEN NULL ELSE u.U_Apellido END AS apellido,
       u.U_Correo   AS correo,
       u.U_Celular  AS celular,
       u.U_Numero_Documento AS doc,
       u.U_Direccion AS direccion,
+      u.FK_TD_Cod AS tipoDocumentoId,
+      td.TD_Codigo AS tipoDocumentoCodigo,
+      td.TD_Nombre AS tipoDocumentoNombre,
       90 AS score
     FROM T_Cliente c
     JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+    JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
     WHERE
-      c.FK_ECli_Cod <> 3
-      AND (u.U_Nombre  LIKE CONCAT(v_t1, '%')
-       AND u.U_Apellido LIKE CONCAT(v_t2, '%'))
+      c.FK_ECli_Cod = 1
+      AND (
+        (u.U_Nombre  LIKE CONCAT(v_t1, '%') AND u.U_Apellido LIKE CONCAT(v_t2, '%'))
+        OR c.Cli_RazonSocial LIKE CONCAT(v_q_norm, '%')
+      )
     ORDER BY score DESC, c.PK_Cli_Cod DESC
     LIMIT v_limit;
 
@@ -112,26 +146,34 @@ BEGIN
     SELECT
       c.PK_Cli_Cod AS idCliente,
       CONCAT('CLI-', LPAD(c.PK_Cli_Cod, 6, '0')) AS codigoCliente,
-      u.U_Nombre   AS nombre,
-      u.U_Apellido AS apellido,
+      CASE WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial ELSE u.U_Nombre END AS nombre,
+      CASE WHEN td.TD_Codigo = 'RUC' THEN NULL ELSE u.U_Apellido END AS apellido,
       u.U_Correo   AS correo,
       u.U_Celular  AS celular,
       u.U_Numero_Documento AS doc,
       u.U_Direccion AS direccion,
+      u.FK_TD_Cod AS tipoDocumentoId,
+      td.TD_Codigo AS tipoDocumentoCodigo,
+      td.TD_Nombre AS tipoDocumentoNombre,
       (CASE
          WHEN u.U_Numero_Documento = v_q_norm OR u.U_Correo = v_q_norm OR u.U_Celular = v_q_norm THEN 100
+         WHEN c.Cli_RazonSocial = v_q_norm THEN 95
+         WHEN c.Cli_RazonSocial LIKE CONCAT(v_q_norm, '%') THEN 80
          WHEN u.U_Numero_Documento LIKE CONCAT(v_t1, '%') OR u.U_Celular LIKE CONCAT(v_t1, '%') THEN 70
          WHEN u.U_Nombre LIKE CONCAT(v_t1, '%') OR u.U_Apellido LIKE CONCAT(v_t1, '%') THEN 55
          ELSE 0
        END) AS score
     FROM T_Cliente c
     JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+    JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
     WHERE
-      c.FK_ECli_Cod <> 3
+      c.FK_ECli_Cod = 1
       AND (
         u.U_Numero_Documento = v_q_norm OR
         u.U_Correo = v_q_norm OR
         u.U_Celular = v_q_norm OR
+        c.Cli_RazonSocial = v_q_norm OR
+        c.Cli_RazonSocial LIKE CONCAT(v_q_norm, '%') OR
         u.U_Numero_Documento LIKE CONCAT(v_t1, '%') OR
         u.U_Celular          LIKE CONCAT(v_t1, '%') OR
         u.U_Nombre           LIKE CONCAT(v_t1, '%') OR
@@ -162,8 +204,12 @@ BEGIN
       u.U_Celular              AS celular,
       u.U_Numero_Documento      AS documento,
       u.U_Direccion            AS direccion,
+      u.FK_TD_Cod              AS tipoDocumentoId,
+      td.TD_Codigo             AS tipoDocumentoCodigo,
+      td.TD_Nombre             AS tipoDocumentoNombre,
       c.PK_Cli_Cod             AS idCliente   -- <<< CAMBIA AQUÍ si tu PK se llama distinto
   FROM T_Usuario u
+  JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_Cliente c
          ON c.FK_U_Cod = u.PK_U_Cod
   WHERE (p_doc IS NULL OR u.U_Numero_Documento = p_doc);
@@ -233,10 +279,17 @@ BEGIN
     u.U_Celular AS celular,
     u.U_Numero_Documento AS doc,
     u.U_Direccion AS direccion,
+    u.FK_TD_Cod AS tipoDocumentoId,
+    td.TD_Codigo AS tipoDocumentoCodigo,
+    td.TD_Nombre AS tipoDocumentoNombre,
     c.Cli_RazonSocial AS razonSocial,
-    c.Cli_Tipo_Cliente AS tipoCliente
+    c.Cli_Tipo_Cliente AS tipoCliente,
+    ec.PK_ECli_Cod AS idEstadoCliente,
+    ec.ECli_Nombre AS estadoCliente
   FROM T_Cliente c
   JOIN T_Usuario u ON u.PK_U_Cod = c.FK_U_Cod
+  JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+  JOIN T_Estado_Cliente ec ON ec.PK_ECli_Cod = c.FK_ECli_Cod
   ORDER BY c.PK_Cli_Cod;
 
 END ;;
@@ -255,844 +308,1586 @@ BEGIN
     u.U_Celular                                AS celular,
     u.U_Numero_Documento                       AS doc,
     u.U_Direccion                              AS direccion,
+    u.FK_TD_Cod                                AS tipoDocumentoId,
+    td.TD_Codigo                               AS tipoDocumentoCodigo,
+    td.TD_Nombre                               AS tipoDocumentoNombre,
     c.Cli_Tipo_Cliente                         AS tipoCliente,
     c.Cli_RazonSocial                          AS razonSocial,
+    ec.PK_ECli_Cod                             AS idEstadoCliente,
     ec.ECli_Nombre                             AS estadoCliente
   FROM T_Cliente c
   JOIN T_Usuario u         ON u.PK_U_Cod     = c.FK_U_Cod
+  JOIN T_TipoDocumento td  ON td.PK_TD_Cod   = u.FK_TD_Cod
   JOIN T_Estado_Cliente ec ON ec.PK_ECli_Cod = c.FK_ECli_Cod
   WHERE c.PK_Cli_Cod = pId;
 END ;;
 DELIMITER ;
 
 DELIMITER ;;
-CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_actualizar"(
-  IN p_cot_id          INT,
-  IN p_tipo_evento     VARCHAR(40),
-  IN p_id_tipo_evento  INT,
-  IN p_fecha_evento    DATE,
-  IN p_lugar           VARCHAR(150),
-  IN p_horas_est       DECIMAL(4,1),
-  IN p_mensaje         VARCHAR(500),
-  IN p_estado          VARCHAR(20),       -- 'Borrador' | 'Enviada' | ...
-  IN p_items_json      JSON,              -- array de items
-  IN p_eventos_json    JSON               -- array de eventos { fecha, hora?, ubicacion?, direccion?, notas? }
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_actualizar"(
+
+  IN p_cot_id          INT,
+
+  IN p_tipo_evento     VARCHAR(40),
+
+  IN p_id_tipo_evento  INT,
+
+  IN p_fecha_evento    DATE,
+
+  IN p_lugar           VARCHAR(150),
+
+  IN p_horas_est       DECIMAL(4,1),
+  IN p_dias            SMALLINT,
+
+  IN p_mensaje         VARCHAR(500),
+
+  IN p_estado          VARCHAR(20),       -- 'Borrador' | 'Enviada' | ...
+
+  IN p_items_json      JSON,              -- array de items
+
+  IN p_eventos_json    JSON               -- array de eventos { fecha, hora?, ubicacion?, direccion?, notas? }
+
 )
-BEGIN
-  DECLARE v_estado_id INT DEFAULT NULL;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  START TRANSACTION;
-
-  -- Validación existencia
-  IF (SELECT COUNT(*) FROM defaultdb.T_Cotizacion WHERE PK_Cot_Cod = p_cot_id) = 0 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='La cotizacion no existe';
-  END IF;
-
-  IF p_estado IS NOT NULL THEN
-    SELECT PK_ECot_Cod INTO v_estado_id
-    FROM defaultdb.T_Estado_Cotizacion
-    WHERE ECot_Nombre = p_estado
-    LIMIT 1;
-
-    IF v_estado_id IS NULL THEN
-      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Estado de cotizacion invalido';
-    END IF;
-  END IF;
-
-  -- Update parcial de cabecera
-  UPDATE defaultdb.T_Cotizacion
-  SET Cot_TipoEvento   = COALESCE(p_tipo_evento,    Cot_TipoEvento),
-      Cot_IdTipoEvento = COALESCE(p_id_tipo_evento, Cot_IdTipoEvento),
-      Cot_FechaEvento  = COALESCE(p_fecha_evento,   Cot_FechaEvento),
-      Cot_Lugar        = COALESCE(p_lugar,          Cot_Lugar),
-      Cot_HorasEst     = COALESCE(p_horas_est,      Cot_HorasEst),
-      Cot_Mensaje      = COALESCE(p_mensaje,        Cot_Mensaje),
-      FK_ECot_Cod      = COALESCE(v_estado_id,      FK_ECot_Cod)
-  WHERE PK_Cot_Cod = p_cot_id;
-
-  -- Reemplazo completo de items si se envia JSON
-  IF p_items_json IS NOT NULL THEN
-    DELETE FROM defaultdb.T_CotizacionServicio
-    WHERE FK_Cot_Cod = p_cot_id;
-
-    INSERT INTO defaultdb.T_CotizacionServicio(
-      FK_Cot_Cod,
-      FK_ExS_Cod,
-      CS_EventoId,
-      CS_ServicioId,
-      CS_Nombre,
-      CS_Descripcion,
-      CS_Moneda,
-      CS_PrecioUnit,
-      CS_Cantidad,
-      CS_Descuento,
-      CS_Recargo,
-      CS_Notas,
-      CS_Horas,
-      CS_Staff,
-      CS_FotosImpresas,
-      CS_TrailerMin,
-      CS_FilmMin
-    )
-    SELECT
-      p_cot_id,
-      j.id_evento_servicio,
-      j.evento_id,
-      j.servicio_id,
-      j.nombre,
-      j.descripcion,
-      COALESCE(j.moneda, 'USD'),
-      j.precio_unit,
-      COALESCE(j.cantidad, 1),
-      COALESCE(j.descuento, 0),
-      COALESCE(j.recargo, 0),
-      j.notas,
-      j.horas,
-      j.personal,
-      j.fotos_impresas,
-      j.trailer_min,
-      j.film_min
-    FROM JSON_TABLE(p_items_json, '$[*]' COLUMNS (
-      id_evento_servicio  INT           PATH '$.idEventoServicio'  NULL ON ERROR,
-      evento_id           INT           PATH '$.eventoId'          NULL ON ERROR,
-      servicio_id         INT           PATH '$.servicioId'        NULL ON ERROR,
-      nombre              VARCHAR(120)  PATH '$.nombre',
-      descripcion         VARCHAR(1000) PATH '$.descripcion'       NULL ON ERROR,
-      moneda              CHAR(3)       PATH '$.moneda'            NULL ON ERROR,
-      precio_unit         DECIMAL(10,2) PATH '$.precioUnit',
-      cantidad            DECIMAL(10,2) PATH '$.cantidad'          NULL ON ERROR,
-      descuento           DECIMAL(10,2) PATH '$.descuento'         NULL ON ERROR,
-      recargo             DECIMAL(10,2) PATH '$.recargo'           NULL ON ERROR,
-      notas               VARCHAR(150)  PATH '$.notas'             NULL ON ERROR,
-      horas               DECIMAL(4,1)  PATH '$.horas'             NULL ON ERROR,
-      personal            SMALLINT      PATH '$.personal'          NULL ON ERROR,
-      fotos_impresas      INT           PATH '$.fotosImpresas'     NULL ON ERROR,
-      trailer_min         INT           PATH '$.trailerMin'        NULL ON ERROR,
-      film_min            INT           PATH '$.filmMin'           NULL ON ERROR
-    )) AS j;
-  END IF;
-
-  -- Reemplazo completo de eventos si se envia JSON
-  IF p_eventos_json IS NOT NULL THEN
-    DELETE FROM defaultdb.T_CotizacionEvento
-    WHERE FK_Cot_Cod = p_cot_id;
-
-    INSERT INTO defaultdb.T_CotizacionEvento(
-      FK_Cot_Cod, CotE_Fecha, CotE_Hora,
-      CotE_Ubicacion, CotE_Direccion, CotE_Notas
-    )
-    SELECT
-      p_cot_id,
-      evt.fecha,
-      evt.hora,
-      NULLIF(TRIM(evt.ubicacion), ''),
-      NULLIF(TRIM(evt.direccion), ''),
-      NULLIF(TRIM(evt.notas), '')
-    FROM JSON_TABLE(p_eventos_json, '$[*]' COLUMNS (
-      fecha      DATE          PATH '$.fecha',
-      hora       TIME          PATH '$.hora'        NULL ON ERROR,
-      ubicacion  VARCHAR(100)  PATH '$.ubicacion'   NULL ON ERROR,
-      direccion  VARCHAR(150)  PATH '$.direccion'   NULL ON ERROR,
-      notas      VARCHAR(255)  PATH '$.notas'       NULL ON ERROR
-    )) AS evt
-    WHERE evt.fecha IS NOT NULL;
-  END IF;
-
-  COMMIT;
+BEGIN
+
+  DECLARE v_estado_id INT DEFAULT NULL;
+
+
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
+  BEGIN
+
+    ROLLBACK;
+
+    RESIGNAL;
+
+  END;
+
+
+
+  START TRANSACTION;
+
+
+
+  -- Validación existencia
+
+  IF (SELECT COUNT(*) FROM defaultdb.T_Cotizacion WHERE PK_Cot_Cod = p_cot_id) = 0 THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='La cotizacion no existe';
+
+  END IF;
+
+
+
+  IF p_estado IS NOT NULL THEN
+
+    SELECT PK_ECot_Cod INTO v_estado_id
+
+    FROM defaultdb.T_Estado_Cotizacion
+
+    WHERE ECot_Nombre = p_estado
+
+    LIMIT 1;
+
+
+
+    IF v_estado_id IS NULL THEN
+
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT='Estado de cotizacion invalido';
+
+    END IF;
+
+  END IF;
+
+
+
+  -- Update parcial de cabecera
+
+  UPDATE defaultdb.T_Cotizacion
+
+  SET Cot_TipoEvento   = COALESCE(p_tipo_evento,    Cot_TipoEvento),
+
+      Cot_IdTipoEvento = COALESCE(p_id_tipo_evento, Cot_IdTipoEvento),
+
+      Cot_FechaEvento  = COALESCE(p_fecha_evento,   Cot_FechaEvento),
+
+      Cot_Lugar        = COALESCE(p_lugar,          Cot_Lugar),
+
+      Cot_HorasEst     = COALESCE(p_horas_est,      Cot_HorasEst),
+      Cot_Dias         = COALESCE(p_dias,           Cot_Dias),
+
+      Cot_Mensaje      = COALESCE(p_mensaje,        Cot_Mensaje),
+
+      FK_ECot_Cod      = COALESCE(v_estado_id,      FK_ECot_Cod)
+
+  WHERE PK_Cot_Cod = p_cot_id;
+
+
+
+  -- Reemplazo completo de items si se envia JSON
+
+  IF p_items_json IS NOT NULL THEN
+
+    DELETE FROM defaultdb.T_CotizacionServicio
+
+    WHERE FK_Cot_Cod = p_cot_id;
+
+
+
+    INSERT INTO defaultdb.T_CotizacionServicio(
+
+      FK_Cot_Cod,
+
+      FK_ExS_Cod,
+
+      CS_EventoId,
+
+      CS_ServicioId,
+
+      CS_Nombre,
+
+      CS_Descripcion,
+
+      CS_Moneda,
+
+      CS_PrecioUnit,
+
+      CS_Cantidad,
+
+      CS_Descuento,
+
+      CS_Recargo,
+
+      CS_Notas,
+
+      CS_Horas,
+
+      CS_Staff,
+
+      CS_FotosImpresas,
+
+      CS_TrailerMin,
+
+      CS_FilmMin
+
+    )
+
+    SELECT
+
+      p_cot_id,
+
+      j.id_evento_servicio,
+
+      j.evento_id,
+
+      j.servicio_id,
+
+      j.nombre,
+
+      j.descripcion,
+
+      COALESCE(j.moneda, 'USD'),
+
+      j.precio_unit,
+
+      COALESCE(j.cantidad, 1),
+
+      COALESCE(j.descuento, 0),
+
+      COALESCE(j.recargo, 0),
+
+      j.notas,
+
+      j.horas,
+
+      j.personal,
+
+      j.fotos_impresas,
+
+      j.trailer_min,
+
+      j.film_min
+
+    FROM JSON_TABLE(p_items_json, '$[*]' COLUMNS (
+
+      id_evento_servicio  INT           PATH '$.idEventoServicio'  NULL ON ERROR,
+
+      evento_id           INT           PATH '$.eventoId'          NULL ON ERROR,
+
+      servicio_id         INT           PATH '$.servicioId'        NULL ON ERROR,
+
+      nombre              VARCHAR(120)  PATH '$.nombre',
+
+      descripcion         VARCHAR(1000) PATH '$.descripcion'       NULL ON ERROR,
+
+      moneda              CHAR(3)       PATH '$.moneda'            NULL ON ERROR,
+
+      precio_unit         DECIMAL(10,2) PATH '$.precioUnit',
+
+      cantidad            DECIMAL(10,2) PATH '$.cantidad'          NULL ON ERROR,
+
+      descuento           DECIMAL(10,2) PATH '$.descuento'         NULL ON ERROR,
+
+      recargo             DECIMAL(10,2) PATH '$.recargo'           NULL ON ERROR,
+
+      notas               VARCHAR(150)  PATH '$.notas'             NULL ON ERROR,
+
+      horas               DECIMAL(4,1)  PATH '$.horas'             NULL ON ERROR,
+
+      personal            SMALLINT      PATH '$.personal'          NULL ON ERROR,
+
+      fotos_impresas      INT           PATH '$.fotosImpresas'     NULL ON ERROR,
+
+      trailer_min         INT           PATH '$.trailerMin'        NULL ON ERROR,
+
+      film_min            INT           PATH '$.filmMin'           NULL ON ERROR
+
+    )) AS j;
+
+  END IF;
+
+
+
+  -- Reemplazo completo de eventos si se envia JSON
+
+  IF p_eventos_json IS NOT NULL THEN
+
+    DELETE FROM defaultdb.T_CotizacionEvento
+
+    WHERE FK_Cot_Cod = p_cot_id;
+
+
+
+    INSERT INTO defaultdb.T_CotizacionEvento(
+
+      FK_Cot_Cod, CotE_Fecha, CotE_Hora,
+
+      CotE_Ubicacion, CotE_Direccion, CotE_Notas
+
+    )
+
+    SELECT
+
+      p_cot_id,
+
+      evt.fecha,
+
+      evt.hora,
+
+      NULLIF(TRIM(evt.ubicacion), ''),
+
+      NULLIF(TRIM(evt.direccion), ''),
+
+      NULLIF(TRIM(evt.notas), '')
+
+    FROM JSON_TABLE(p_eventos_json, '$[*]' COLUMNS (
+
+      fecha      DATE          PATH '$.fecha',
+
+      hora       TIME          PATH '$.hora'        NULL ON ERROR,
+
+      ubicacion  VARCHAR(100)  PATH '$.ubicacion'   NULL ON ERROR,
+
+      direccion  VARCHAR(150)  PATH '$.direccion'   NULL ON ERROR,
+
+      notas      VARCHAR(255)  PATH '$.notas'       NULL ON ERROR
+
+    )) AS evt
+
+    WHERE evt.fecha IS NOT NULL;
+
+  END IF;
+
+
+
+  COMMIT;
+
 END ;;
 DELIMITER ;
 
 DELIMITER ;;
-CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_crear_v3"(
-  IN p_cliente_id      INT,            -- si viene (>0), NO se crea lead
-  IN p_lead_nombre     VARCHAR(80),    -- usados SOLO si no viene cliente
-  IN p_lead_celular    VARCHAR(30),
-  IN p_lead_origen     VARCHAR(40),
-
-  IN p_tipo_evento     VARCHAR(40),
-  IN p_id_tipo_evento  INT,
-  IN p_fecha_evento    DATE,
-  IN p_lugar           VARCHAR(150),
-  IN p_horas_est       DECIMAL(4,1),
-  IN p_mensaje         VARCHAR(500),
-  IN p_estado          VARCHAR(20),    -- 'Borrador' | 'Enviada' (opcional)
-
-  IN p_items_json      JSON,           -- array de ítems
-  IN p_eventos_json    JSON            -- array de eventos { fecha, hora?, ubicacion?, direccion?, notas? }
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_crear_v3"(
+
+  IN p_cliente_id      INT,            -- si viene (>0), NO se crea lead
+
+  IN p_lead_nombre     VARCHAR(80),    -- usados SOLO si no viene cliente
+
+  IN p_lead_celular    VARCHAR(30),
+
+  IN p_lead_origen     VARCHAR(40),
+
+
+
+  IN p_tipo_evento     VARCHAR(40),
+
+  IN p_id_tipo_evento  INT,
+
+  IN p_fecha_evento    DATE,
+
+  IN p_lugar           VARCHAR(150),
+
+  IN p_horas_est       DECIMAL(4,1),
+  IN p_dias            SMALLINT,
+
+  IN p_mensaje         VARCHAR(500),
+
+  IN p_estado          VARCHAR(20),    -- 'Borrador' | 'Enviada' (opcional)
+
+  IN p_fecha_crea      DATETIME,
+
+  IN p_items_json      JSON,           -- array de items
+
+  IN p_eventos_json    JSON            -- array de eventos { fecha, hora?, ubicacion?, direccion?, notas? }
+
 )
-BEGIN
-  DECLARE v_lead_id INT DEFAULT NULL;
-  DECLARE v_cli_id  INT DEFAULT NULL;
-  DECLARE v_cot_id  INT DEFAULT NULL;
-  DECLARE v_estado_nombre VARCHAR(20);
-  DECLARE v_estado_id INT;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  START TRANSACTION;
-
-  /* 1) Origen: CLIENTE (preferente) o crear LEAD */
-  IF p_cliente_id IS NOT NULL AND p_cliente_id > 0 THEN
-    SELECT PK_Cli_Cod INTO v_cli_id
-    FROM defaultdb.T_Cliente
-    WHERE PK_Cli_Cod = p_cliente_id
-    LIMIT 1;
-
-    IF v_cli_id IS NULL THEN
-      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe.';
-    END IF;
-
-    SET v_lead_id = NULL;
-
-  ELSE
-    IF p_lead_nombre IS NULL OR TRIM(p_lead_nombre) = '' THEN
-      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Se requiere nombre para crear el lead.';
-    END IF;
-
-    INSERT INTO defaultdb.T_Lead(Lead_Nombre, Lead_Celular, Lead_Origen)
-    VALUES (p_lead_nombre, p_lead_celular, p_lead_origen);
-
-    SET v_lead_id = LAST_INSERT_ID();
-    SET v_cli_id  = NULL;
-  END IF;
-
-  SET v_estado_nombre = COALESCE(p_estado, 'Borrador');
-  SELECT PK_ECot_Cod INTO v_estado_id
-  FROM defaultdb.T_Estado_Cotizacion
-  WHERE ECot_Nombre = v_estado_nombre
-  LIMIT 1;
-
-  IF v_estado_id IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
-  END IF;
-
-  /* 2) Cabecera */
-  INSERT INTO defaultdb.T_Cotizacion(
-    FK_Lead_Cod, FK_Cli_Cod,
-    Cot_TipoEvento, Cot_IdTipoEvento, Cot_FechaEvento,
-    Cot_Lugar, Cot_HorasEst, Cot_Mensaje, FK_ECot_Cod
-  )
-  VALUES (
-    v_lead_id,
-    v_cli_id,
-    p_tipo_evento,
-    p_id_tipo_evento,
-    p_fecha_evento,
-    p_lugar,
-    p_horas_est,
-    p_mensaje,
-    v_estado_id
-  );
-
-  SET v_cot_id = LAST_INSERT_ID();
-
-  /* 3) Ítems (si viene array JSON) */
-  IF p_items_json IS NOT NULL AND JSON_TYPE(p_items_json) = 'ARRAY' THEN
-    INSERT INTO defaultdb.T_CotizacionServicio(
-      FK_Cot_Cod, FK_ExS_Cod, CS_EventoId, CS_ServicioId,
-      CS_Nombre, CS_Descripcion, CS_Moneda,
-      CS_PrecioUnit, CS_Cantidad, CS_Descuento, CS_Recargo,
-      CS_Notas, CS_Horas, CS_Staff, CS_FotosImpresas, CS_TrailerMin, CS_FilmMin
-    )
-    SELECT
-      v_cot_id,
-      j.id_evento_servicio,
-      j.evento_id,
-      j.servicio_id,
-      COALESCE(j.nombre, j.titulo),
-      j.descripcion,
-      COALESCE(j.moneda, 'USD'),
-      j.precio_unit,
-      COALESCE(j.cantidad, 1),
-      COALESCE(j.descuento, 0),
-      COALESCE(j.recargo, 0),
-      j.notas,
-      j.horas,
-      j.personal,
-      j.fotos_impresas,
-      j.trailer_min,
-      j.film_min
-    FROM JSON_TABLE(p_items_json, '$[*]' COLUMNS (
-      id_evento_servicio  INT           PATH '$.idEventoServicio'  NULL ON ERROR,
-      evento_id           INT           PATH '$.eventoId'          NULL ON ERROR,
-      servicio_id         INT           PATH '$.servicioId'        NULL ON ERROR,
-      nombre              VARCHAR(120)  PATH '$.nombre'            NULL ON ERROR,
-      titulo              VARCHAR(120)  PATH '$.titulo'            NULL ON ERROR,
-      descripcion         VARCHAR(1000) PATH '$.descripcion'       NULL ON ERROR,
-      moneda              CHAR(3)       PATH '$.moneda'            NULL ON ERROR,
-      precio_unit         DECIMAL(10,2) PATH '$.precioUnit',
-      cantidad            DECIMAL(10,2) PATH '$.cantidad'          NULL ON ERROR,
-      descuento           DECIMAL(10,2) PATH '$.descuento'         NULL ON ERROR,
-      recargo             DECIMAL(10,2) PATH '$.recargo'           NULL ON ERROR,
-      notas               VARCHAR(150)  PATH '$.notas'             NULL ON ERROR,
-      horas               DECIMAL(4,1)  PATH '$.horas'             NULL ON ERROR,
-      personal            SMALLINT      PATH '$.personal'          NULL ON ERROR,
-      fotos_impresas      INT           PATH '$.fotosImpresas'     NULL ON ERROR,
-      trailer_min         INT           PATH '$.trailerMin'        NULL ON ERROR,
-      film_min            INT           PATH '$.filmMin'           NULL ON ERROR
-    )) AS j;
-  END IF;
-
-  /* 4) Eventos (si viene array JSON) */
-  IF p_eventos_json IS NOT NULL AND JSON_TYPE(p_eventos_json) = 'ARRAY' THEN
-    INSERT INTO defaultdb.T_CotizacionEvento(
-      FK_Cot_Cod, CotE_Fecha, CotE_Hora,
-      CotE_Ubicacion, CotE_Direccion, CotE_Notas
-    )
-    SELECT
-      v_cot_id,
-      evt.fecha,
-      evt.hora,
-      NULLIF(TRIM(evt.ubicacion), ''),
-      NULLIF(TRIM(evt.direccion), ''),
-      NULLIF(TRIM(evt.notas), '')
-    FROM JSON_TABLE(p_eventos_json, '$[*]' COLUMNS (
-      fecha      DATE          PATH '$.fecha',
-      hora       TIME          PATH '$.hora'        NULL ON ERROR,
-      ubicacion  VARCHAR(100)  PATH '$.ubicacion'   NULL ON ERROR,
-      direccion  VARCHAR(150)  PATH '$.direccion'   NULL ON ERROR,
-      notas      VARCHAR(255)  PATH '$.notas'       NULL ON ERROR
-    )) AS evt
-    WHERE evt.fecha IS NOT NULL; -- la columna CotE_Fecha es NOT NULL
-  END IF;
-
-  COMMIT;
-
-  /* 5) Salida */
-  SELECT
-    v_cot_id  AS idCotizacion,
-    v_cli_id  AS clienteId,
-    v_lead_id AS leadId,
-    CASE WHEN v_cli_id IS NOT NULL THEN 'CLIENTE' ELSE 'LEAD' END AS origen;
+BEGIN
+
+  DECLARE v_lead_id INT DEFAULT NULL;
+
+  DECLARE v_cli_id  INT DEFAULT NULL;
+  DECLARE v_cli_estado INT DEFAULT NULL;
+
+  DECLARE v_cot_id  INT DEFAULT NULL;
+
+  DECLARE v_estado_nombre VARCHAR(20);
+
+  DECLARE v_estado_id INT;
+
+
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
+  BEGIN
+
+    ROLLBACK;
+
+    RESIGNAL;
+
+  END;
+
+
+
+  START TRANSACTION;
+
+
+
+  /* 1) Origen: CLIENTE (preferente) o crear LEAD */
+
+  IF p_cliente_id IS NOT NULL AND p_cliente_id > 0 THEN
+
+    SELECT PK_Cli_Cod, FK_ECli_Cod INTO v_cli_id, v_cli_estado
+
+    FROM defaultdb.T_Cliente
+
+    WHERE PK_Cli_Cod = p_cliente_id
+
+    LIMIT 1;
+
+
+
+    IF v_cli_id IS NULL THEN
+
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente no existe.';
+
+    ELSEIF v_cli_estado <> 1 THEN
+
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente inactivo.';
+
+    END IF;
+
+
+
+    SET v_lead_id = NULL;
+
+
+
+  ELSE
+
+    IF p_lead_nombre IS NULL OR TRIM(p_lead_nombre) = '' THEN
+
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Se requiere nombre para crear el lead.';
+
+    END IF;
+
+
+
+    INSERT INTO defaultdb.T_Lead(Lead_Nombre, Lead_Celular, Lead_Origen)
+
+    VALUES (p_lead_nombre, p_lead_celular, p_lead_origen);
+
+
+
+    SET v_lead_id = LAST_INSERT_ID();
+
+    SET v_cli_id  = NULL;
+
+  END IF;
+
+
+
+  SET v_estado_nombre = COALESCE(p_estado, 'Borrador');
+
+  SELECT PK_ECot_Cod INTO v_estado_id
+
+  FROM defaultdb.T_Estado_Cotizacion
+
+  WHERE ECot_Nombre = v_estado_nombre
+
+  LIMIT 1;
+
+
+
+  IF v_estado_id IS NULL THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+
+  END IF;
+
+
+
+  /* 2) Cabecera */
+
+  INSERT INTO defaultdb.T_Cotizacion(
+
+    FK_Lead_Cod, FK_Cli_Cod,
+
+    Cot_TipoEvento, Cot_IdTipoEvento, Cot_FechaEvento,
+
+    Cot_Lugar, Cot_HorasEst, Cot_Dias, Cot_Mensaje, FK_ECot_Cod, Cot_Fecha_Crea
+
+  )
+
+  VALUES (
+
+    v_lead_id,
+
+    v_cli_id,
+
+    p_tipo_evento,
+
+    p_id_tipo_evento,
+
+    p_fecha_evento,
+
+    p_lugar,
+
+    p_horas_est,
+    p_dias,
+
+    p_mensaje,
+
+    v_estado_id,
+
+    COALESCE(p_fecha_crea, NOW())
+
+  );
+
+
+
+  SET v_cot_id = LAST_INSERT_ID();
+
+
+
+  /* 3) Items (si viene array JSON) */
+
+  IF p_items_json IS NOT NULL AND JSON_TYPE(p_items_json) = 'ARRAY' THEN
+
+    INSERT INTO defaultdb.T_CotizacionServicio(
+
+      FK_Cot_Cod, FK_ExS_Cod, CS_EventoId, CS_ServicioId,
+
+      CS_Nombre, CS_Descripcion, CS_Moneda,
+
+      CS_PrecioUnit, CS_Cantidad, CS_Descuento, CS_Recargo,
+
+      CS_Notas, CS_Horas, CS_Staff, CS_FotosImpresas, CS_TrailerMin, CS_FilmMin
+
+    )
+
+    SELECT
+
+      v_cot_id,
+
+      j.id_evento_servicio,
+
+      j.evento_id,
+
+      j.servicio_id,
+
+      COALESCE(j.nombre, j.titulo),
+
+      j.descripcion,
+
+      COALESCE(j.moneda, 'USD'),
+
+      j.precio_unit,
+
+      COALESCE(j.cantidad, 1),
+
+      COALESCE(j.descuento, 0),
+
+      COALESCE(j.recargo, 0),
+
+      j.notas,
+
+      j.horas,
+
+      j.personal,
+
+      j.fotos_impresas,
+
+      j.trailer_min,
+
+      j.film_min
+
+    FROM JSON_TABLE(p_items_json, '$[*]' COLUMNS (
+
+      id_evento_servicio  INT           PATH '$.idEventoServicio'  NULL ON ERROR,
+
+      evento_id           INT           PATH '$.eventoId'          NULL ON ERROR,
+
+      servicio_id         INT           PATH '$.servicioId'        NULL ON ERROR,
+
+      nombre              VARCHAR(120)  PATH '$.nombre'            NULL ON ERROR,
+
+      titulo              VARCHAR(120)  PATH '$.titulo'            NULL ON ERROR,
+
+      descripcion         VARCHAR(1000) PATH '$.descripcion'       NULL ON ERROR,
+
+      moneda              CHAR(3)       PATH '$.moneda'            NULL ON ERROR,
+
+      precio_unit         DECIMAL(10,2) PATH '$.precioUnit',
+
+      cantidad            DECIMAL(10,2) PATH '$.cantidad'          NULL ON ERROR,
+
+      descuento           DECIMAL(10,2) PATH '$.descuento'         NULL ON ERROR,
+
+      recargo             DECIMAL(10,2) PATH '$.recargo'           NULL ON ERROR,
+
+      notas               VARCHAR(150)  PATH '$.notas'             NULL ON ERROR,
+
+      horas               DECIMAL(4,1)  PATH '$.horas'             NULL ON ERROR,
+
+      personal            SMALLINT      PATH '$.personal'          NULL ON ERROR,
+
+      fotos_impresas      INT           PATH '$.fotosImpresas'     NULL ON ERROR,
+
+      trailer_min         INT           PATH '$.trailerMin'        NULL ON ERROR,
+
+      film_min            INT           PATH '$.filmMin'           NULL ON ERROR
+
+    )) AS j;
+
+  END IF;
+
+
+
+  /* 4) Eventos (si viene array JSON) */
+
+  IF p_eventos_json IS NOT NULL AND JSON_TYPE(p_eventos_json) = 'ARRAY' THEN
+
+    INSERT INTO defaultdb.T_CotizacionEvento(
+
+      FK_Cot_Cod, CotE_Fecha, CotE_Hora,
+
+      CotE_Ubicacion, CotE_Direccion, CotE_Notas
+
+    )
+
+    SELECT
+
+      v_cot_id,
+
+      evt.fecha,
+
+      evt.hora,
+
+      NULLIF(TRIM(evt.ubicacion), ''),
+
+      NULLIF(TRIM(evt.direccion), ''),
+
+      NULLIF(TRIM(evt.notas), '')
+
+    FROM JSON_TABLE(p_eventos_json, '$[*]' COLUMNS (
+
+      fecha      DATE          PATH '$.fecha',
+
+      hora       TIME          PATH '$.hora'        NULL ON ERROR,
+
+      ubicacion  VARCHAR(100)  PATH '$.ubicacion'   NULL ON ERROR,
+
+      direccion  VARCHAR(150)  PATH '$.direccion'   NULL ON ERROR,
+
+      notas      VARCHAR(255)  PATH '$.notas'       NULL ON ERROR
+
+    )) AS evt
+
+    WHERE evt.fecha IS NOT NULL; -- la columna CotE_Fecha es NOT NULL
+
+  END IF;
+
+
+
+  COMMIT;
+
+
+
+  /* 5) Salida */
+
+  SELECT
+
+    v_cot_id  AS idCotizacion,
+
+    v_cli_id  AS clienteId,
+
+    v_lead_id AS leadId,
+
+    CASE WHEN v_cli_id IS NOT NULL THEN 'CLIENTE' ELSE 'LEAD' END AS origen;
+
 END ;;
 DELIMITER ;
 
 DELIMITER ;;
-CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_convertir_a_pedido"(
-  IN  p_cot_id        INT,
-  IN  p_empleado_id   INT,           -- FK_Em_Cod responsable del pedido
-  IN  p_nombre_pedido VARCHAR(225),  -- opcional; si NULL se autogenera
-  OUT o_pedido_id     INT
+CREATE DEFINER="avnadmin"@"%" PROCEDURE `sp_cotizacion_convertir_a_pedido`(
+  IN  p_cot_id        INT,
+  IN  p_empleado_id   INT,
+  IN  p_nombre_pedido VARCHAR(225),
+  IN  p_fecha_hoy     DATE,
+  OUT o_pedido_id     INT
 )
-BEGIN
-  DECLARE v_fk_cli      INT;
-  DECLARE v_tipo_evento VARCHAR(40);
-  DECLARE v_fecha_ev    DATE;
-  DECLARE v_lugar       VARCHAR(150);
-  DECLARE v_estado      VARCHAR(20);
-  DECLARE v_nombre      VARCHAR(225);
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  START TRANSACTION;
-
-  -- 1) Leer cotización y bloquearla
-  SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, ec.ECot_Nombre
-    INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_estado
-  FROM T_Cotizacion c
-  JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
-  WHERE c.PK_Cot_Cod = p_cot_id
-  FOR UPDATE;
-
-  IF v_estado IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cotización no encontrada';
-  END IF;
-
-  -- 2) Validar estado
-  IF v_estado <> 'Aceptada' THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden migrar cotizaciones en estado Aceptada';
-  END IF;
-
-  -- 3) Validar cliente (cotización sin cliente no migra)
-  IF v_fk_cli IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotización no tiene cliente ni lead asociado';
-  END IF;
-
-  -- 4) Nombre de pedido
-  SET v_nombre = COALESCE(
-    p_nombre_pedido,
-    CONCAT(
-      COALESCE(v_tipo_evento,'Evento'),
-      ' - ', DATE_FORMAT(COALESCE(v_fecha_ev, CURDATE()), '%Y-%m-%d'),
-      COALESCE(CONCAT(' - ', v_lugar), '')
-    )
-  );
-
-  -- 5) Insertar Pedido
-  INSERT INTO T_Pedido
-    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento)
-  VALUES
-    (1, p_cot_id, v_fk_cli, 1, CURDATE(), CONCAT('Origen: Cotización #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev);
-
-  SET o_pedido_id = LAST_INSERT_ID();
-
-  /* 6) Insertar líneas (servicios) */
-  INSERT INTO T_PedidoServicio
-    (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_Nombre, PS_Descripcion, PS_Moneda, PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas)
-  SELECT
-    o_pedido_id,
-    cs.FK_ExS_Cod,
-    NULL,
-    cs.CS_Nombre,
-    cs.CS_Descripcion,
-    cs.CS_Moneda,
-    cs.CS_PrecioUnit,
-    cs.CS_Cantidad,
-    cs.CS_Descuento,
-    cs.CS_Recargo,
-    cs.CS_Notas
-  FROM T_CotizacionServicio cs
-  WHERE cs.FK_Cot_Cod = p_cot_id;
-
-  /* 7) Migrar eventos/locaciones */
-  INSERT INTO T_PedidoEvento
-    (FK_P_Cod, PE_Fecha, PE_Hora, PE_Ubicacion, PE_Direccion, PE_Notas)
-  SELECT
-    o_pedido_id,
-    ce.CotE_Fecha,
-    ce.CotE_Hora,
-    ce.CotE_Ubicacion,
-    ce.CotE_Direccion,
-    ce.CotE_Notas
-  FROM T_CotizacionEvento ce
-  WHERE ce.FK_Cot_Cod = p_cot_id;
-
-  COMMIT;
+BEGIN
+  DECLARE v_fk_cli      INT;
+  DECLARE v_tipo_evento VARCHAR(40);
+  DECLARE v_fecha_ev    DATE;
+  DECLARE v_lugar       VARCHAR(150);
+  DECLARE v_estado      VARCHAR(20);
+  DECLARE v_nombre      VARCHAR(225);
+  DECLARE v_fecha_ref   DATE;
+  DECLARE v_id_tipo_evento INT;
+  DECLARE v_dias        SMALLINT;
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+  BEGIN
+    ROLLBACK;
+    RESIGNAL;
+  END;
+
+  START TRANSACTION;
+
+  SET v_fecha_ref = COALESCE(p_fecha_hoy, CURDATE());
+
+  SELECT c.FK_Cli_Cod, c.Cot_TipoEvento, c.Cot_FechaEvento, c.Cot_Lugar, c.Cot_IdTipoEvento, c.Cot_Dias, ec.ECot_Nombre
+    INTO v_fk_cli,     v_tipo_evento,   v_fecha_ev,        v_lugar,     v_id_tipo_evento, v_dias,     v_estado
+  FROM T_Cotizacion c
+  JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+  WHERE c.PK_Cot_Cod = p_cot_id
+  FOR UPDATE;
+
+  IF v_estado IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cotizacion no encontrada';
+  END IF;
+
+  IF v_estado <> 'Aceptada' THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Solo se pueden migrar cotizaciones en estado Aceptada';
+  END IF;
+
+  IF v_fk_cli IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotizacion no tiene cliente ni lead asociado';
+  END IF;
+
+  SET v_nombre = COALESCE(
+    p_nombre_pedido,
+    CONCAT(
+      COALESCE(v_tipo_evento,'Evento'),
+      ' - ', DATE_FORMAT(COALESCE(v_fecha_ev, v_fecha_ref), '%d-%m-%Y'),
+      COALESCE(CONCAT(' - ', v_lugar), '')
+    )
+  );
+
+  INSERT INTO T_Pedido
+    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento, P_IdTipoEvento, P_Dias)
+  VALUES
+    (1, p_cot_id, v_fk_cli, 1, v_fecha_ref, CONCAT('Origen: Cotizacion #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev, v_id_tipo_evento, v_dias);
+
+  SET o_pedido_id = LAST_INSERT_ID();
+
+  INSERT INTO T_PedidoServicio
+    (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_EventoId, PS_ServicioId,
+     PS_Nombre, PS_Descripcion, PS_Moneda, PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas,
+     PS_Horas, PS_Staff, PS_FotosImpresas, PS_TrailerMin, PS_FilmMin)
+  SELECT
+    o_pedido_id,
+    cs.FK_ExS_Cod,
+    NULL,
+    cs.CS_EventoId,
+    cs.CS_ServicioId,
+    cs.CS_Nombre,
+    cs.CS_Descripcion,
+    cs.CS_Moneda,
+    cs.CS_PrecioUnit,
+    cs.CS_Cantidad,
+    cs.CS_Descuento,
+    cs.CS_Recargo,
+    cs.CS_Notas,
+    cs.CS_Horas,
+    cs.CS_Staff,
+    cs.CS_FotosImpresas,
+    cs.CS_TrailerMin,
+    cs.CS_FilmMin
+  FROM T_CotizacionServicio cs
+  WHERE cs.FK_Cot_Cod = p_cot_id;
+
+  INSERT INTO T_PedidoEvento
+    (FK_P_Cod, PE_Fecha, PE_Hora, PE_Ubicacion, PE_Direccion, PE_Notas)
+  SELECT
+    o_pedido_id,
+    ce.CotE_Fecha,
+    ce.CotE_Hora,
+    ce.CotE_Ubicacion,
+    ce.CotE_Direccion,
+    ce.CotE_Notas
+  FROM T_CotizacionEvento ce
+  WHERE ce.FK_Cot_Cod = p_cot_id;
+
+  COMMIT;
 END ;;
 DELIMITER ;
 
 DELIMITER ;;
-CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_estado_actualizar"(
-  IN p_cot_id           INT,
-  IN p_estado_nuevo     VARCHAR(20),   -- Borrador|Enviada|Aceptada|Rechazada
-  IN p_estado_esperado  VARCHAR(20)    -- NULL = sin concurrencia optimista
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_estado_actualizar"(
+
+  IN p_cot_id           INT,
+
+  IN p_estado_nuevo     VARCHAR(20),   -- Borrador|Enviada|Aceptada|Rechazada
+
+  IN p_estado_esperado  VARCHAR(20)    -- NULL = sin concurrencia optimista
+
 )
-BEGIN
-  DECLARE v_estado_actual VARCHAR(20);
-  DECLARE v_estado_nuevo_id INT;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN
-    ROLLBACK;
-    RESIGNAL;
-  END;
-
-  START TRANSACTION;
-
-  -- leer + lock
-  SELECT ec.ECot_Nombre INTO v_estado_actual
-  FROM defaultdb.T_Cotizacion c
-  JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
-  WHERE c.PK_Cot_Cod = p_cot_id
-  FOR UPDATE;
-
-  IF v_estado_actual IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Quote not found';
-  END IF;
-
-  -- concurrencia optimista (opcional)
-  IF p_estado_esperado IS NOT NULL AND p_estado_esperado <> v_estado_actual THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Version conflict';
-  END IF;
-
-  -- reglas de transicion (basicas, ajusta a tu flujo)
-  IF v_estado_actual = 'Borrador' AND p_estado_nuevo NOT IN ('Enviada') THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid transition from Borrador';
-  END IF;
-
-  IF v_estado_actual = 'Enviada' AND p_estado_nuevo NOT IN ('Aceptada','Rechazada') THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid transition from Enviada';
-  END IF;
-
-  IF v_estado_actual IN ('Aceptada','Rechazada') THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Final state cannot transition';
-  END IF;
-
-  SELECT PK_ECot_Cod INTO v_estado_nuevo_id
-  FROM defaultdb.T_Estado_Cotizacion
-  WHERE ECot_Nombre = p_estado_nuevo
-  LIMIT 1;
-
-  IF v_estado_nuevo_id IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
-  END IF;
-
-  -- update
-  UPDATE defaultdb.T_Cotizacion
-  SET FK_ECot_Cod = v_estado_nuevo_id
-  WHERE PK_Cot_Cod = p_cot_id;
-
-  -- devolver JSON de detalle (lead o cliente)
-  SELECT JSON_OBJECT(
-    'id',              c.PK_Cot_Cod,
-    'estado',          ec.ECot_Nombre,
-    'fechaCreacion',   c.Cot_Fecha_Crea,
-    'eventoId',        c.Cot_IdTipoEvento,
-    'tipoEvento',      c.Cot_TipoEvento,
-    'fechaEvento',     c.Cot_FechaEvento,
-    'lugar',           c.Cot_Lugar,
-    'horasEstimadas',  c.Cot_HorasEst,
-    'mensaje',         c.Cot_Mensaje,
-    'total',           COALESCE((
-                        SELECT SUM(s.CS_Subtotal)
-                        FROM defaultdb.T_CotizacionServicio s
-                        WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
-                      ),0),
-    'contacto',
-      CASE
-        WHEN l.PK_Lead_Cod IS NOT NULL THEN
-          JSON_OBJECT(
-            'id',             l.PK_Lead_Cod,
-            'nombre',         l.Lead_Nombre,
-            'celular',        l.Lead_Celular,
-            'origen',         'LEAD',
-            'fechaCreacion',  l.Lead_Fecha_Crea
-          )
-        WHEN cli.PK_Cli_Cod IS NOT NULL THEN
-          JSON_OBJECT(
-            'id',             cli.PK_Cli_Cod,
-            'nombre',         TRIM(CONCAT(COALESCE(u.U_Nombre,''),' ',COALESCE(u.U_Apellido,''))),
-            'celular',        u.U_Celular,
-            'origen',         'CLIENTE',
-            'fechaCreacion',  c.Cot_Fecha_Crea
-          )
-        ELSE
-          JSON_OBJECT(
-            'id',             NULL,
-            'nombre',         NULL,
-            'celular',        NULL,
-            'origen',         NULL,
-            'fechaCreacion',  NULL
-          )
-      END
-  ) AS detalle_json
-  FROM defaultdb.T_Cotizacion c
-  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
-  LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
-  LEFT JOIN defaultdb.T_Cliente cli  ON cli.PK_Cli_Cod = c.FK_Cli_Cod
-  LEFT JOIN defaultdb.T_Usuario u    ON u.PK_U_Cod = cli.FK_U_Cod
-  WHERE c.PK_Cot_Cod = p_cot_id;
-
-  COMMIT;
+BEGIN
+
+  DECLARE v_estado_actual VARCHAR(20);
+
+  DECLARE v_estado_nuevo_id INT;
+
+
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
+  BEGIN
+
+    ROLLBACK;
+
+    RESIGNAL;
+
+  END;
+
+
+
+  START TRANSACTION;
+
+
+
+  -- leer + lock
+
+  SELECT ec.ECot_Nombre INTO v_estado_actual
+
+  FROM defaultdb.T_Cotizacion c
+
+  JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
+  WHERE c.PK_Cot_Cod = p_cot_id
+
+  FOR UPDATE;
+
+
+
+  IF v_estado_actual IS NULL THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Quote not found';
+
+  END IF;
+
+
+
+  -- concurrencia optimista (opcional)
+
+  IF p_estado_esperado IS NOT NULL AND p_estado_esperado <> v_estado_actual THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Version conflict';
+
+  END IF;
+
+
+
+  -- reglas de transicion (basicas, ajusta a tu flujo)
+
+  IF v_estado_actual = 'Borrador' AND p_estado_nuevo NOT IN ('Enviada') THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid transition from Borrador';
+
+  END IF;
+
+
+
+  IF v_estado_actual = 'Enviada' AND p_estado_nuevo NOT IN ('Aceptada','Rechazada') THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Invalid transition from Enviada';
+
+  END IF;
+
+
+
+  IF v_estado_actual IN ('Aceptada','Rechazada') THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Final state cannot transition';
+
+  END IF;
+
+
+
+  SELECT PK_ECot_Cod INTO v_estado_nuevo_id
+
+  FROM defaultdb.T_Estado_Cotizacion
+
+  WHERE ECot_Nombre = p_estado_nuevo
+
+  LIMIT 1;
+
+
+
+  IF v_estado_nuevo_id IS NULL THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+
+  END IF;
+
+
+
+  -- update
+
+  UPDATE defaultdb.T_Cotizacion
+
+  SET FK_ECot_Cod = v_estado_nuevo_id
+
+  WHERE PK_Cot_Cod = p_cot_id;
+
+
+
+  -- devolver JSON de detalle (lead o cliente)
+
+  SELECT JSON_OBJECT(
+
+    'id',              c.PK_Cot_Cod,
+
+    'estado',          ec.ECot_Nombre,
+
+    'fechaCreacion',   c.Cot_Fecha_Crea,
+
+    'eventoId',        c.Cot_IdTipoEvento,
+
+    'tipoEvento',      c.Cot_TipoEvento,
+
+    'fechaEvento',     c.Cot_FechaEvento,
+
+    'lugar',           c.Cot_Lugar,
+
+    'horasEstimadas',  c.Cot_HorasEst,
+
+    'mensaje',         c.Cot_Mensaje,
+
+    'total',           COALESCE((
+
+                        SELECT SUM(s.CS_Subtotal)
+
+                        FROM defaultdb.T_CotizacionServicio s
+
+                        WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
+
+                      ),0),
+
+    'contacto',
+
+      CASE
+
+        WHEN l.PK_Lead_Cod IS NOT NULL THEN
+
+          JSON_OBJECT(
+
+            'id',             l.PK_Lead_Cod,
+
+            'nombre',         l.Lead_Nombre,
+
+            'celular',        l.Lead_Celular,
+
+            'origen',         'LEAD',
+
+            'fechaCreacion',  l.Lead_Fecha_Crea
+
+          )
+
+        WHEN cli.PK_Cli_Cod IS NOT NULL THEN
+
+          JSON_OBJECT(
+
+            'id',             cli.PK_Cli_Cod,
+
+            'nombre',         TRIM(CONCAT(COALESCE(u.U_Nombre,''),' ',COALESCE(u.U_Apellido,''))),
+
+            'celular',        u.U_Celular,
+
+            'origen',         'CLIENTE',
+
+            'fechaCreacion',  c.Cot_Fecha_Crea
+
+          )
+
+        ELSE
+
+          JSON_OBJECT(
+
+            'id',             NULL,
+
+            'nombre',         NULL,
+
+            'celular',        NULL,
+
+            'origen',         NULL,
+
+            'fechaCreacion',  NULL
+
+          )
+
+      END
+
+  ) AS detalle_json
+
+  FROM defaultdb.T_Cotizacion c
+
+  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
+  LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
+
+  LEFT JOIN defaultdb.T_Cliente cli  ON cli.PK_Cli_Cod = c.FK_Cli_Cod
+
+  LEFT JOIN defaultdb.T_Usuario u    ON u.PK_U_Cod = cli.FK_U_Cod
+
+  WHERE c.PK_Cot_Cod = p_cot_id;
+
+
+
+  COMMIT;
+
 END ;;
 DELIMITER ;
 
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_listar_general"()
-BEGIN
-  SELECT
-      c.PK_Cot_Cod        AS idCotizacion,
-
-      -- Origen
-      c.FK_Lead_Cod       AS idLead,
-      c.FK_Cli_Cod        AS idCliente,
-      CASE WHEN c.FK_Cli_Cod IS NOT NULL THEN 'CLIENTE' ELSE 'LEAD' END AS origen,
-
-      -- Siempre "Nombre Apellido" si es CLIENTE; si es LEAD usa Lead_Nombre
-      CASE
-        WHEN c.FK_Cli_Cod IS NOT NULL THEN
-          TRIM(CONCAT_WS(' ',
-            NULLIF(u.U_Nombre, ''),
-            NULLIF(u.U_Apellido, '')
-          ))
-        ELSE
-          l.Lead_Nombre
-      END AS contactoNombre,
-
-      -- Celular segun origen
-      CASE
-        WHEN c.FK_Cli_Cod IS NOT NULL THEN u.U_Celular
-        ELSE l.Lead_Celular
-      END AS contactoCelular,
-
-      -- Cabecera
-      c.Cot_TipoEvento     AS tipoEvento,
-      c.Cot_IdTipoEvento   AS idTipoEvento,
-      c.Cot_FechaEvento    AS fechaEvento,
-      c.Cot_Lugar          AS lugar,
-      c.Cot_HorasEst       AS horasEstimadas,
-      c.Cot_Mensaje        AS mensaje,
-      ec.ECot_Nombre AS estado,
-      c.Cot_Fecha_Crea     AS fechaCreacion,
-
-      -- Total
-      COALESCE((
-        SELECT SUM(
-          COALESCE(cs.CS_Subtotal,
-                   COALESCE(cs.CS_PrecioUnit,0) * COALESCE(cs.CS_Cantidad,1)
-                   - COALESCE(cs.CS_Descuento,0) + COALESCE(cs.CS_Recargo,0))
-        )
-        FROM defaultdb.T_CotizacionServicio cs
-        WHERE cs.FK_Cot_Cod = c.PK_Cot_Cod
-      ), 0) AS total
-
-  FROM defaultdb.T_Cotizacion c
-  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
-  LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
-  LEFT JOIN defaultdb.T_Cliente cli ON cli.PK_Cli_Cod = c.FK_Cli_Cod
-  LEFT JOIN defaultdb.T_Usuario u   ON u.PK_U_Cod    = cli.FK_U_Cod
-  ORDER BY c.PK_Cot_Cod DESC;
+BEGIN
+
+  SELECT
+
+      c.PK_Cot_Cod        AS idCotizacion,
+
+
+
+      -- Origen
+
+      c.FK_Lead_Cod       AS idLead,
+
+      c.FK_Cli_Cod        AS idCliente,
+
+      CASE WHEN c.FK_Cli_Cod IS NOT NULL THEN 'CLIENTE' ELSE 'LEAD' END AS origen,
+
+
+
+      -- Si CLIENTE y es RUC devuelve razon social; si es LEAD usa Lead_Nombre
+
+      CASE
+
+        WHEN c.FK_Cli_Cod IS NOT NULL THEN
+
+          CASE
+
+            WHEN td.TD_Codigo = 'RUC' THEN cli.Cli_RazonSocial
+
+            ELSE TRIM(CONCAT_WS(' ',
+
+              NULLIF(u.U_Nombre, ''),
+
+              NULLIF(u.U_Apellido, '')
+
+            ))
+
+          END
+
+        ELSE
+
+          l.Lead_Nombre
+
+      END AS contactoNombre,
+
+
+
+      -- Celular segun origen
+
+      CASE
+
+        WHEN c.FK_Cli_Cod IS NOT NULL THEN u.U_Celular
+
+        ELSE l.Lead_Celular
+
+      END AS contactoCelular,
+
+
+
+      -- Cabecera
+
+      c.Cot_TipoEvento     AS tipoEvento,
+
+      c.Cot_IdTipoEvento   AS idTipoEvento,
+
+      c.Cot_FechaEvento    AS fechaEvento,
+
+      c.Cot_Lugar          AS lugar,
+
+      c.Cot_HorasEst       AS horasEstimadas,
+      c.Cot_Dias           AS dias,
+
+      c.Cot_Mensaje        AS mensaje,
+
+      ec.ECot_Nombre AS estado,
+
+      c.Cot_Fecha_Crea     AS fechaCreacion,
+
+
+
+      -- Total
+
+      COALESCE((
+
+        SELECT SUM(
+
+          COALESCE(cs.CS_Subtotal,
+
+                   COALESCE(cs.CS_PrecioUnit,0) * COALESCE(cs.CS_Cantidad,1)
+
+                   - COALESCE(cs.CS_Descuento,0) + COALESCE(cs.CS_Recargo,0))
+
+        )
+
+        FROM defaultdb.T_CotizacionServicio cs
+
+        WHERE cs.FK_Cot_Cod = c.PK_Cot_Cod
+
+      ), 0) AS total
+
+
+
+  FROM defaultdb.T_Cotizacion c
+
+  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
+  LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
+
+  LEFT JOIN defaultdb.T_Cliente cli ON cli.PK_Cli_Cod = c.FK_Cli_Cod
+
+  LEFT JOIN defaultdb.T_Usuario u   ON u.PK_U_Cod    = cli.FK_U_Cod
+  LEFT JOIN defaultdb.T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+
+  ORDER BY c.PK_Cot_Cod DESC;
+
 END ;;
 DELIMITER ;
 
 DELIMITER ;;
-CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_obtener_json"(
-  IN p_cot_id INT
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_obtener_json"(
+
+  IN p_cot_id INT
+
 )
-BEGIN
-  -- Validaciones básicas
-  IF p_cot_id IS NULL OR p_cot_id <= 0 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'p_cot_id inválido';
-  END IF;
-
-  IF (SELECT COUNT(*) FROM defaultdb.T_Cotizacion WHERE PK_Cot_Cod = p_cot_id) = 0 THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotización no existe';
-  END IF;
-
-  /*
-    Soporte para:
-    - Lead: c.FK_Lead_Cod no nulo
-    - Cliente: c.FK_Cli_Cod no nulo (T_Cliente -> T_Usuario)
-    El objeto 'contacto' unifica ambos casos.
-  */
-  SELECT
-    JSON_OBJECT(
-      'idCotizacion', c.PK_Cot_Cod,
-
-      'contacto',
-      CASE
-        WHEN l.PK_Lead_Cod IS NOT NULL THEN
-          JSON_OBJECT(
-            'id',         l.PK_Lead_Cod,
-            'nombre',     l.Lead_Nombre,
-            'celular',    l.Lead_Celular,
-            'origen',     'LEAD',
-            'fechaCrea',  l.Lead_Fecha_Crea
-          )
-        WHEN cli.PK_Cli_Cod IS NOT NULL THEN
-          JSON_OBJECT(
-            'id',         cli.PK_Cli_Cod,
-            'nombre',     CONCAT(COALESCE(u.U_Nombre,''), 
-                                 CASE WHEN u.U_Nombre IS NOT NULL AND u.U_Apellido IS NOT NULL THEN ' ' ELSE '' END,
-                                 COALESCE(u.U_Apellido,'')),
-            'celular',    u.U_Celular,
-            'origen',     'CLIENTE',
-            'fechaCrea',  c.Cot_Fecha_Crea
-          )
-        ELSE
-          JSON_OBJECT(
-            'id',         NULL,
-            'nombre',     NULL,
-            'celular',    NULL,
-            'origen',     NULL,
-            'fechaCrea',  NULL
-          )
-      END,
-
-      'cotizacion', JSON_OBJECT(
-        'tipoEvento',     c.Cot_TipoEvento,
-        'idTipoEvento',   c.Cot_IdTipoEvento,
-        'fechaEvento',    c.Cot_FechaEvento,
-        'lugar',          c.Cot_Lugar,
-        'horasEstimadas', c.Cot_HorasEst,
-        'mensaje',        c.Cot_Mensaje,
-        'estado',         ec.ECot_Nombre,
-        'fechaCreacion',  c.Cot_Fecha_Crea,
-        'total',          COALESCE((
-                           SELECT SUM(s.CS_Subtotal)
-                           FROM defaultdb.T_CotizacionServicio s
-                           WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
-                         ),0)
-      ),
-
-      'items', COALESCE((
-        SELECT JSON_ARRAYAGG(
-                 JSON_OBJECT(
-                   'idCotizacionServicio', s.PK_CotServ_Cod,
-                   'idEventoServicio',     s.FK_ExS_Cod,
-                   'eventoId',             s.CS_EventoId,
-				   'servicioId',           s.CS_ServicioId,
-                   'nombre',               s.CS_Nombre,
-                   'descripcion',          s.CS_Descripcion,
-                   'moneda',               s.CS_Moneda,
-                   'precioUnit',           s.CS_PrecioUnit,
-                   'cantidad',             s.CS_Cantidad,
-                   'descuento',            s.CS_Descuento,
-                   'recargo',              s.CS_Recargo,
-                   'subtotal',             s.CS_Subtotal,
-                   'notas',                s.CS_Notas,
-                   'horas',                s.CS_Horas,
-                   'personal',             s.CS_Staff,
-                   'fotosImpresas',        s.CS_FotosImpresas,
-                   'trailerMin',           s.CS_TrailerMin,
-                   'filmMin',              s.CS_FilmMin,
-                   'eventoServicio',
-                   CASE
-                     WHEN s.FK_ExS_Cod IS NULL THEN NULL
-                     ELSE (
-                       SELECT JSON_OBJECT(
-                         'id',               exs.PK_ExS_Cod,
-                         'servicioId',       exs.PK_S_Cod,
-                         'servicioNombre',   srv.S_Nombre,
-                         'eventoId',         exs.PK_E_Cod,
-                         'eventoNombre',     evt.E_Nombre,
-                         'categoriaId',      exs.FK_ESC_Cod,
-                         'categoriaNombre',  cat.ESC_Nombre,
-                         'categoriaTipo',    cat.ESC_Tipo,
-                         'titulo',           exs.ExS_Titulo,
-                         'esAddon',          exs.ExS_EsAddon,
-                         'precio',           exs.ExS_Precio,
-                         'descripcion',      exs.ExS_Descripcion,
-                         'horas',            exs.ExS_Horas,
-                         'fotosImpresas',    exs.ExS_FotosImpresas,
-                         'trailerMin',       exs.ExS_TrailerMin,
-                         'filmMin',          exs.ExS_FilmMin,
-                         'staff', COALESCE((
-                           SELECT JSON_ARRAYAGG(
-                                    JSON_OBJECT(
-                                      'rol',      st.Staff_Rol,
-                                      'cantidad', st.Staff_Cantidad
-                                    )
-                                  )
-                           FROM defaultdb.T_EventoServicioStaff st
-                           WHERE st.FK_ExS_Cod = exs.PK_ExS_Cod
-                         ), JSON_ARRAY()),
-                         'equipos', COALESCE((
-                           SELECT JSON_ARRAYAGG(
-                                    JSON_OBJECT(
-                                      'tipoEquipoId',  eq.FK_TE_Cod,
-                                      'tipoEquipo',    te.TE_Nombre,
-                                      'cantidad',      eq.Cantidad,
-                                      'notas',         eq.Notas
-                                    )
-                                  )
-                           FROM defaultdb.T_EventoServicioEquipo eq
-                           JOIN defaultdb.T_Tipo_Equipo te ON te.PK_TE_Cod = eq.FK_TE_Cod
-                           WHERE eq.FK_ExS_Cod = exs.PK_ExS_Cod
-                         ), JSON_ARRAY())
-                       )
-                       FROM defaultdb.T_EventoServicio exs
-                       LEFT JOIN defaultdb.T_Servicios srv ON srv.PK_S_Cod = exs.PK_S_Cod
-                       LEFT JOIN defaultdb.T_Eventos   evt ON evt.PK_E_Cod = exs.PK_E_Cod
-                       LEFT JOIN defaultdb.T_EventoServicioCategoria cat ON cat.PK_ESC_Cod = exs.FK_ESC_Cod
-                       WHERE exs.PK_ExS_Cod = s.FK_ExS_Cod
-                       LIMIT 1
-                     )
-                   END
-                 )
-               )
-        FROM defaultdb.T_CotizacionServicio s
-        WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
-      ), JSON_ARRAY()),
-
-      'eventos', COALESCE((
-        SELECT JSON_ARRAYAGG(
-                 JSON_OBJECT(
-                   'id',         e.PK_CotE_Cod,
-                   'fecha',      e.CotE_Fecha,
-                   'hora',       e.CotE_Hora,
-                   'ubicacion',  e.CotE_Ubicacion,
-                   'direccion',  e.CotE_Direccion,
-                   'notas',      e.CotE_Notas
-                 )
-               )
-        FROM defaultdb.T_CotizacionEvento e
-        WHERE e.FK_Cot_Cod = c.PK_Cot_Cod
-      ), JSON_ARRAY())
-    ) AS cotizacion_json
-
-  FROM defaultdb.T_Cotizacion c
-  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
-  LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
-  LEFT JOIN defaultdb.T_Cliente cli  ON cli.PK_Cli_Cod = c.FK_Cli_Cod
-  LEFT JOIN defaultdb.T_Usuario u    ON u.PK_U_Cod = cli.FK_U_Cod
-  WHERE c.PK_Cot_Cod = p_cot_id;
+BEGIN
+
+  -- Validaciones básicas
+
+  IF p_cot_id IS NULL OR p_cot_id <= 0 THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'p_cot_id inválido';
+
+  END IF;
+
+
+
+  IF (SELECT COUNT(*) FROM defaultdb.T_Cotizacion WHERE PK_Cot_Cod = p_cot_id) = 0 THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'La cotización no existe';
+
+  END IF;
+
+
+
+  /*
+
+    Soporte para:
+
+    - Lead: c.FK_Lead_Cod no nulo
+
+    - Cliente: c.FK_Cli_Cod no nulo (T_Cliente -> T_Usuario)
+
+    El objeto 'contacto' unifica ambos casos.
+
+  */
+
+  SELECT
+
+    JSON_OBJECT(
+
+      'idCotizacion', c.PK_Cot_Cod,
+
+
+
+      'contacto',
+
+      CASE
+
+        WHEN l.PK_Lead_Cod IS NOT NULL THEN
+
+          JSON_OBJECT(
+
+            'id',         l.PK_Lead_Cod,
+
+            'nombre',     l.Lead_Nombre,
+
+            'celular',    l.Lead_Celular,
+
+            'origen',     'LEAD',
+
+            'fechaCrea',  l.Lead_Fecha_Crea
+
+          )
+
+        WHEN cli.PK_Cli_Cod IS NOT NULL THEN
+
+          JSON_OBJECT(
+
+            'id',         cli.PK_Cli_Cod,
+
+            'nombre',     CONCAT(COALESCE(u.U_Nombre,''), 
+
+                                 CASE WHEN u.U_Nombre IS NOT NULL AND u.U_Apellido IS NOT NULL THEN ' ' ELSE '' END,
+
+                                 COALESCE(u.U_Apellido,'')),
+
+            'celular',    u.U_Celular,
+
+            'origen',     'CLIENTE',
+
+            'fechaCrea',  c.Cot_Fecha_Crea
+
+          )
+
+        ELSE
+
+          JSON_OBJECT(
+
+            'id',         NULL,
+
+            'nombre',     NULL,
+
+            'celular',    NULL,
+
+            'origen',     NULL,
+
+            'fechaCrea',  NULL
+
+          )
+
+      END,
+
+
+
+      'cotizacion', JSON_OBJECT(
+
+        'tipoEvento',     c.Cot_TipoEvento,
+
+        'idTipoEvento',   c.Cot_IdTipoEvento,
+
+        'fechaEvento',    c.Cot_FechaEvento,
+
+        'lugar',          c.Cot_Lugar,
+
+        'horasEstimadas', c.Cot_HorasEst,
+        'dias',           c.Cot_Dias,
+
+        'mensaje',        c.Cot_Mensaje,
+
+        'estado',         ec.ECot_Nombre,
+
+        'fechaCreacion',  c.Cot_Fecha_Crea,
+
+        'total',          COALESCE((
+
+                           SELECT SUM(s.CS_Subtotal)
+
+                           FROM defaultdb.T_CotizacionServicio s
+
+                           WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
+
+                         ),0)
+
+      ),
+
+
+
+      'items', COALESCE((
+
+        SELECT JSON_ARRAYAGG(
+
+                 JSON_OBJECT(
+
+                   'idCotizacionServicio', s.PK_CotServ_Cod,
+
+                   'idEventoServicio',     s.FK_ExS_Cod,
+
+                   'eventoId',             s.CS_EventoId,
+
+				   'servicioId',           s.CS_ServicioId,
+
+                   'nombre',               s.CS_Nombre,
+
+                   'descripcion',          s.CS_Descripcion,
+
+                   'moneda',               s.CS_Moneda,
+
+                   'precioUnit',           s.CS_PrecioUnit,
+
+                   'cantidad',             s.CS_Cantidad,
+
+                   'descuento',            s.CS_Descuento,
+
+                   'recargo',              s.CS_Recargo,
+
+                   'subtotal',             s.CS_Subtotal,
+
+                   'notas',                s.CS_Notas,
+
+                   'horas',                s.CS_Horas,
+
+                   'personal',             s.CS_Staff,
+
+                   'fotosImpresas',        s.CS_FotosImpresas,
+
+                   'trailerMin',           s.CS_TrailerMin,
+
+                   'filmMin',              s.CS_FilmMin,
+
+                   'eventoServicio',
+
+                   CASE
+
+                     WHEN s.FK_ExS_Cod IS NULL THEN NULL
+
+                     ELSE (
+
+                       SELECT JSON_OBJECT(
+
+                         'id',               exs.PK_ExS_Cod,
+
+                         'servicioId',       exs.PK_S_Cod,
+
+                         'servicioNombre',   srv.S_Nombre,
+
+                         'eventoId',         exs.PK_E_Cod,
+
+                         'eventoNombre',     evt.E_Nombre,
+
+                         'categoriaId',      exs.FK_ESC_Cod,
+
+                         'categoriaNombre',  cat.ESC_Nombre,
+
+                         'categoriaTipo',    cat.ESC_Tipo,
+
+                         'titulo',           exs.ExS_Titulo,
+
+                         'esAddon',          exs.ExS_EsAddon,
+
+                         'precio',           exs.ExS_Precio,
+
+                         'descripcion',      exs.ExS_Descripcion,
+
+                         'horas',            exs.ExS_Horas,
+
+                         'fotosImpresas',    exs.ExS_FotosImpresas,
+
+                         'trailerMin',       exs.ExS_TrailerMin,
+
+                         'filmMin',          exs.ExS_FilmMin,
+
+                         'staff', COALESCE((
+
+                           SELECT JSON_ARRAYAGG(
+
+                                    JSON_OBJECT(
+
+                                      'rol',      st.Staff_Rol,
+
+                                      'cantidad', st.Staff_Cantidad
+
+                                    )
+
+                                  )
+
+                           FROM defaultdb.T_EventoServicioStaff st
+
+                           WHERE st.FK_ExS_Cod = exs.PK_ExS_Cod
+
+                         ), JSON_ARRAY()),
+
+                         'equipos', COALESCE((
+
+                           SELECT JSON_ARRAYAGG(
+
+                                    JSON_OBJECT(
+
+                                      'tipoEquipoId',  eq.FK_TE_Cod,
+
+                                      'tipoEquipo',    te.TE_Nombre,
+
+                                      'cantidad',      eq.Cantidad,
+
+                                      'notas',         eq.Notas
+
+                                    )
+
+                                  )
+
+                           FROM defaultdb.T_EventoServicioEquipo eq
+
+                           JOIN defaultdb.T_Tipo_Equipo te ON te.PK_TE_Cod = eq.FK_TE_Cod
+
+                           WHERE eq.FK_ExS_Cod = exs.PK_ExS_Cod
+
+                         ), JSON_ARRAY())
+
+                       )
+
+                       FROM defaultdb.T_EventoServicio exs
+
+                       LEFT JOIN defaultdb.T_Servicios srv ON srv.PK_S_Cod = exs.PK_S_Cod
+
+                       LEFT JOIN defaultdb.T_Eventos   evt ON evt.PK_E_Cod = exs.PK_E_Cod
+
+                       LEFT JOIN defaultdb.T_EventoServicioCategoria cat ON cat.PK_ESC_Cod = exs.FK_ESC_Cod
+
+                       WHERE exs.PK_ExS_Cod = s.FK_ExS_Cod
+
+                       LIMIT 1
+
+                     )
+
+                   END
+
+                 )
+
+               )
+
+        FROM defaultdb.T_CotizacionServicio s
+
+        WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
+
+      ), JSON_ARRAY()),
+
+
+
+      'eventos', COALESCE((
+
+        SELECT JSON_ARRAYAGG(
+
+                 JSON_OBJECT(
+
+                   'id',         e.PK_CotE_Cod,
+
+                   'fecha',      e.CotE_Fecha,
+
+                   'hora',       e.CotE_Hora,
+
+                   'ubicacion',  e.CotE_Ubicacion,
+
+                   'direccion',  e.CotE_Direccion,
+
+                   'notas',      e.CotE_Notas
+
+                 )
+
+               )
+
+        FROM defaultdb.T_CotizacionEvento e
+
+        WHERE e.FK_Cot_Cod = c.PK_Cot_Cod
+
+      ), JSON_ARRAY())
+
+    ) AS cotizacion_json
+
+
+
+  FROM defaultdb.T_Cotizacion c
+
+  LEFT JOIN defaultdb.T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+
+  LEFT JOIN defaultdb.T_Lead    l   ON l.PK_Lead_Cod = c.FK_Lead_Cod
+
+  LEFT JOIN defaultdb.T_Cliente cli  ON cli.PK_Cli_Cod = c.FK_Cli_Cod
+
+  LEFT JOIN defaultdb.T_Usuario u    ON u.PK_U_Cod = cli.FK_U_Cod
+
+  WHERE c.PK_Cot_Cod = p_cot_id;
+
 END ;;
 DELIMITER ;
 
 DELIMITER ;;
-CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_publica_crear"(
-  IN p_lead_nombre    VARCHAR(80),
-  IN p_lead_celular   VARCHAR(30),
-  IN p_lead_origen    VARCHAR(40),
-  IN p_tipo_evento    VARCHAR(40),
-  IN p_id_tipo_evento INT,
-  IN p_fecha_evento   DATE,
-  IN p_lugar          VARCHAR(150),
-  IN p_horas_est      DECIMAL(4,1),
-  IN p_mensaje        VARCHAR(500)
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_publica_crear"(
+
+  IN p_lead_nombre    VARCHAR(80),
+
+  IN p_lead_celular   VARCHAR(30),
+
+  IN p_lead_origen    VARCHAR(40),
+
+  IN p_tipo_evento    VARCHAR(40),
+
+  IN p_id_tipo_evento INT,
+
+  IN p_fecha_evento   DATE,
+
+  IN p_lugar          VARCHAR(150),
+
+  IN p_horas_est      DECIMAL(4,1),
+  IN p_dias           SMALLINT,
+
+  IN p_mensaje        VARCHAR(500),
+  IN p_fecha_crea     DATETIME
+
 )
-BEGIN
-  DECLARE v_lead_id INT;
-  DECLARE v_cot_id  INT;
-  DECLARE v_estado_id INT;
-
-  DECLARE EXIT HANDLER FOR SQLEXCEPTION
-  BEGIN ROLLBACK; RESIGNAL; END;
-
-  START TRANSACTION;
-
-  -- dedup simple por celular (ajusta si luego agregas email)
-  SELECT PK_Lead_Cod INTO v_lead_id
-  FROM T_Lead
-  WHERE p_lead_celular IS NOT NULL AND Lead_Celular = p_lead_celular
-  LIMIT 1 FOR UPDATE;
-
-  IF v_lead_id IS NULL THEN
-    INSERT INTO T_Lead(Lead_Nombre, Lead_Celular, Lead_Origen)
-    VALUES (p_lead_nombre, p_lead_celular, p_lead_origen);
-    SET v_lead_id = LAST_INSERT_ID();
-  END IF;
-
-  SELECT PK_ECot_Cod INTO v_estado_id
-  FROM T_Estado_Cotizacion
-  WHERE ECot_Nombre = 'Borrador'
-  LIMIT 1;
-
-  IF v_estado_id IS NULL THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
-  END IF;
-
-  INSERT INTO T_Cotizacion(
-    FK_Lead_Cod,
-    Cot_TipoEvento,
-    Cot_IdTipoEvento,
-    Cot_FechaEvento,
-    Cot_Lugar,
-    Cot_HorasEst,
-    Cot_Mensaje,
-    FK_ECot_Cod
-  )
-  VALUES (
-    v_lead_id,
-    p_tipo_evento,
-    p_id_tipo_evento,
-    p_fecha_evento,
-    p_lugar,
-    p_horas_est,
-    p_mensaje,
-    v_estado_id
-  );
-
-  SET v_cot_id = LAST_INSERT_ID();
-
-  COMMIT;
-
-  SELECT v_lead_id AS lead_id, v_cot_id AS cotizacion_id;
+BEGIN
+
+  DECLARE v_lead_id INT;
+
+  DECLARE v_cot_id  INT;
+
+  DECLARE v_estado_id INT;
+
+
+
+  DECLARE EXIT HANDLER FOR SQLEXCEPTION
+
+  BEGIN ROLLBACK; RESIGNAL; END;
+
+
+
+  START TRANSACTION;
+
+
+
+  -- dedup simple por celular (ajusta si luego agregas email)
+
+  SELECT PK_Lead_Cod INTO v_lead_id
+
+  FROM T_Lead
+
+  WHERE p_lead_celular IS NOT NULL AND Lead_Celular = p_lead_celular
+
+  LIMIT 1 FOR UPDATE;
+
+
+
+  IF v_lead_id IS NULL THEN
+
+    INSERT INTO T_Lead(Lead_Nombre, Lead_Celular, Lead_Origen)
+
+    VALUES (p_lead_nombre, p_lead_celular, p_lead_origen);
+
+    SET v_lead_id = LAST_INSERT_ID();
+
+  END IF;
+
+
+
+  SELECT PK_ECot_Cod INTO v_estado_id
+
+  FROM T_Estado_Cotizacion
+
+  WHERE ECot_Nombre = 'Borrador'
+
+  LIMIT 1;
+
+
+
+  IF v_estado_id IS NULL THEN
+
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado de cotizacion invalido';
+
+  END IF;
+
+
+
+  INSERT INTO T_Cotizacion(
+
+    FK_Lead_Cod,
+
+    Cot_TipoEvento,
+
+    Cot_IdTipoEvento,
+
+    Cot_FechaEvento,
+
+    Cot_Lugar,
+
+    Cot_HorasEst,
+    Cot_Dias,
+
+    Cot_Mensaje,
+    Cot_Fecha_Crea,
+
+    FK_ECot_Cod
+
+  )
+
+  VALUES (
+
+    v_lead_id,
+
+    p_tipo_evento,
+
+    p_id_tipo_evento,
+
+    p_fecha_evento,
+
+    p_lugar,
+
+    p_horas_est,
+    p_dias,
+
+    p_mensaje,
+    COALESCE(p_fecha_crea, NOW()),
+
+    v_estado_id
+
+  );
+
+
+
+  SET v_cot_id = LAST_INSERT_ID();
+
+
+
+  COMMIT;
+
+
+
+  SELECT v_lead_id AS lead_id, v_cot_id AS cotizacion_id;
+
 END ;;
 DELIMITER ;
 
@@ -1617,10 +2412,12 @@ DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_lead_convertir_cliente"(
   IN  p_lead_id        INT,
   IN  p_correo         VARCHAR(250),   -- obligatorio
-  IN  p_celular        VARCHAR(25),    -- si viene vacío se usa el del lead
+  IN  p_celular        VARCHAR(25),    -- si viene vacio se usa el del lead
   IN  p_nombre         VARCHAR(25),    -- opcional
   IN  p_apellido       VARCHAR(25),    -- opcional
-  IN  p_num_doc        VARCHAR(11),    -- OBLIGATORIO (8 u 11 dígitos) para crear usuario
+  IN  p_num_doc        VARCHAR(11),    -- obligatorio para crear usuario
+  IN  p_tipo_doc_id    INT,            -- opcional (si no viene, se infiere por longitud)
+  IN  p_razon_social   VARCHAR(150),   -- requerido si es RUC
   IN  p_direccion      VARCHAR(100),
   IN  p_tipo_cliente   INT,            -- puede ser NULL
   IN  p_estado_cliente INT,            -- requerido por FK a T_Estado_Cliente
@@ -1635,6 +2432,10 @@ BEGIN
   DECLARE v_nombre        VARCHAR(25);
   DECLARE v_apellido      VARCHAR(25);
   DECLARE v_celular       VARCHAR(25);
+  DECLARE v_tipo_doc_id   INT;
+  DECLARE v_td_codigo     VARCHAR(10);
+  DECLARE v_tipo_cliente  INT;
+  DECLARE v_razon_social  VARCHAR(150);
 
   DECLARE v_exists_mail   INT;
   DECLARE v_exists_cel    INT;
@@ -1648,7 +2449,7 @@ BEGIN
 
   START TRANSACTION;
 
-  /* 1) Lock y validación del lead */
+  /* 1) Lock y validacion del lead */
   SELECT Lead_Nombre, Lead_Celular
     INTO v_lead_nombre, v_lead_celular
   FROM T_Lead
@@ -1665,7 +2466,7 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Correo es obligatorio';
   END IF;
   IF v_celular IS NULL OR v_celular = '' THEN
-    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Celular es obligatorio (no está en payload ni en el lead)';
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Celular es obligatorio (no esta en payload ni en el lead)';
   END IF;
   IF p_num_doc IS NULL OR p_num_doc = '' THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Documento obligatorio para crear usuario';
@@ -1682,7 +2483,43 @@ BEGIN
                     ), 25
                   );
 
-  /* 3) Verificar que NO exista usuario (esta es precondición de negocio) */
+  /* 3) Resolver tipo de documento */
+  SET v_tipo_doc_id = NULL;
+  SET v_td_codigo = NULL;
+
+  IF p_tipo_doc_id IS NOT NULL THEN
+    SELECT PK_TD_Cod, TD_Codigo INTO v_tipo_doc_id, v_td_codigo
+    FROM T_TipoDocumento
+    WHERE PK_TD_Cod = p_tipo_doc_id
+    LIMIT 1;
+  ELSEIF CHAR_LENGTH(p_num_doc) = 8 THEN
+    SELECT PK_TD_Cod, TD_Codigo INTO v_tipo_doc_id, v_td_codigo
+    FROM T_TipoDocumento
+    WHERE TD_Codigo = 'DNI'
+    LIMIT 1;
+  ELSEIF CHAR_LENGTH(p_num_doc) = 11 THEN
+    SELECT PK_TD_Cod, TD_Codigo INTO v_tipo_doc_id, v_td_codigo
+    FROM T_TipoDocumento
+    WHERE TD_Codigo = 'RUC'
+    LIMIT 1;
+  END IF;
+
+  IF v_tipo_doc_id IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Tipo de documento invalido';
+  END IF;
+
+  IF v_td_codigo = 'RUC' THEN
+    SET v_tipo_cliente = 2;
+    SET v_razon_social = NULLIF(TRIM(p_razon_social), '');
+    IF v_razon_social IS NULL THEN
+      SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Razon social es requerida para RUC';
+    END IF;
+  ELSE
+    SET v_tipo_cliente = COALESCE(p_tipo_cliente, 1);
+    SET v_razon_social = NULL;
+  END IF;
+
+  /* 4) Verificar que NO exista usuario (precondicion de negocio) */
   SELECT COUNT(*) INTO v_exists_mail FROM T_Usuario WHERE U_Correo = p_correo FOR UPDATE;
   IF v_exists_mail > 0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Conflicto: ya existe un usuario con ese correo';
@@ -1698,23 +2535,23 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Conflicto: ya existe un usuario con ese documento';
   END IF;
 
-  /* 4) Crear usuario (siempre) */
+  /* 5) Crear usuario */
   INSERT INTO T_Usuario
-      (U_Nombre, U_Apellido, U_Correo, U_Contrasena, U_Celular, U_Numero_Documento, U_Direccion)
+      (U_Nombre, U_Apellido, U_Correo, U_Contrasena, U_Celular, U_Numero_Documento, FK_TD_Cod, U_Direccion)
   VALUES
-      (v_nombre, v_apellido, p_correo, NULL, v_celular, p_num_doc, p_direccion);
+      (v_nombre, v_apellido, p_correo, NULL, v_celular, p_num_doc, v_tipo_doc_id, p_direccion);
 
   SET o_usuario_id     = LAST_INSERT_ID();
   SET o_usuario_accion = 'CREADO';
 
-  /* 5) Crear cliente (siempre) */
-  INSERT INTO T_Cliente (FK_U_Cod, Cli_Tipo_Cliente, FK_ECli_Cod)
-  VALUES (o_usuario_id, p_tipo_cliente, p_estado_cliente);
+  /* 6) Crear cliente */
+  INSERT INTO T_Cliente (FK_U_Cod, Cli_Tipo_Cliente, FK_ECli_Cod, Cli_RazonSocial)
+  VALUES (o_usuario_id, v_tipo_cliente, p_estado_cliente, v_razon_social);
 
   SET o_cliente_id     = LAST_INSERT_ID();
   SET o_cliente_accion = 'CREADO';
 
-  /* 6) Migrar cotizaciones de ese lead al nuevo cliente */
+  /* 7) Migrar cotizaciones del lead */
   UPDATE T_Cotizacion
      SET FK_Cli_Cod  = o_cliente_id,
          FK_Lead_Cod = NULL
@@ -1723,8 +2560,6 @@ BEGIN
 
   COMMIT;
 END ;;
-DELIMITER ;
-
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_metodo_pago_listar"()
 BEGIN
@@ -1796,9 +2631,13 @@ BEGIN
   SELECT
     p.PK_P_Cod                                           AS ID,
     CONCAT('Pedido ', p.PK_P_Cod)                        AS Nombre,
-    CONCAT_WS(' ', u.U_Nombre, u.U_Apellido)             AS Cliente,
+    CASE
+      WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
+      ELSE CONCAT_WS(' ', u.U_Nombre, u.U_Apellido)
+    END                                                  AS Cliente,
     u.U_Numero_Documento                                 AS Documento,
     p.P_Fecha_Creacion                                   AS Creado,
+    p.P_Dias                                             AS dias,
 
     -- Próximo evento elegido (futuro más cercano; si no hay, el primero)
     evProx.PE_Fecha                                      AS ProxFecha,
@@ -1847,6 +2686,7 @@ BEGIN
   FROM T_Pedido p
   JOIN T_Cliente c      ON c.PK_Cli_Cod = p.FK_Cli_Cod
   JOIN T_Usuario u      ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_Estado_Pedido ep ON ep.PK_EP_Cod  = p.FK_EP_Cod     -- <- quítalo si no existe
   LEFT JOIN T_Estado_Pago  esp ON esp.PK_ESP_Cod = p.FK_ESP_Cod   -- <- quítalo si no existe
 
@@ -1955,18 +2795,10 @@ END ;;
 DELIMITER ;
 
 DELIMITER ;;
-CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_obtener"(IN p_pedido_id INT)
+CREATE DEFINER="avnadmin"@"%" PROCEDURE `sp_pedido_obtener`(IN p_pedido_id INT)
 BEGIN
-  /*
-    Devuelve 3 result sets:
-      #1 Cabecera del pedido (con datos de cliente y empleado)
-      #2 Eventos del pedido (T_PedidoEvento)
-      #3 Items/paquetes (T_PedidoServicio con snapshot)
-  */
-
   DECLARE v_exists INT DEFAULT 0;
 
-  -- Validar existencia
   SELECT COUNT(*) INTO v_exists
   FROM T_Pedido
   WHERE PK_P_Cod = p_pedido_id;
@@ -1976,41 +2808,39 @@ BEGIN
       SET MESSAGE_TEXT = 'Pedido no encontrado';
   END IF;
 
-  /* =======================
-     #1 CABECERA DEL PEDIDO
-     ======================= */
   SELECT
     p.PK_P_Cod         AS id,
     p.FK_Cli_Cod       AS clienteId,
+    p.FK_Cot_Cod       AS cotizacionId,
     p.FK_Em_Cod        AS empleadoId,
     p.P_Fecha_Creacion AS fechaCreacion,
     p.FK_EP_Cod        AS estadoPedidoId,
     p.FK_ESP_Cod       AS estadoPagoId,
     p.P_FechaEvento    AS fechaEvento,
-    /* Si tienes observaciones/nota en T_Pedido cámbialo aquí */
-    p.P_Observaciones               AS observaciones,
-	p.P_Nombre_Pedido   AS nombrePedido,
-    /* Datos del cliente (usuario del cliente) */
+    p.P_IdTipoEvento   AS idTipoEvento,
+    p.P_Dias           AS dias,
+    p.P_Observaciones  AS observaciones,
+    p.P_Nombre_Pedido  AS nombrePedido,
     u.U_Numero_Documento AS clienteDocumento,
+    CASE
+      WHEN td.TD_Codigo = 'RUC' THEN c.Cli_RazonSocial
+      ELSE NULL
+    END                 AS clienteRazonSocial,
     u.U_Nombre           AS clienteNombres,
     u.U_Apellido         AS clienteApellidos,
-    u.U_Celular           AS clienteCelular,
-    u.U_Correo            AS clienteCorreo,
-    u.U_Direccion         AS clienteDireccion,
-
-    /* Datos del empleado (si aplica) */
+    u.U_Celular          AS clienteCelular,
+    u.U_Correo           AS clienteCorreo,
+    u.U_Direccion        AS clienteDireccion,
     ue.U_Nombre        AS empleadoNombres,
     ue.U_Apellido      AS empleadoApellidos
   FROM T_Pedido p
   JOIN T_Cliente c   ON c.PK_Cli_Cod = p.FK_Cli_Cod
   JOIN T_Usuario u   ON u.PK_U_Cod   = c.FK_U_Cod
+  LEFT JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   LEFT JOIN T_Empleados e ON e.PK_Em_Cod = p.FK_Em_Cod
   LEFT JOIN T_Usuario  ue ON ue.PK_U_Cod = e.FK_U_Cod
   WHERE p.PK_P_Cod = p_pedido_id;
 
-  /* =======================
-     #2 EVENTOS DEL PEDIDO
-     ======================= */
   SELECT
     pe.PK_PE_Cod    AS id,
     pe.FK_P_Cod     AS pedidoId,
@@ -2023,14 +2853,13 @@ BEGIN
   WHERE pe.FK_P_Cod = p_pedido_id
   ORDER BY pe.PE_Fecha, pe.PE_Hora, pe.PK_PE_Cod;
 
-  /* =======================
-     #3 ITEMS / PAQUETES
-     ======================= */
   SELECT
     ps.PK_PS_Cod     AS id,
     ps.FK_P_Cod      AS pedidoId,
     ps.FK_PE_Cod     AS eventoCodigo,
-    ps.FK_ExS_Cod    AS exsId,
+    ps.FK_ExS_Cod    AS idEventoServicio,
+    ps.PS_EventoId   AS eventoId,
+    ps.PS_ServicioId AS servicioId,
     ps.PS_Nombre     AS nombre,
     ps.PS_Descripcion AS descripcion,
     ps.PS_Moneda     AS moneda,
@@ -2038,7 +2867,13 @@ BEGIN
     ps.PS_Cantidad   AS cantidad,
     ps.PS_Descuento  AS descuento,
     ps.PS_Recargo    AS recargo,
-    ps.PS_Notas      AS notas
+    ps.PS_Notas      AS notas,
+    ps.PS_Horas      AS horas,
+    ps.PS_Staff      AS personal,
+    ps.PS_FotosImpresas AS fotosImpresas,
+    ps.PS_TrailerMin AS trailerMin,
+    ps.PS_FilmMin    AS filmMin,
+    ps.PS_Subtotal   AS subtotal
   FROM T_PedidoServicio ps
   WHERE ps.FK_P_Cod = p_pedido_id
   ORDER BY ps.PK_PS_Cod;
@@ -2730,4 +3565,6 @@ BEGIN
     );
 END ;;
 DELIMITER ;
+
+
 

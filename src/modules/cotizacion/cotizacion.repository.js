@@ -1,6 +1,7 @@
 ﻿// cotizacion.repository.js
 const pool = require("../../db");
 const { formatCodigo } = require("../../utils/codigo");
+const { getLimaDateTimeString, getLimaISODate } = require("../../utils/dates");
 
 // Helper: ejecuta CALL y devuelve el/los resultsets ya â€œlimpiosâ€
 async function callSP(sql, params = []) {
@@ -36,13 +37,14 @@ async function listAll({ estado } = {}) {
       id: Number(r.idCotizacion),
       codigo: formatCodigo("COT", r.idCotizacion),
       estado: String(r.estado),
-      fechaCreacion: r.fechaCreacion,
+      fechaCreacion: r.fechaCreacion ?? r.Cot_Fecha_Crea,
       eventoId: r.idTipoEvento ?? null, // <- del SP: Cot_IdTipoEvento AS idTipoEvento
       tipoEvento: r.tipoEvento,
       fechaEvento: r.fechaEvento,
       lugar: r.lugar,
       horasEstimadas:
       r.horasEstimadas != null ? Number(r.horasEstimadas) : null,
+      dias: r.dias != null ? Number(r.dias) : (r.Cot_Dias != null ? Number(r.Cot_Dias) : null),
       mensaje: r.mensaje,
       total: r.total != null ? Number(r.total) : null,
 
@@ -88,6 +90,7 @@ async function findByIdWithItems(id) {
 // ===================== CREAR (ADMIN) =====================
 async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = [] }) {
   const hasCliente = cliente && Number(cliente.id) > 0;
+  const fechaCreacion = getLimaDateTimeString();
 
   // === map de items al contrato del SP (JSON) ===
   const itemsMapped = (items || []).map((it) => ({
@@ -135,17 +138,20 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = 
     s(cotizacion?.fechaEvento), // 'YYYY-MM-DD'
     s(cotizacion?.lugar),
     n(cotizacion?.horasEstimadas),
+    n(cotizacion?.dias),
     s(cotizacion?.mensaje),
     s(cotizacion?.estado ?? "Borrador"),
-    // 12) items JSON
+    // 12) fecha creacion Lima
+    fechaCreacion,
+    // 13) items JSON
     itemsMapped.length ? JSON.stringify(itemsMapped) : null,
-    // 13) eventos JSON
+    // 14) eventos JSON
     eventosMapped.length ? JSON.stringify(eventosMapped) : null,
   ];
 
   try {
     const [rows0] = await callSP(
-      "CALL defaultdb.sp_cotizacion_admin_crear_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+      "CALL defaultdb.sp_cotizacion_admin_crear_v3(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
       params
     );
     const out = rows0?.[0] || {};
@@ -176,6 +182,7 @@ async function createAdmin(payload) {
  * Retorna: { lead_id, cotizacion_id } segÃºn SP.
  */
 async function createPublic({ lead, cotizacion }) {
+  const fechaCreacion = getLimaDateTimeString();
   const params = [
     s(lead?.nombre),
     s(lead?.celular),
@@ -185,10 +192,12 @@ async function createPublic({ lead, cotizacion }) {
     s(cotizacion?.fechaEvento),
     s(cotizacion?.lugar),
     n(cotizacion?.horasEstimadas),
+    n(cotizacion?.dias),
     s(cotizacion?.mensaje),
+    fechaCreacion,
   ];
   const [rows0] = await callSP(
-    "CALL defaultdb.sp_cotizacion_publica_crear(?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "CALL defaultdb.sp_cotizacion_publica_crear(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     params
   );
   // SP retorna una fila con { lead_id, cotizacion_id }
@@ -242,6 +251,7 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
     s(cotizacion.fechaEvento ?? null),
     s(cotizacion.lugar ?? null),
     n(cotizacion.horasEstimadas ?? null),
+    n(cotizacion.dias ?? null),
     s(cotizacion.mensaje ?? null),
     s(cotizacion.estado ?? null),
     itemsMapped ? JSON.stringify(itemsMapped) : null,
@@ -249,7 +259,7 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
   ];
 
   await callSP(
-    "CALL defaultdb.sp_cotizacion_admin_actualizar(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+    "CALL defaultdb.sp_cotizacion_admin_actualizar(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     params
   );
   return { updated: true };
@@ -277,8 +287,16 @@ async function rechazarVencidas(fechaCorte) {
      JOIN T_Estado_Cotizacion ec_e ON ec_e.ECot_Nombre = 'Enviada'
      SET c.FK_ECot_Cod = ec_r.PK_ECot_Cod
      WHERE c.FK_ECot_Cod IN (ec_b.PK_ECot_Cod, ec_e.PK_ECot_Cod)
-       AND c.Cot_FechaEvento <= ?`,
-    [fecha]
+       AND (
+         c.Cot_FechaEvento <= ?
+         OR
+         c.Cot_Fecha_Crea <= DATE_SUB(?, INTERVAL 90 DAY)
+         OR (
+           c.Cot_FechaEvento <= DATE_ADD(?, INTERVAL 7 DAY)
+           AND NOT (DATEDIFF(c.Cot_FechaEvento, c.Cot_Fecha_Crea) BETWEEN 1 AND 7)
+         )
+       )`,
+    [fecha, fecha, fecha]
   );
 }
 
@@ -349,15 +367,17 @@ async function cambiarEstado(id, { estadoNuevo, estadoEsperado = null } = {}) {
 async function migrarAPedido({ cotizacionId, empleadoId, nombrePedido = null } = {}) {
   const conn = await pool.getConnection();
   try {
+    const fechaCreacion = getLimaISODate();
     const params = [
       Number(cotizacionId),
       Number(empleadoId),
       nombrePedido != null ? String(nombrePedido) : null,
+      fechaCreacion,
     ];
 
     await conn.query("SET @pedidoId = NULL");
     await conn.query(
-      "CALL defaultdb.sp_cotizacion_convertir_a_pedido(?, ?, ?, @pedidoId)",
+      "CALL defaultdb.sp_cotizacion_convertir_a_pedido(?, ?, ?, ?, @pedidoId)",
       params
     );
 
