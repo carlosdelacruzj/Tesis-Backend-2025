@@ -288,13 +288,15 @@ async function rechazarVencidas(fechaCorte) {
      SET c.FK_ECot_Cod = ec_r.PK_ECot_Cod
      WHERE c.FK_ECot_Cod IN (ec_b.PK_ECot_Cod, ec_e.PK_ECot_Cod)
        AND (
+         c.Cot_FechaEvento <= ?
+         OR
          c.Cot_Fecha_Crea <= DATE_SUB(?, INTERVAL 90 DAY)
          OR (
            c.Cot_FechaEvento <= DATE_ADD(?, INTERVAL 7 DAY)
            AND NOT (DATEDIFF(c.Cot_FechaEvento, c.Cot_Fecha_Crea) BETWEEN 1 AND 7)
          )
        )`,
-    [fecha, fecha]
+    [fecha, fecha, fecha]
   );
 }
 
