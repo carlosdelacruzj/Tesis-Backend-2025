@@ -1,12 +1,16 @@
 ﻿const repo = require("./cotizacion.repository");
-const { generarCotizacionPdf } = require("../../pdf/cotizacion");
-const { generarCotizacionPdfV2 } = require("../../pdf/cotizacion_v2");
+//const { generarCotizacionPdf } = require("../../pdf/cotizacion");
+//const { generarCotizacionPdfV2 } = require("../../pdf/cotizacion_v2");
+const path = require("path");
+const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 const { formatCodigo } = require("../../utils/codigo");
 const { getLimaDate, getLimaISODate } = require("../../utils/dates");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ESTADOS_ABIERTOS = new Set(["Borrador", "Enviada"]);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+const fs = require("fs");
 
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€ utils â”€â”€â”€â”€â”€â”€â”€â”€â”€
 function badRequest(message){ const err=new Error(message); err.status=400; return err; }
@@ -119,338 +123,52 @@ function uniqueJoin(values = [], joiner = " - ") {
   return uniq.join(joiner);
 }
 
-async function streamPdf({ id, res, body, query } = {}) {
+async function streamPdf({ id, res } = {}) {
   const cotizacionId = assertPositiveInt(id, "id");
 
   const detail = await repo.findByIdWithItems(cotizacionId);
-  if (!detail) { const err = new Error(`CotizaciÃ³n ${cotizacionId} no encontrada`); err.status = 404; throw err; }
+  if (!detail) {
+    const err = new Error(`Cotización ${cotizacionId} no encontrada`);
+    err.status = 404;
+    throw err;
+  }
+
+  // Por si acaso (tu SP ya devuelve arrays, pero igual)
   if (!Array.isArray(detail.eventos)) detail.eventos = [];
+  if (!Array.isArray(detail.items)) detail.items = [];
 
-  // Normaliza items segÃºn esquema actual del SP
-  const rawItems = Array.isArray(detail.items) ? detail.items : [];
-  const norm = rawItems.map((it) => {
-    const titulo = String(it.nombre || "").trim();
-    const descripcion = String(it.descripcion || "").trim();
-    const moneda = String(it.moneda || "USD").toUpperCase();
+  // ✅ Mapeo desde tu JSON real (usa servicioNombre / filmMin / trailerMin)
+  const templateData = mapSpJsonToTemplateData(detail);
 
-    const cantidadNum = Number(it.cantidad);
-    const precioUnitNum = Number(it.precioUnit);
-    const horasNum = Number(it.horas);
-    const personalNum = Number(it.personal);
-    const fotosImpresasNum = Number(it.fotosImpresas);
-    const trailerMinNum = Number(it.trailerMin);
-    const filmMinNum = Number(it.filmMin);
+  const templatePath = path.join(
+    process.cwd(),
+    "src",
+    "pdf",
+    "templates",
+    "cotizacion.docx"
+  );
 
-    return {
-      titulo: String(titulo || "").trim(),
-      descripcion: String(descripcion || "").trim(),
-      moneda,
-      cantidad: Number.isFinite(cantidadNum) ? cantidadNum : 1,
-      precioUnitario: Number.isFinite(precioUnitNum) ? precioUnitNum : 0,
-      horas: Number.isFinite(horasNum) ? horasNum : null,
-      notas: String(it.notas || "").trim(),
-      personal: Number.isFinite(personalNum) ? personalNum : null,
-      fotosImpresas: Number.isFinite(fotosImpresasNum) ? fotosImpresasNum : 0,
-      trailerMin: Number.isFinite(trailerMinNum) ? trailerMinNum : 0,
-      filmMin: Number.isFinite(filmMinNum) ? filmMinNum : 0,
-    };
+  if (!fs.existsSync(templatePath)) {
+  const err = new Error(`Template DOCX no encontrado: ${templatePath}`);
+  err.status = 500;
+  throw err;
+  }
+
+  const pdfBuffer = await generatePdfBufferFromDocxTemplate({
+    templatePath,
+    data: templateData,
   });
-
-  // Clasifica por heurÃ­stica simple
-  const foto = [], video = [], extrasFoto = [], extrasVideo = [];
-  const keywordCat = (t, d, fi, tr, fm) => {
-    if ((tr||0) > 0 || (fm||0) > 0) return "video";
-    if ((fi||0) > 0) return "foto";
-    const txt = `${t} ${d}`.toLowerCase();
-    if (/(video|filmaciÃ³n|filmacion|trÃ¡iler|trailer|reporte|4k|cÃ¡mara de video)/i.test(txt)) return "video";
-    if (/(foto|fotografÃ­a|fotografia|photobook|Ã¡lbum|album)/i.test(txt)) return "foto";
-    return "otro";
-  };
-  for (const it of norm) {
-    const cat = keywordCat(it.titulo, it.descripcion, it.fotosImpresas, it.trailerMin, it.filmMin);
-    const base = {
-      titulo: it.titulo,
-      bullets: toBullets(it.descripcion),
-      horas: it.horas ?? null,
-      notas: it.notas ?? "",
-      personal: it.personal ?? null,
-      cantidad: it.cantidad ?? 1,
-      precioUnitario: it.precioUnitario ?? 0,
-      moneda: it.moneda || "USD",
-    };
-    if (cat === "video") video.push(base);
-    else if (cat === "foto") foto.push(base);
-    else if (/video/i.test(it.titulo)) extrasVideo.push(base);
-    else extrasFoto.push(base);
-  }
-  if (foto.length === 0 && video.length === 0 && norm.length > 0) {
-    video.push(...norm.map(it => ({
-      titulo: it.titulo,
-      bullets: toBullets(it.descripcion),
-      horas: it.horas ?? null,
-      notas: it.notas ?? "",
-      personal: it.personal ?? null,
-      cantidad: it.cantidad ?? 1,
-      precioUnitario: it.precioUnitario ?? 0,
-      moneda: it.moneda || "USD"
-    })));
-  }
-
-  // Cabecera para PDF (DB + overrides desde body)
-  const cabecera = {
-    atencion: (detail.contacto && detail.contacto.nombre)
-      || detail.leadNombre
-      || (detail.lead && detail.lead.nombre)
-      || "Cliente",
-    evento: detail.cotizacion?.tipoEvento || detail.tipoEvento || "evento",
-    fechaEvento: detail.cotizacion?.fechaEvento || detail.fechaEvento || null,
-    lugar: detail.cotizacion?.lugar || detail.lugar || "",
-    // valores por defecto desde DBâ€¦
-    logoBase64: detail.company?.logoBase64 || null,
-    firmaBase64: detail.company?.firmaBase64 || null,
-    videoEquipo: detail.cotizacion?.videoEquipo || detail.videoEquipo || null,
-    createdAt: detail.cotizacion?.fechaCreacion || detail.fechaCreacion || new Date()
-  };
-
-  // â€¦y sobreescrituras desde el body del front (si vienen)
-  if (body && typeof body === "object") {
-    if (body.company) {
-      if (body.company.logoBase64) cabecera.logoBase64 = body.company.logoBase64;
-      if (body.company.firmaBase64) cabecera.firmaBase64 = body.company.firmaBase64;
-    }
-    if (body.videoEquipo) cabecera.videoEquipo = body.videoEquipo;
-  }
-
-  const selecciones = { foto, video, extrasFoto, extrasVideo };
-  const locaciones = Array.isArray(detail.eventos)
-    ? detail.eventos
-        .filter(Boolean)
-        .map((evt) => ({
-          fecha: evt.fecha ?? evt.eventoFecha ?? null,
-          hora: evt.hora ?? evt.eventoHora ?? null,
-          ubicacion: evt.ubicacion ?? evt.lugar ?? null,
-          direccion: evt.direccion ?? null,
-          notas: evt.notas ?? null,
-        }))
-    : [];
-
-  const versionToken = String(
-    (query && (query.version ?? query.pdfVersion))
-      ?? (body && (body.pdfVersion ?? body.version))
-      ?? ""
-  ).trim().toLowerCase();
-  let useV2 = true;
-  if (versionToken) {
-    if (["v1", "legacy", "classic", "old"].includes(versionToken)) {
-      useV2 = false;
-    } else if (["v2", "new", "testing"].includes(versionToken)) {
-      useV2 = true;
-    }
-  }
-
-  let buffer;
-  if (useV2) {
-    const clean = (arr = []) =>
-      arr
-        .map((text) => (typeof text === "string" ? text : text != null ? String(text) : ""))
-        .map((text) => text.trim())
-        .filter(Boolean);
-
-    const describeItem = (it = {}) => {
-      const qty = Number(it.cantidad);
-      const qtyPrefix = Number.isFinite(qty) && qty > 0 ? (qty === 1 ? "1 " : `${qty} `) : "";
-      const baseTitulo = it.titulo || "Servicio";
-      const base = `${qtyPrefix}${baseTitulo}`.trim();
-      const meta = [];
-      if (it.horas != null && it.horas !== "") meta.push(`${it.horas} h`);
-      if (it.personal != null && it.personal !== "") {
-        const count = Number(it.personal);
-        const label = Number.isFinite(count)
-          ? `${count} ${count === 1 ? "persona" : "personas"}`
-          : `Personal: ${it.personal}`;
-        meta.push(label);
-      }
-      const metaTxt = meta.length ? ` (${meta.join(" â€¢ ")})` : "";
-      const note = it.notas ? ` â€” ${it.notas}` : "";
-      return `${base}${metaTxt}${note}`.trim();
-    };
-
-    const allFotoItems = [...foto, ...extrasFoto];
-    const allVideoItems = [...video, ...extrasVideo];
-
-    const fotoRecursos = clean(allFotoItems.map(describeItem));
-    const fotoLocaciones = (() => {
-      const lines = [];
-      const eventos = locaciones.length ? locaciones : [{
-        fecha: cabecera.fechaEvento ?? null,
-        hora: null,
-        ubicacion: cabecera.lugar ?? null,
-        direccion: null,
-        notas: null,
-      }];
-      eventos.filter(Boolean).forEach((loc) => {
-        if (loc.fecha) {
-          const fechaTxt = formatDateDetail(loc.fecha);
-          const horaTxt = loc.hora ? ` ${loc.hora}` : "";
-          lines.push(`Fecha: ${fechaTxt}${horaTxt}`);
-        }
-        if (loc.ubicacion) lines.push(`Lugar: ${loc.ubicacion}`);
-        if (loc.direccion) lines.push(`DirecciÃ³n: ${loc.direccion}`);
-        if (loc.notas) lines.push(`Notas: ${loc.notas}`);
-      });
-      return clean(lines);
-    })();
-    const fotoProducto = (() => {
-      const bullets = clean(
-        allFotoItems.flatMap((it) => [
-          ...toBullets(it.descripcion),
-          ...toBullets(it.notas),
-        ])
-      );
-      return bullets.length ? bullets : ["Entrega segÃºn detalle del servicio fotogrÃ¡fico."];
-    })();
-
-    const videoEquipos = clean(
-      allVideoItems.flatMap((it) => [
-        describeItem(it),
-        ...toBullets(it.descripcion),
-      ])
-    );
-    const videoPersonal = clean(
-      allVideoItems.flatMap((it) => {
-        if (it.personal == null || it.personal === "") return [];
-        const count = Number(it.personal);
-        if (Number.isFinite(count)) {
-          return [`${count} ${count === 1 ? "integrante" : "integrantes"}`];
-        }
-        return [`Personal: ${it.personal}`];
-      })
-    );
-    const videoLocaciones = fotoLocaciones.length ? fotoLocaciones : clean([cabecera.lugar]);
-    const videoProducto = (() => {
-      const bullets = clean(
-        allVideoItems.flatMap((it) => [
-          ...toBullets(it.notas),
-          ...toBullets(it.descripcion),
-        ])
-      );
-      return bullets.length ? bullets : ["Producto final segÃºn alcance del servicio de video."];
-    })();
-
-    const sumImporte = (items = []) =>
-      items.reduce((acc, it) => {
-        const qty = Number(it.cantidad ?? 1);
-        const precio = Number(it.precioUnitario ?? 0);
-        if (Number.isFinite(qty) && Number.isFinite(precio)) {
-          return acc + qty * precio;
-        }
-        return acc;
-      }, 0);
-    const totalFoto = sumImporte(foto) + sumImporte(extrasFoto);
-    const totalVideo = sumImporte(video) + sumImporte(extrasVideo);
-    const monedaFoto = foto.find((it) => it.moneda)?.moneda
-      ?? extrasFoto.find((it) => it.moneda)?.moneda
-      ?? "USD";
-    const monedaVideo = video.find((it) => it.moneda)?.moneda
-      ?? extrasVideo.find((it) => it.moneda)?.moneda
-      ?? "USD";
-
-    const totalesData = [];
-    if (totalFoto > 0) {
-      totalesData.push({
-        label: "Total, por el servicio fotografÃ­a",
-        amount: totalFoto,
-        currency: monedaFoto,
-      });
-    }
-    if (totalVideo > 0) {
-      totalesData.push({
-        label: "Total, por el servicio video",
-        amount: totalVideo,
-        currency: monedaVideo,
-      });
-    }
-    totalesData.push("Precios expresados en dÃ³lares no incluye el IGV (18%)");
-
-    const fechasEvento = locaciones.map((loc) => formatDateDetail(loc.fecha)).filter(Boolean);
-    if (!fechasEvento.length && cabecera.fechaEvento) fechasEvento.push(formatDateDetail(cabecera.fechaEvento));
-    const lugaresEvento = locaciones.map((loc) => loc.ubicacion).filter(Boolean);
-    if (!lugaresEvento.length && cabecera.lugar) lugaresEvento.push(cabecera.lugar);
-
-    const cabeceraV2 = {
-      cliente:
-        body?.clienteNombre
-        ?? detail.cliente?.nombre
-        ?? detail.clienteNombre
-        ?? detail.company?.razonSocial
-        ?? cabecera.atencion
-        ?? "Cliente",
-      atencion:
-        body?.atencionNombre
-        ?? cabecera.atencion
-        ?? detail.contacto?.nombre
-        ?? "Cliente",
-      evento: body?.eventoNombre ?? cabecera.evento ?? "Evento",
-      eventoDetalle: uniqueJoin(
-        [
-          uniqueJoin(fechasEvento, " y "),
-          uniqueJoin(lugaresEvento, ", "),
-        ].filter(Boolean),
-        " â€“ "
-      ),
-    };
-
-    const despedidaTexto =
-      body?.pdfDespedida
-      ?? body?.despedida
-      ?? detail.cotizacion?.mensajeDespedida
-      ?? "Sin otro en particular nos despedimos agradeciendo de antemano por la confianza recibida.";
-
-    const fechaFirmado =
-      body?.pdfFecha
-      ?? body?.fechaTexto
-      ?? formatDateLong(cabecera.createdAt || new Date());
-
-    const firmaNombre =
-      body?.pdfFirma
-      ?? body?.firmaNombre
-      ?? detail.company?.representante
-      ?? "Edwin De La Cruz";
-
-    const footerInfo = {};
-    const footerLine1 = body?.footer?.line1 ?? detail.company?.footerLinea1;
-    const footerLine2 = body?.footer?.line2 ?? detail.company?.footerLinea2;
-    if (footerLine1) footerInfo.line1 = footerLine1;
-    if (footerLine2) footerInfo.line2 = footerLine2;
-
-    buffer = await generarCotizacionPdfV2({
-      cabecera: cabeceraV2,
-      fotografia: {
-        recursos: fotoRecursos,
-        locaciones: fotoLocaciones,
-        productoFinal: fotoProducto,
-      },
-      video: {
-        equiposFilmacion: videoEquipos,
-        personal: videoPersonal,
-        locaciones: videoLocaciones,
-        productoFinal: videoProducto,
-      },
-      totales: totalesData,
-      despedida: despedidaTexto,
-      fechaTexto: fechaFirmado,
-      firmaNombre,
-      footer: footerInfo,
-    });
-  } else {
-    buffer = await generarCotizacionPdf({ cabecera, selecciones, locaciones });
-  }
 
   res.status(200);
   res.setHeader("Content-Type", "application/pdf");
-  res.setHeader("Content-Disposition", `inline; filename="cotizacion_${cotizacionId}.pdf"`);
-  res.end(buffer);
+  res.setHeader(
+    "Content-Disposition",
+    `attachment; filename="cotizacion_${cotizacionId}.pdf"`
+  );
+  res.end(pdfBuffer);
 }
+
+
 
 async function migrarAPedido(id, { empleadoId, nombrePedido } = {}) {
   const cotizacionId = assertPositiveInt(id, "id");
@@ -575,6 +293,155 @@ async function cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) 
 
   return await repo.cambiarEstado(nId, { estadoNuevo: nuevo, estadoEsperado: esperado });
 }
+
+function normalizeText(s) {
+  return String(s || "").trim();
+}
+
+function classifyItem(it) {
+  const exs = it?.eventoServicio;
+  const servicioNombre = normalizeText(exs?.servicioNombre || it?.nombre).toLowerCase();
+
+  // reglas fuertes por minutos
+  const trailer = Number(it?.trailerMin ?? exs?.trailerMin ?? 0);
+  const film = Number(it?.filmMin ?? exs?.filmMin ?? 0);
+  if (trailer > 0 || film > 0) return "video";
+
+  if (servicioNombre.includes("video") || servicioNombre.includes("film")) return "video";
+  if (servicioNombre.includes("foto") || servicioNombre.includes("fotograf")) return "foto";
+
+  // fallback
+  return "foto";
+}
+
+function dedupeByKey(arr, keyFn) {
+  const seen = new Set();
+  const out = [];
+  for (const x of arr) {
+    const k = keyFn(x);
+    if (!k || seen.has(k)) continue;
+    seen.add(k);
+    out.push(x);
+  }
+  return out;
+}
+
+function mapSpJsonToTemplateData(detail) {
+  const cot = detail?.cotizacion || {};
+  const contacto = detail?.contacto || {};
+  const items = Array.isArray(detail?.items) ? detail.items : [];
+  const eventos = Array.isArray(detail?.eventos) ? detail.eventos : [];
+
+  const fotoItems = [];
+  const videoItems = [];
+
+  for (const it of items) {
+    const kind = classifyItem(it);
+    if (kind === "video") videoItems.push(it);
+    else fotoItems.push(it);
+  }
+
+  const sumImporte = (arr) =>
+    arr.reduce((acc, it) => {
+      const subtotal = Number(it?.subtotal);
+      if (Number.isFinite(subtotal)) return acc + subtotal;
+      const qty = Number(it?.cantidad ?? 1);
+      const pu = Number(it?.precioUnit ?? 0);
+      return (Number.isFinite(qty) && Number.isFinite(pu)) ? acc + qty * pu : acc;
+    }, 0);
+
+  // ===== Equipos y personal (desde eventoServicio.equipos / eventoServicio.staff) =====
+  const collectEquipos = (arr) => {
+    const out = [];
+    for (const it of arr) {
+      const equipos = it?.eventoServicio?.equipos;
+      if (!Array.isArray(equipos)) continue;
+      for (const eq of equipos) {
+        const nombre = normalizeText(eq?.tipoEquipo) || "Equipo";
+        const cantidad = Number(eq?.cantidad ?? 0);
+        const notas = normalizeText(eq?.notas);
+        const detalle = `${cantidad ? "x" + cantidad : ""}${notas ? " — " + notas : ""}`.trim();
+        out.push({ nombre, detalle });
+      }
+    }
+    // dedupe por (nombre+detalle)
+    return dedupeByKey(out, (x) => `${x.nombre}|${x.detalle}`);
+  };
+
+  const collectPersonal = (arr) => {
+    const out = [];
+    for (const it of arr) {
+      const staff = it?.eventoServicio?.staff;
+      if (!Array.isArray(staff)) continue;
+      for (const st of staff) {
+        const rol = normalizeText(st?.rol) || "Staff";
+        const cantidad = Number(st?.cantidad ?? 0);
+        // tu template: {{nombre}} ({{rol}})
+        out.push({
+          nombre: cantidad ? `${cantidad} ${rol}` : rol,
+          rol: "Personal",
+        });
+      }
+    }
+    return dedupeByKey(out, (x) => `${x.nombre}|${x.rol}`);
+  };
+
+  // ===== Locaciones =====
+  const locs = eventos
+    .map((e) => normalizeText(e?.ubicacion))
+    .filter(Boolean);
+
+  const fotoLocaciones = dedupeByKey(locs, (x) => x).map((nombre) => ({ nombre }));
+  const videoLocaciones = fotoLocaciones;
+
+  // ===== Servicios / Entregables =====
+  const toEntregable = (it) => {
+    // usamos el nombre del item como “servicio” + descripción corta si quieres
+    const nombre = normalizeText(it?.nombre) || "Servicio";
+    const desc = normalizeText(it?.descripcion);
+    return { descripcion: desc ? `${nombre} — ${desc}` : nombre };
+  };
+
+  const fotoEntregables = fotoItems.map(toEntregable);
+  const videoEntregables = videoItems.map(toEntregable);
+
+  // ===== Fechas bonitas =====
+  const fechaPrincipal = cot?.fechaEvento || (eventos[0]?.fecha ?? "");
+  const eventoFechaRango = normalizeText(fechaPrincipal); // si quieres lo formateamos con tus helpers
+
+  return {
+    // Header
+    clienteEmpresa: normalizeText(contacto?.nombre) || "Cliente",
+    clienteContacto: normalizeText(contacto?.nombre) || "Cliente",
+    eventoNombre: normalizeText(cot?.tipoEvento) || "Evento",
+    eventoFechaRango,
+
+    // Foto
+    fotoEquipos: collectEquipos(fotoItems),
+    fotoPersonal: collectPersonal(fotoItems),
+    fotoLocaciones,
+    fotoEntregables,
+    fotoCantidadFotos: "",
+    fotoFecha: eventoFechaRango,
+    fotoLugar: normalizeText(cot?.lugar) || normalizeText(eventos[0]?.ubicacion) || "",
+    fotoHorario: normalizeText(eventos[0]?.hora) || "",
+
+    // Video
+    videoEquipos: collectEquipos(videoItems),
+    videoPersonal: collectPersonal(videoItems),
+    videoLocaciones,
+    videoEntregables,
+    videoNotas: "",
+
+    // Totales (en tu Word el $ es fijo)
+    totalFoto: sumImporte(fotoItems).toFixed(2),
+    totalVideo: sumImporte(videoItems).toFixed(2),
+
+    // Fecha emisión (si quieres bonita, usa formatDateLong)
+    fechaEmisionLarga: cot?.fechaCreacion ? formatDateLong(cot.fechaCreacion) : formatDateLong(new Date()),
+  };
+}
+
 
 
 module.exports = {

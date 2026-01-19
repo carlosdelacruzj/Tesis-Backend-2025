@@ -77,6 +77,19 @@ async function updatePedido(req, res, next) {
   }
 }
 
+async function downloadContratoPdf(req, res, next) {
+  try {
+    await service.streamContratoPdf({
+      id: req.params.id,
+      res,
+      query: req.query || {},
+      body: req.body || {}, // si luego quieres overrides (adelanto/condición/etc.)
+    });
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAllPedido,
   getIndexPedido,
@@ -85,4 +98,5 @@ module.exports = {
   getLastEstadoPedido,
   createPedido,
   updatePedido,
+  downloadContratoPdf,
 };

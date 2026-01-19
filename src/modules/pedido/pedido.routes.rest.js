@@ -115,4 +115,25 @@ router.post("/", ctrl.createPedido);
  */
 router.put("/:id", ctrl.updatePedido);
 
+/**
+ * @swagger
+ * /pedido/{id}/contrato/pdf:
+ *   post:
+ *     tags: [pedido]
+ *     summary: Genera el PDF del contrato del pedido
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: false
+ *     responses:
+ *       200:
+ *         description: PDF generado
+ *         content:
+ *           application/pdf: {}
+ */
+router.post("/:id/contrato/pdf", ctrl.downloadContratoPdf);
+
 module.exports = router;

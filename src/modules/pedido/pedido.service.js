@@ -1,6 +1,8 @@
 // services/pedido.service.js
 const repo = require("./pedido.repository");
 const eventoServicioRepo = require("../eventos_servicios/eventos_servicios.repository");
+const path = require("path");
+const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HMS = /^\d{2}:\d{2}(:\d{2})?$/;
@@ -411,6 +413,149 @@ async function getRequerimientos(pedidoId) {
   };
 }
 
+// ===================== CONTRATO PDF (DOCX -> PDF) =====================
+
+function normalizeText(v) {
+  if (v == null) return "";
+  return String(v).trim();
+}
+
+function money2(n) {
+  const x = Number(n || 0);
+  return Number.isFinite(x) ? x.toFixed(2) : "0.00";
+}
+
+function sumTotal(items = []) {
+  return (items || []).reduce((acc, it) => {
+    // si existe subtotal en BD úsalo
+    const subtotal = Number(it?.subtotal);
+    if (Number.isFinite(subtotal)) return acc + subtotal;
+
+    const pu = Number(it?.precioUnit ?? 0);
+    const qty = Number(it?.cantidad ?? 1);
+    const desc = Number(it?.descuento ?? 0);
+    const rec = Number(it?.recargo ?? 0);
+
+    const base = (Number.isFinite(pu) && Number.isFinite(qty)) ? pu * qty : 0;
+    const totalLine = base - (Number.isFinite(desc) ? desc : 0) + (Number.isFinite(rec) ? rec : 0);
+
+    return acc + (Number.isFinite(totalLine) ? totalLine : 0);
+  }, 0);
+}
+
+function mapPedidoToContratoTemplateData(detail, body = {}) {
+  const pedido = detail?.pedido || {};
+  const eventos = Array.isArray(detail?.eventos) ? detail.eventos : [];
+  const items = Array.isArray(detail?.items) ? detail.items : [];
+
+  // ===== Contratante (cliente) =====
+  // según tu repo, a veces viene cliente dentro de pedido
+  const cli = pedido?.cliente || {};
+  const nombreCompleto =
+    normalizeText(cli?.nombreCompleto)
+    || normalizeText(cli?.nombre)
+    || normalizeText(cli?.razonSocial)
+    || normalizeText(`${cli?.nombres || ""} ${cli?.apellidos || ""}`)
+    || "Cliente";
+
+  const contratanteDoc =
+    normalizeText(cli?.documento)
+    || normalizeText(cli?.dni)
+    || normalizeText(cli?.ruc)
+    || "";
+
+  // ===== Tipo evento =====
+  // como aún no hay “tipoEvento” directo, usamos nombrePedido o fallback
+  const tipoEventoTitulo =
+    normalizeText(pedido?.nombrePedido) || "EVENTO";
+
+  // ===== Agenda =====
+  const agenda = (eventos.length ? eventos : [null]).map((e) => {
+    if (!e) return { item: "Fecha / hora / ubicación por confirmar." };
+
+    const fecha = normalizeText(e?.fecha);
+    const hora = normalizeText(e?.hora);
+    const ubi = normalizeText(e?.ubicacion);
+    const dir = normalizeText(e?.direccion);
+
+    const parts = [
+      fecha && `Fecha: ${fecha}`,
+      hora && `Hora: ${hora.slice(0, 5)}`,
+      ubi && `Lugar: ${ubi}`,
+      dir && `Dirección: ${dir}`,
+    ].filter(Boolean);
+
+    return { item: parts.join(" | ") || "Fecha / hora / ubicación por confirmar." };
+  });
+
+  // ===== Entregables =====
+  const entregables = (items.length ? items : [null]).map((it) => {
+    if (!it) return { item: "Entregables por confirmar." };
+
+    const nombre = normalizeText(it?.nombre) || "Servicio";
+    const desc = normalizeText(it?.descripcion);
+    return { item: desc ? `${nombre} — ${desc}` : nombre };
+  });
+
+  // ===== Montos =====
+  const total = sumTotal(items);
+
+  // Si no mandas nada desde front, usamos 50% adelanto por defecto
+  const adelanto =
+    body?.montoAdelanto != null ? Number(body.montoAdelanto) : total * 0.5;
+
+  const saldo =
+    body?.montoSaldo != null ? Number(body.montoSaldo) : (total - adelanto);
+
+  const condicionSaldo =
+    normalizeText(body?.condicionSaldo) || "antes del evento";
+
+  return {
+    tipoEventoTitulo,
+    contratanteNombre: nombreCompleto,
+    contratanteDoc,
+
+    agenda,
+    entregables,
+
+    montoTotal: money2(total),
+    montoAdelanto: money2(adelanto),
+    montoSaldo: money2(saldo),
+    condicionSaldo,
+  };
+}
+
+async function streamContratoPdf({ id, res, body, query } = {}) {
+  const pedidoId = assertPositiveNumber(id, "id");
+
+  const detail = await repo.getById(pedidoId);
+  if (!detail) {
+    const e = new Error(`Pedido con id ${pedidoId} no encontrado`);
+    e.status = 404;
+    throw e;
+  }
+
+  // Ruta EXACTA dentro del proyecto (portable)
+  // service está en src/modules/pedido, así que subimos a src y bajamos a pdf/templates
+  const templatePath = path.join(__dirname, "../../pdf/templates/contrato.docx");
+
+  const data = mapPedidoToContratoTemplateData(detail, body);
+
+  const pdfBuffer = await generatePdfBufferFromDocxTemplate({
+    templatePath,
+    data,
+  });
+
+  res.status(200);
+  res.setHeader("Content-Type", "application/pdf");
+  res.setHeader(
+    "Content-Disposition",
+    `inline; filename="contrato_pedido_${pedidoId}.pdf"`
+  );
+  res.end(pdfBuffer);
+}
+
+
 module.exports = {
   listAllPedidos,
   listIndexPedidos,
@@ -419,4 +564,5 @@ module.exports = {
   createNewPedido,
   updatePedidoById,
   getRequerimientos,
+  streamContratoPdf,
 };
