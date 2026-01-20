@@ -459,6 +459,23 @@ function normalizeText(v) {
   return String(v).trim();
 }
 
+function classifyItem(it) {
+  const exs = it?.eventoServicio;
+  const servicioNombre = normalizeText(exs?.servicioNombre || it?.nombre).toLowerCase();
+
+  // reglas fuertes por minutos (video)
+  const trailer = Number(it?.trailerMin ?? exs?.trailerMin ?? 0);
+  const film = Number(it?.filmMin ?? exs?.filmMin ?? 0);
+  if (trailer > 0 || film > 0) return "video";
+
+  // keywords
+  if (servicioNombre.includes("video") || servicioNombre.includes("film")) return "video";
+  if (servicioNombre.includes("foto") || servicioNombre.includes("fotograf")) return "foto";
+
+  // fallback
+  return "foto";
+}
+
 function money2(n) {
   const x = Number(n || 0);
   return Number.isFinite(x) ? x.toFixed(2) : "0.00";
@@ -486,11 +503,13 @@ function mapPedidoToContratoTemplateData(detail, body = {}) {
   const pedido = detail?.pedido || {};
   const eventos = Array.isArray(detail?.eventos) ? detail.eventos : [];
   const items = Array.isArray(detail?.items) ? detail.items : [];
-    // ===== separar items =====
+
+  // ===== separar items =====
   const fotoItems = [];
   const videoItems = [];
+
   for (const it of items) {
-    const kind = classifyItem(it); // usa tu helper existente
+    const kind = classifyItem(it);
     if (kind === "video") videoItems.push(it);
     else fotoItems.push(it);
   }
@@ -498,22 +517,22 @@ function mapPedidoToContratoTemplateData(detail, body = {}) {
   const hasFoto = fotoItems.length > 0;
   const hasVideo = videoItems.length > 0;
 
-  // ===== título dinámico =====
+  // ===== título + texto dinámico =====
   let tituloContrato = "CONTRATO";
   let textoServicioContrato = "tomas fotográficas y video";
 
   if (hasFoto && hasVideo) {
-  tituloContrato = "CONTRATO DE FOTOGRAFÍA Y VIDEO";
-  textoServicioContrato = "tomas fotográficas y video";
+    tituloContrato = "CONTRATO DE FOTOGRAFÍA Y VIDEO";
+    textoServicioContrato = "tomas fotográficas y video";
   } else if (hasFoto) {
-  tituloContrato = "CONTRATO DE FOTOGRAFÍA";
-  textoServicioContrato = "tomas fotográficas";
+    tituloContrato = "CONTRATO DE FOTOGRAFÍA";
+    textoServicioContrato = "tomas fotográficas";
   } else if (hasVideo) {
-  tituloContrato = "CONTRATO DE VIDEO";
-  textoServicioContrato = "tomas de video";
+    tituloContrato = "CONTRATO DE VIDEO";
+    textoServicioContrato = "tomas de video";
   }
 
-  // ===== Contratante (cliente) =====
+  // ===== Contratante =====
   const cli = pedido?.cliente || {};
   const nombreCompleto =
     normalizeText(cli?.nombreCompleto) ||
@@ -553,114 +572,10 @@ function mapPedidoToContratoTemplateData(detail, body = {}) {
   });
 
   // ===== Entregables =====
-  const entregables = (items.length ? items : [null]).map((it) => {
-    if (!it) return { item: "Entregables por confirmar." };
-    const nombre = normalizeText(it?.nombre) || "Servicio";
-    const desc = normalizeText(it?.descripcion);
-    return { item: desc ? `${nombre} — ${desc}` : nombre };
-  });
-
-  // ===== Montos =====
-  const total = sumTotal(items); // tu helper
-  const adelanto = body?.montoAdelanto != null ? Number(body.montoAdelanto) : total * 0.5;
-  const saldo = body?.montoSaldo != null ? Number(body.montoSaldo) : (total - adelanto);
-  const condicionSaldo = normalizeText(body?.condicionSaldo) || "antes del evento";
-
-  return {
-    // 👇 IMPORTANTE: tu docx debe usar {tituloContrato}
-    tituloContrato,
-    textoServicioContrato,
-    mostrarFoto: hasFoto,
-    mostrarVideo: hasVideo,
-
-    contratanteNombre: nombreCompleto,
-    contratanteDoc,
-
-    agenda,
-    entregables,
-
-    montoTotal: money2(total),
-    montoAdelanto: money2(adelanto),
-    montoSaldo: money2(saldo),
-    condicionSaldo,
-  };
-}function mapPedidoToContratoTemplateData(detail, body = {}) {
-  const pedido = detail?.pedido || {};
-  const eventos = Array.isArray(detail?.eventos) ? detail.eventos : [];
-  const items = Array.isArray(detail?.items) ? detail.items : [];
-
-  // ===== separar items =====
-  const fotoItems = [];
-  const videoItems = [];
-
-  for (const it of items) {
-    const kind = classifyItem(it); // usa tu helper existente
-    if (kind === "video") videoItems.push(it);
-    else fotoItems.push(it);
-  }
-
-  const hasFoto = fotoItems.length > 0;
-  const hasVideo = videoItems.length > 0;
-
-  // ===== título + texto dinámico (para que el contrato “hable” correcto) =====
-  let tituloContrato = "CONTRATO";
-  let textoServicioContrato = "tomas fotográficas y video";
-
-  if (hasFoto && hasVideo) {
-    tituloContrato = "CONTRATO DE FOTOGRAFÍA Y VIDEO";
-    textoServicioContrato = "tomas fotográficas y video";
-  } else if (hasFoto) {
-    tituloContrato = "CONTRATO DE FOTOGRAFÍA";
-    textoServicioContrato = "tomas fotográficas";
-  } else if (hasVideo) {
-    tituloContrato = "CONTRATO DE VIDEO";
-    textoServicioContrato = "tomas de video";
-  }
-
-  // ===== Contratante (cliente) =====
-  const cli = pedido?.cliente || {};
-  const nombreCompleto =
-    normalizeText(cli?.nombreCompleto) ||
-    normalizeText(cli?.nombreContacto) ||
-    normalizeText(cli?.nombre) ||
-    normalizeText(cli?.razonSocial) ||
-    normalizeText(`${cli?.nombres || ""} ${cli?.apellidos || ""}`) ||
-    "Cliente";
-
-  const contratanteDoc =
-    normalizeText(cli?.numeroDocumento) ||
-    normalizeText(cli?.documento) ||
-    normalizeText(cli?.dni) ||
-    normalizeText(cli?.ruc) ||
-    "";
-
-  // ===== Tipo evento =====
-  const tipoEventoTitulo = normalizeText(pedido?.nombrePedido) || "EVENTO";
-
-  // ===== Agenda =====
-  const agenda = (eventos.length ? eventos : [null]).map((e) => {
-    if (!e) return { item: "Fecha / hora / ubicación por confirmar." };
-
-    const fecha = normalizeText(e?.fecha);
-    const hora = normalizeText(e?.hora);
-    const ubi = normalizeText(e?.ubicacion);
-    const dir = normalizeText(e?.direccion);
-
-    const parts = [
-      fecha && `Fecha: ${fecha}`,
-      hora && `Hora: ${hora.slice(0, 5)}`,
-      ubi && `Lugar: ${ubi}`,
-      dir && `Dirección: ${dir}`,
-    ].filter(Boolean);
-
-    return {
-      item: parts.join(" | ") || "Fecha / hora / ubicación por confirmar.",
-    };
-  });
-
-  // ===== Entregables (si quieres SOLO los del tipo que aplica, usa fotoItems/videoItems) =====
-  // Si el contrato debe listar solo lo contratado:
-  const itemsContrato = hasFoto && !hasVideo ? fotoItems : hasVideo && !hasFoto ? videoItems : items;
+  const itemsContrato =
+    hasFoto && !hasVideo ? fotoItems :
+    hasVideo && !hasFoto ? videoItems :
+    items;
 
   const entregables = (itemsContrato.length ? itemsContrato : [null]).map((it) => {
     if (!it) return { item: "Entregables por confirmar." };
@@ -670,25 +585,17 @@ function mapPedidoToContratoTemplateData(detail, body = {}) {
   });
 
   // ===== Montos =====
-  // Si el contrato es solo foto o solo video, suma solo esos items; si es mixto, suma todo.
-  const totalBase = itemsContrato;
-  const total = sumTotal(totalBase); // tu helper
-
-  const adelanto =
-    body?.montoAdelanto != null ? Number(body.montoAdelanto) : total * 0.5;
-
-  const saldo =
-    body?.montoSaldo != null ? Number(body.montoSaldo) : total - adelanto;
-
+  const total = sumTotal(itemsContrato);
+  const adelanto = body?.montoAdelanto != null ? Number(body.montoAdelanto) : total * 0.5;
+  const saldo = body?.montoSaldo != null ? Number(body.montoSaldo) : total - adelanto;
   const condicionSaldo = normalizeText(body?.condicionSaldo) || "antes del evento";
 
   return {
-    // ==== Para DOCX ====
-    tituloContrato,          // {tituloContrato}
-    tipoEventoTitulo,        // ({tipoEventoTitulo})
-    textoServicioContrato,   // úsalo en el párrafo: "contrato de {textoServicioContrato}..."
-    mostrarFoto: hasFoto,    // {#mostrarFoto} ... {/mostrarFoto}
-    mostrarVideo: hasVideo,  // {#mostrarVideo} ... {/mostrarVideo}
+    tituloContrato,         // {tituloContrato}
+    tipoEventoTitulo,       // ({tipoEventoTitulo})
+    textoServicioContrato,  // úsalo en el párrafo
+    mostrarFoto: hasFoto,
+    mostrarVideo: hasVideo,
 
     contratanteNombre: nombreCompleto,
     contratanteDoc,

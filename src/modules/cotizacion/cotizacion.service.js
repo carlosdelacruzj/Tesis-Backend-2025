@@ -438,12 +438,12 @@ function mapSpJsonToTemplateData(detail) {
   const items = Array.isArray(detail?.items) ? detail.items : [];
   const eventos = Array.isArray(detail?.eventos) ? detail.eventos : [];
 
-  // ===== separar items =====
+  // ===== separar items (PRIMERO) =====
   const fotoItems = [];
   const videoItems = [];
 
   for (const it of items) {
-    const kind = classifyItem(it); // tu helper existente
+    const kind = classifyItem(it);
     if (kind === "video") videoItems.push(it);
     else fotoItems.push(it);
   }
@@ -451,11 +451,16 @@ function mapSpJsonToTemplateData(detail) {
   const hasFoto = fotoItems.length > 0;
   const hasVideo = videoItems.length > 0;
 
+  // ===== Texto “fotografía / video” =====
+  let servicioTexto = "fotografía";
+  if (hasFoto && hasVideo) servicioTexto = "fotografía y video";
+  else if (!hasFoto && hasVideo) servicioTexto = "video";
+
   // ===== RUC => mostrar Sres. + razón social =====
   const tipoDoc = String(contacto?.tipoDocumento || "").toUpperCase();
   const esRuc = tipoDoc === "RUC";
 
-  // ===== títulos dinámicos =====
+  // ===== títulos dinámicos (si los usas en el DOCX) =====
   let tituloCotizacion = "Cotización";
   let textoServicioCotizacion = "fotografía y video";
 
@@ -474,12 +479,13 @@ function mapSpJsonToTemplateData(detail) {
     arr.reduce((acc, it) => {
       const subtotal = Number(it?.subtotal);
       if (Number.isFinite(subtotal)) return acc + subtotal;
+
       const qty = Number(it?.cantidad ?? 1);
       const pu = Number(it?.precioUnit ?? 0);
       return Number.isFinite(qty) && Number.isFinite(pu) ? acc + qty * pu : acc;
     }, 0);
 
-  // ===== Equipos y personal (desde eventoServicio.equipos / eventoServicio.staff) =====
+  // ===== Equipos y personal =====
   const collectEquipos = (arr) => {
     const out = [];
     for (const it of arr) {
@@ -516,10 +522,7 @@ function mapSpJsonToTemplateData(detail) {
   };
 
   // ===== Locaciones =====
-  const locs = eventos
-    .map((e) => normalizeText(e?.ubicacion))
-    .filter(Boolean);
-
+  const locs = eventos.map((e) => normalizeText(e?.ubicacion)).filter(Boolean);
   const fotoLocaciones = dedupeByKey(locs, (x) => x).map((nombre) => ({ nombre }));
   const videoLocaciones = fotoLocaciones;
 
@@ -538,19 +541,21 @@ function mapSpJsonToTemplateData(detail) {
   const eventoFechaRango = normalizeText(fechaPrincipal);
 
   // ===== ClienteEmpresa / ClienteContacto =====
-  const clienteEmpresa = esRuc
-    ? (normalizeText(contacto?.razonSocial) || "")
-    : "";
+  const clienteEmpresa = esRuc ? (normalizeText(contacto?.razonSocial) || "") : "";
 
   const clienteContacto = esRuc
     ? (normalizeText(contacto?.nombreContacto) || normalizeText(contacto?.nombre) || "Cliente")
     : (normalizeText(contacto?.nombre) || "Cliente");
 
   return {
-    // Header
+    // (si los usas en el Word)
     tituloCotizacion,
     textoServicioCotizacion,
 
+    // ✅ esta es la que vas a poner en la frase:
+    servicioTexto,
+
+    // ✅ para el bloque {#mostrarSres}
     mostrarSres: esRuc,
     clienteEmpresa,
     clienteContacto,
@@ -558,7 +563,7 @@ function mapSpJsonToTemplateData(detail) {
     eventoNombre: normalizeText(cot?.tipoEvento) || "Evento",
     eventoFechaRango,
 
-    // Mostrar secciones
+    // (por si luego quieres ocultar secciones)
     mostrarFoto: hasFoto,
     mostrarVideo: hasVideo,
 
@@ -583,15 +588,11 @@ function mapSpJsonToTemplateData(detail) {
     totalFoto: sumImporte(fotoItems).toFixed(2),
     totalVideo: sumImporte(videoItems).toFixed(2),
 
-    // Fecha emisión
     fechaEmisionLarga: cot?.fechaCreacion
       ? formatDateLong(cot.fechaCreacion)
       : formatDateLong(new Date()),
   };
 }
-
-
-
 
 module.exports = {
   list,
