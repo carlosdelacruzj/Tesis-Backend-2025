@@ -114,6 +114,9 @@
  *               ubicacion: { type: string, nullable: true, example: "Hotel Central" }
  *               direccion: { type: string, nullable: true, example: "Av. Principal 123" }
  *               notas:     { type: string, nullable: true, example: "Ingreso por lobby" }
+*         serviciosFechas:
+*           type: array
+*           items: { $ref: '#/components/schemas/ServicioFechaOutput' }
  *       example:
  *         idCotizacion: 1
  *         lead:
@@ -255,6 +258,20 @@
  *             nombre: "Carlos"
 *             celular: "999663047"
 *
+*     ServicioFechaInput:
+*       type: object
+*       description: Asignacion de servicio a fecha (dia real).
+*       properties:
+*         itemTmpId:             { type: string, nullable: true, example: "i1" }
+*         idCotizacionServicio: { type: integer, nullable: true, example: 25 }
+*         fecha:                { type: string, format: date, example: "2026-01-28" }
+*
+*     ServicioFechaOutput:
+*       type: object
+*       properties:
+*         idCotizacionServicio: { type: integer, example: 25 }
+*         fecha:                { type: string, format: date, example: "2026-01-28" }
+*
  *     # ===================== MIGRACIÓN A PEDIDO =====================
  *     CotizacionMigrarPedidoRequest:
  *       type: object
@@ -362,6 +379,10 @@
  *               ubicacion: "Sesion en estudio"
  *               direccion: "Calle 5 #222"
  *               notas: null
+*         serviciosFechas:
+*           type: array
+*           description: Mapea servicios a fechas por itemTmpId o idCotizacionServicio.
+*           items: { $ref: '#/components/schemas/ServicioFechaInput' }
  *
  *     # ===================== (NUEVO) RESPUESTA CREATE ADMIN V3 =====================
  *     CotizacionCreateAdminResponse:

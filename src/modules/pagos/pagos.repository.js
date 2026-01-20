@@ -114,6 +114,40 @@ async function updatePedidoEstadoPago(pedidoId, estadoPagoId) {
   return result.affectedRows > 0;
 }
 
+async function marcarPedidosPagoVencido({
+  fechaCorte,
+  pendienteId,
+  vencidoId,
+  pedidoExpiradoId,
+}) {
+  const [result] = await pool.query(
+    `UPDATE T_Pedido p
+     JOIN V_Pedido_Saldos s ON s.PedidoId = p.PK_P_Cod
+     JOIN (
+       SELECT FK_P_Cod AS pedidoId, MIN(PE_Fecha) AS fechaEvento
+       FROM T_PedidoEvento
+       GROUP BY FK_P_Cod
+     ) ev ON ev.pedidoId = p.PK_P_Cod
+     SET p.FK_ESP_Cod = ?,
+         p.FK_EP_Cod = ?
+     WHERE p.FK_ESP_Cod = ?
+       AND COALESCE(s.MontoAbonado, 0) <= 0
+       AND ev.fechaEvento IS NOT NULL
+       AND (
+         ev.fechaEvento <= ?
+         OR ev.fechaEvento <= DATE_ADD(?, INTERVAL 7 DAY)
+       )`,
+    [
+      Number(vencidoId),
+      Number(pedidoExpiradoId),
+      Number(pendienteId),
+      fechaCorte,
+      fechaCorte,
+    ]
+  );
+  return result.affectedRows || 0;
+}
+
 // === Crear voucher ===
 // Si tu SP admite 'fecha', acá agregas ese parámetro (y en service/controller lo enviamos)
 async function insertVoucher({
@@ -277,6 +311,7 @@ module.exports = {
   updateVoucher,
   updatePedidoEstadoContratadoByIds,
   updatePedidoEstadoPago,
+  marcarPedidosPagoVencido,
   deleteVoucher,
 };
 
