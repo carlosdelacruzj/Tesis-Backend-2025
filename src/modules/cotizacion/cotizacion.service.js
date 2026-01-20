@@ -343,39 +343,38 @@ function mapSpJsonToTemplateData(detail) {
   const items = Array.isArray(detail?.items) ? detail.items : [];
   const eventos = Array.isArray(detail?.eventos) ? detail.eventos : [];
 
-  // ===== Header condicional (RUC) =====
-  const tipoDoc = String(contacto?.tipoDocumento || "").trim().toUpperCase();
-  const esRuc = tipoDoc === "RUC";
-
-  // Si es RUC: Sres = razon social, Atencion = nombre del representante
-  const razonSocial =
-    normalizeText(contacto?.razonSocial) ||
-    normalizeText(contacto?.razon_social) ||
-    normalizeText(contacto?.cliRazonSocial) ||
-    "";
-
-  const nombreRepresentante =
-    normalizeText(contacto?.nombreContacto) ||
-    normalizeText(contacto?.contactoNombre) ||
-    "";
-
-  const nombreNormal = normalizeText(contacto?.nombre) || "Cliente";
-
-  const mostrarSres = esRuc && Boolean(razonSocial);
-  const clienteEmpresa = mostrarSres ? razonSocial : "";
-  const clienteContacto = esRuc ? (nombreRepresentante || nombreNormal) : nombreNormal;
-
-  // ===== Separar items foto/video =====
+  // ===== separar items =====
   const fotoItems = [];
   const videoItems = [];
 
   for (const it of items) {
-    const kind = classifyItem(it);
+    const kind = classifyItem(it); // tu helper existente
     if (kind === "video") videoItems.push(it);
     else fotoItems.push(it);
   }
 
-  // ===== Totales =====
+  const hasFoto = fotoItems.length > 0;
+  const hasVideo = videoItems.length > 0;
+
+  // ===== RUC => mostrar Sres. + razón social =====
+  const tipoDoc = String(contacto?.tipoDocumento || "").toUpperCase();
+  const esRuc = tipoDoc === "RUC";
+
+  // ===== títulos dinámicos =====
+  let tituloCotizacion = "Cotización";
+  let textoServicioCotizacion = "fotografía y video";
+
+  if (hasFoto && hasVideo) {
+    tituloCotizacion = "Cotización para tomas fotográficas y video";
+    textoServicioCotizacion = "fotografía y video";
+  } else if (hasFoto) {
+    tituloCotizacion = "Cotización para tomas fotográficas";
+    textoServicioCotizacion = "fotografía";
+  } else if (hasVideo) {
+    tituloCotizacion = "Cotización para tomas de video";
+    textoServicioCotizacion = "video";
+  }
+
   const sumImporte = (arr) =>
     arr.reduce((acc, it) => {
       const subtotal = Number(it?.subtotal);
@@ -385,7 +384,7 @@ function mapSpJsonToTemplateData(detail) {
       return Number.isFinite(qty) && Number.isFinite(pu) ? acc + qty * pu : acc;
     }, 0);
 
-  // ===== Equipos y personal =====
+  // ===== Equipos y personal (desde eventoServicio.equipos / eventoServicio.staff) =====
   const collectEquipos = (arr) => {
     const out = [];
     for (const it of arr) {
@@ -422,11 +421,14 @@ function mapSpJsonToTemplateData(detail) {
   };
 
   // ===== Locaciones =====
-  const locs = eventos.map((e) => normalizeText(e?.ubicacion)).filter(Boolean);
+  const locs = eventos
+    .map((e) => normalizeText(e?.ubicacion))
+    .filter(Boolean);
+
   const fotoLocaciones = dedupeByKey(locs, (x) => x).map((nombre) => ({ nombre }));
   const videoLocaciones = fotoLocaciones;
 
-  // ===== Servicios / Entregables =====
+  // ===== Entregables =====
   const toEntregable = (it) => {
     const nombre = normalizeText(it?.nombre) || "Servicio";
     const desc = normalizeText(it?.descripcion);
@@ -440,13 +442,30 @@ function mapSpJsonToTemplateData(detail) {
   const fechaPrincipal = cot?.fechaEvento || (eventos[0]?.fecha ?? "");
   const eventoFechaRango = normalizeText(fechaPrincipal);
 
+  // ===== ClienteEmpresa / ClienteContacto =====
+  const clienteEmpresa = esRuc
+    ? (normalizeText(contacto?.razonSocial) || "")
+    : "";
+
+  const clienteContacto = esRuc
+    ? (normalizeText(contacto?.nombreContacto) || normalizeText(contacto?.nombre) || "Cliente")
+    : (normalizeText(contacto?.nombre) || "Cliente");
+
   return {
-    // Header (esto lo consume tu Word con {#mostrarSres} ... {/mostrarSres})
-    mostrarSres,
+    // Header
+    tituloCotizacion,
+    textoServicioCotizacion,
+
+    mostrarSres: esRuc,
     clienteEmpresa,
     clienteContacto,
+
     eventoNombre: normalizeText(cot?.tipoEvento) || "Evento",
     eventoFechaRango,
+
+    // Mostrar secciones
+    mostrarFoto: hasFoto,
+    mostrarVideo: hasVideo,
 
     // Foto
     fotoEquipos: collectEquipos(fotoItems),
@@ -475,6 +494,9 @@ function mapSpJsonToTemplateData(detail) {
       : formatDateLong(new Date()),
   };
 }
+
+
+
 
 module.exports = {
   list,
