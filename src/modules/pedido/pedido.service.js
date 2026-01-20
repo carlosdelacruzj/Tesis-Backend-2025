@@ -3,6 +3,7 @@ const repo = require("./pedido.repository");
 const eventoServicioRepo = require("../eventos_servicios/eventos_servicios.repository");
 const path = require("path");
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
+const pagosService = require("../pagos/pagos.service");
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HMS = /^\d{2}:\d{2}(:\d{2})?$/;
@@ -236,6 +237,7 @@ function validateUpdatePayload(payload) {
 }
 
 async function listAllPedidos() {
+  await pagosService.marcarPagosVencidosLocal();
   return repo.getAll();
 }
 async function listIndexPedidos() {

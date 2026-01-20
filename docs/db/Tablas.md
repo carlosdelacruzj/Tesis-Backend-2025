@@ -7,6 +7,7 @@
 - [T_Cotizacion](#t_cotizacion)
 - [T_CotizacionEvento](#t_cotizacionevento)
 - [T_CotizacionServicio](#t_cotizacionservicio)
+- [T_CotizacionServicioFecha](#t_cotizacionserviciofecha)
 - [T_Empleados](#t_empleados)
 - [T_Empleado_Asignacion](#t_empleado_asignacion)
 - [T_Equipo](#t_equipo)
@@ -144,6 +145,23 @@ CREATE TABLE "T_CotizacionServicio" (
   KEY "FK_CotServ_ExS" ("FK_ExS_Cod"),
   CONSTRAINT "FK_CotServ_Cot" FOREIGN KEY ("FK_Cot_Cod") REFERENCES "T_Cotizacion" ("PK_Cot_Cod"),
   CONSTRAINT "FK_CotServ_ExS" FOREIGN KEY ("FK_ExS_Cod") REFERENCES "T_EventoServicio" ("PK_ExS_Cod")
+)
+```
+
+## T_CotizacionServicioFecha
+
+```sql
+CREATE TABLE "T_CotizacionServicioFecha" (
+  "PK_CSF_Cod" int NOT NULL AUTO_INCREMENT,
+  "FK_Cot_Cod" int NOT NULL,
+  "FK_CotServ_Cod" int NOT NULL,
+  "CSF_Fecha" date NOT NULL,
+  PRIMARY KEY ("PK_CSF_Cod"),
+  UNIQUE KEY "UQ_CSF_Servicio_Fecha" ("FK_CotServ_Cod","CSF_Fecha"),
+  KEY "IX_CSF_Cot" ("FK_Cot_Cod"),
+  KEY "IX_CSF_Fecha" ("CSF_Fecha"),
+  CONSTRAINT "FK_CSF_Cot" FOREIGN KEY ("FK_Cot_Cod") REFERENCES "T_Cotizacion" ("PK_Cot_Cod"),
+  CONSTRAINT "FK_CSF_CotServ" FOREIGN KEY ("FK_CotServ_Cod") REFERENCES "T_CotizacionServicio" ("PK_CotServ_Cod")
 )
 ```
 

@@ -20,6 +20,96 @@ function assertString(v,f){ if(typeof v!=="string"||!v.trim()) throw badRequest(
 function assertDate(v,f){ if(v==null) return null; if(typeof v!=="string"||!ISO_DATE.test(v)) throw badRequest(`Campo '${f}' debe ser YYYY-MM-DD`); return v; }
 function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(); if(!ESTADOS_VALIDOS.has(e)) throw badRequest(`estado invÃ¡lido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`); return e; }
 
+
+function normalizeServiciosFechas(serviciosFechas) {
+  if (serviciosFechas == null) return null;
+  if (!Array.isArray(serviciosFechas)) throw badRequest("Campo 'serviciosFechas' debe ser un arreglo");
+  return serviciosFechas.map((sf, idx) => {
+    if (!sf || typeof sf !== "object") throw badRequest(`serviciosFechas[${idx}] invalido`);
+    const fecha = assertDate(sf.fecha, `serviciosFechas[${idx}].fecha`);
+    const itemTmpId = sf.itemTmpId != null ? String(sf.itemTmpId).trim() : null;
+    const idCotizacionServicio =
+      sf.idCotizacionServicio != null ? Number(sf.idCotizacionServicio) : null;
+    if (!itemTmpId && !idCotizacionServicio) {
+      throw badRequest(
+        `serviciosFechas[${idx}] requiere 'itemTmpId' o 'idCotizacionServicio'`
+      );
+    }
+    if (idCotizacionServicio != null && !Number.isInteger(idCotizacionServicio)) {
+      throw badRequest(`serviciosFechas[${idx}].idCotizacionServicio invalido`);
+    }
+    return { itemTmpId, idCotizacionServicio, fecha };
+  });
+}
+
+function buildTmpIdMap(items, rows) {
+  const tmpIndex = new Map();
+  (items || []).forEach((it, idx) => {
+    if (it?.tmpId == null) return;
+    const key = String(it.tmpId).trim();
+    if (!key) return;
+    if (tmpIndex.has(key)) throw badRequest(`tmpId duplicado: ${key}`);
+    tmpIndex.set(key, idx);
+  });
+  if (tmpIndex.size === 0) return null;
+  if (!Array.isArray(rows) || rows.length < (items || []).length) {
+    throw badRequest("No se pudo mapear los items creados");
+  }
+  const map = new Map();
+  for (const [key, idx] of tmpIndex.entries()) {
+    const row = rows[idx];
+    if (!row?.idCotizacionServicio) {
+      throw badRequest(`No se pudo mapear item '${key}'`);
+    }
+    map.set(key, row.idCotizacionServicio);
+  }
+  return map;
+}
+
+function validateFechasAgainstEventos(serviciosFechas, eventos) {
+  if (!Array.isArray(eventos)) return;
+  const fechas = new Set(
+    eventos.map((e) => (e?.fecha ? String(e.fecha).trim() : "")).filter(Boolean)
+  );
+  for (const sf of serviciosFechas) {
+    if (!fechas.has(sf.fecha)) {
+      throw badRequest(`Fecha no existe en eventos: ${sf.fecha}`);
+    }
+  }
+}
+
+async function applyServiciosFechas(cotizacionId, payload = {}) {
+  const normalized = normalizeServiciosFechas(payload.serviciosFechas);
+  if (normalized == null) return;
+
+  validateFechasAgainstEventos(normalized, payload.eventos);
+
+  const usesTmpId = normalized.some((sf) => sf.itemTmpId != null);
+  let tmpMap = null;
+  if (usesTmpId) {
+    if (!Array.isArray(payload.items)) {
+      throw badRequest("Campo 'items' debe ser un arreglo cuando se usa 'itemTmpId'");
+    }
+    const rows = await repo.listServiciosByCotizacionId(cotizacionId);
+    tmpMap = buildTmpIdMap(payload.items, rows);
+  }
+
+  const out = [];
+  const seen = new Set();
+  for (const sf of normalized) {
+    let id = sf.idCotizacionServicio;
+    if (!id && sf.itemTmpId && tmpMap) id = tmpMap.get(sf.itemTmpId);
+    if (!id) throw badRequest(`No se pudo resolver itemTmpId '${sf.itemTmpId}'`);
+    const key = `${id}|${sf.fecha}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({ idCotizacionServicio: id, fecha: sf.fecha });
+  }
+
+  await repo.replaceServiciosFechas(cotizacionId, out);
+}
+
+
 // â”€â”€â”€â”€â”€â”€â”€â”€â”€ repo passthrough â”€â”€â”€â”€â”€â”€â”€â”€â”€
 async function findById(id){
   await rechazarVencidasLocal();
@@ -38,6 +128,7 @@ async function findById(id){
       };
     });
   }
+  data.serviciosFechas = await repo.listServiciosFechasByCotizacionId(n);
   return data;
 }
 
@@ -254,7 +345,9 @@ async function createAdmin(payload = {}) {
   if (payload?.cotizacion?.dias != null) {
     assertOptionalPositiveInt(payload.cotizacion.dias, "cotizacion.dias");
   }
-  return await repo.createAdmin(payload);
+  const created = await repo.createAdmin(payload);
+  await applyServiciosFechas(created.idCotizacion, payload);
+  return created;
 }
 
 async function update(id, body = {}) {
@@ -278,7 +371,9 @@ async function update(id, body = {}) {
     throw badRequest("Cotización no editable el mismo día del evento.");
   }
 
-  return await repo.updateAdmin(nId, body);
+  const updated = await repo.updateAdmin(nId, body);
+  await applyServiciosFechas(nId, body);
+  return updated;
 }
 
 async function remove(id) {

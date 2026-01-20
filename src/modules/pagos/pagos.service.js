@@ -9,9 +9,11 @@ function badRequest(msg) {
 const ESTADO_PAGO_PENDIENTE = "Pendiente";
 const ESTADO_PAGO_PARCIAL = "Parcial";
 const ESTADO_PAGO_PAGADO = "Pagado";
+const ESTADO_PAGO_VENCIDO = "Vencido";
 const ESTADO_VOUCHER_APROBADO = "Aprobado";
 const ESTADO_PEDIDO_COTIZADO = "Cotizado";
 const ESTADO_PEDIDO_CONTRATADO = "Contratado";
+const ESTADO_PEDIDO_EXPIRADO = "Expirado";
 const METODO_PAGO_TRANSFERENCIA = "Transferencia";
 const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 function assertIdPositivo(val, nombre = "id") {
@@ -77,13 +79,30 @@ async function syncEstadoPagoPedido(pedidoId) {
   };
 }
 
+async function marcarPagosVencidosLocal() {
+  const [pendienteId, vencidoId, pedidoExpiradoId] = await Promise.all([
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PENDIENTE),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_VENCIDO),
+    repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_EXPIRADO),
+  ]);
+  await repo.marcarPedidosPagoVencido({
+    fechaCorte: getLimaISODate(),
+    pendienteId,
+    vencidoId,
+    pedidoExpiradoId,
+  });
+}
+
 async function listPendientes() {
+  await marcarPagosVencidosLocal();
   return repo.listPendientes();
 }
 async function listParciales() {
+  await marcarPagosVencidosLocal();
   return repo.listParciales();
 }
 async function listPagados() {
+  await marcarPagosVencidosLocal();
   return repo.listPagados();
 }
 async function listAllVouchers() {
@@ -279,6 +298,7 @@ module.exports = {
   listParciales,
   listPagados,
   listAllVouchers,
+  marcarPagosVencidosLocal,
   getResumen,
   listVouchers,
   listMetodos,

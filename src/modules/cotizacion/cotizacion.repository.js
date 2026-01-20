@@ -87,6 +87,62 @@ async function findByIdWithItems(id) {
   return data || null; // { idCotizacion, lead, cotizacion, items: [...], eventos: [...] }
 }
 
+// ===================== SERVICIOS POR FECHA =====================
+async function listServiciosByCotizacionId(cotizacionId) {
+  const [rows] = await pool.query(
+    `SELECT PK_CotServ_Cod AS idCotizacionServicio
+     FROM T_CotizacionServicio
+     WHERE FK_Cot_Cod = ?
+     ORDER BY PK_CotServ_Cod ASC`,
+    [Number(cotizacionId)]
+  );
+  return rows || [];
+}
+
+async function listServiciosFechasByCotizacionId(cotizacionId) {
+  const [rows] = await pool.query(
+    `SELECT FK_CotServ_Cod AS idCotizacionServicio, CSF_Fecha AS fecha
+     FROM T_CotizacionServicioFecha
+     WHERE FK_Cot_Cod = ?
+     ORDER BY FK_CotServ_Cod ASC, CSF_Fecha ASC`,
+    [Number(cotizacionId)]
+  );
+  return rows || [];
+}
+
+async function replaceServiciosFechas(cotizacionId, rows = []) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    await conn.query(
+      `DELETE FROM T_CotizacionServicioFecha WHERE FK_Cot_Cod = ?`,
+      [Number(cotizacionId)]
+    );
+
+    if (rows.length) {
+      const values = rows.map((r) => [
+        Number(cotizacionId),
+        Number(r.idCotizacionServicio),
+        r.fecha,
+      ]);
+      await conn.query(
+        `INSERT INTO T_CotizacionServicioFecha
+           (FK_Cot_Cod, FK_CotServ_Cod, CSF_Fecha)
+         VALUES ?`,
+        [values]
+      );
+    }
+
+    await conn.commit();
+    return { updated: true };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
 // ===================== CREAR (ADMIN) =====================
 async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = [] }) {
   const hasCliente = cliente && Number(cliente.id) > 0;
@@ -394,7 +450,10 @@ module.exports = {
   findByIdWithItems, // usa SP JSON
   createAdmin, // usa SP crear_admin
   createPublic, // usa SP crear_publica
-  updateAdmin, // usa SP actualizar_admin (reemplaza ítems si se pasan)
+  updateAdmin, // usa SP actualizar_admin (reemplaza items si se pasan)
+  listServiciosByCotizacionId,
+  listServiciosFechasByCotizacionId,
+  replaceServiciosFechas,
   getFechaYEstado,
   rechazarVencidas,
   deleteById,
