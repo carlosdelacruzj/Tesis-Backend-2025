@@ -16,9 +16,29 @@ const fs = require("fs");
 function badRequest(message){ const err=new Error(message); err.status=400; return err; }
 function assertPositiveInt(v,f){ const n=Number(v); if(!Number.isInteger(n)||n<=0) throw badRequest(`${f} invÃ¡lido`); return n; }
 function assertOptionalPositiveInt(v,f){ if(v==null) return null; return assertPositiveInt(v,f); }
+function assertOptionalNonNegativeNumber(v,f){ if(v==null) return null; const n=Number(v); if(!Number.isFinite(n)||n<0) throw badRequest(`${f} invÃ¡lido`); return n; }
 function assertString(v,f){ if(typeof v!=="string"||!v.trim()) throw badRequest(`Campo '${f}' es requerido`); return v.trim(); }
 function assertDate(v,f){ if(v==null) return null; if(typeof v!=="string"||!ISO_DATE.test(v)) throw badRequest(`Campo '${f}' debe ser YYYY-MM-DD`); return v; }
 function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(); if(!ESTADOS_VALIDOS.has(e)) throw badRequest(`estado invÃ¡lido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`); return e; }
+
+function normalizeViaticos(cotizacion) {
+  if (!cotizacion || typeof cotizacion !== "object") return;
+  if (cotizacion.viaticosCliente === true) {
+    cotizacion.viaticosMonto = 0;
+  }
+}
+
+function applyFechaEventoFromEventos(cotizacion, eventos) {
+  if (!cotizacion || typeof cotizacion !== "object") return;
+  if (!Array.isArray(eventos) || eventos.length == 0) return;
+  const fechas = eventos
+    .map((e) => (e && e.fecha ? String(e.fecha).trim() : ""))
+    .filter(Boolean)
+    .filter((f) => ISO_DATE.test(f));
+  if (fechas.length == 0) return;
+  fechas.sort();
+  cotizacion.fechaEvento = fechas[0];
+}
 
 
 function normalizeServiciosFechas(serviciosFechas) {
@@ -312,6 +332,9 @@ async function list({ estado } = {}) {
       dias:
         r.dias != null ? Number(r.dias)
         : (r.Cot_Dias != null ? Number(r.Cot_Dias) : null),
+      viaticosMonto:
+        r.viaticosMonto != null ? Number(r.viaticosMonto)
+        : (r.Cot_ViaticosMonto != null ? Number(r.Cot_ViaticosMonto) : null),
 
       mensaje: r.mensaje ?? r.Cot_Mensaje,
       total:
@@ -327,11 +350,15 @@ async function list({ estado } = {}) {
 async function createPublic(payload = {}) {
   if (!payload || typeof payload !== "object") throw badRequest("Body invÃ¡lido");
   const { lead, cotizacion } = payload;
+  normalizeViaticos(cotizacion);
+  applyFechaEventoFromEventos(cotizacion, payload.eventos);
   // Validaciones mÃ­nimas (el SP tambiÃ©n valida)
   assertString(lead?.nombre ?? "", "lead.nombre");
   assertString(cotizacion?.tipoEvento ?? "", "cotizacion.tipoEvento");
   assertDate(cotizacion?.fechaEvento, "cotizacion.fechaEvento");
   if (cotizacion?.dias != null) assertOptionalPositiveInt(cotizacion.dias, "cotizacion.dias");
+  if (cotizacion?.viaticosMonto != null)
+    assertOptionalNonNegativeNumber(cotizacion.viaticosMonto, "cotizacion.viaticosMonto");
   return await repo.createPublic({ lead, cotizacion });
 }
 
@@ -339,11 +366,16 @@ async function createAdmin(payload = {}) {
   if (!payload || typeof payload !== "object") throw badRequest("Body invÃ¡lido");
   if (payload.eventos != null && !Array.isArray(payload.eventos))
     throw badRequest("Campo 'eventos' debe ser un arreglo");
+  normalizeViaticos(payload?.cotizacion);
+  applyFechaEventoFromEventos(payload?.cotizacion, payload?.eventos);
   if (payload?.cotizacion?.estado != null) {
     assertEstado(payload.cotizacion.estado);
   }
   if (payload?.cotizacion?.dias != null) {
     assertOptionalPositiveInt(payload.cotizacion.dias, "cotizacion.dias");
+  }
+  if (payload?.cotizacion?.viaticosMonto != null) {
+    assertOptionalNonNegativeNumber(payload.cotizacion.viaticosMonto, "cotizacion.viaticosMonto");
   }
   const created = await repo.createAdmin(payload);
   await applyServiciosFechas(created.idCotizacion, payload);
@@ -355,11 +387,16 @@ async function update(id, body = {}) {
   if (!body || typeof body !== "object") throw badRequest("Body inválido");
   if (body.eventos != null && !Array.isArray(body.eventos))
     throw badRequest("Campo 'eventos' debe ser un arreglo");
+  normalizeViaticos(body?.cotizacion);
+  applyFechaEventoFromEventos(body?.cotizacion, body?.eventos);
   if (body?.cotizacion?.estado != null) {
     assertEstado(body.cotizacion.estado);
   }
   if (body?.cotizacion?.dias != null) {
     assertOptionalPositiveInt(body.cotizacion.dias, "cotizacion.dias");
+  }
+  if (body?.cotizacion?.viaticosMonto != null) {
+    assertOptionalNonNegativeNumber(body.cotizacion.viaticosMonto, "cotizacion.viaticosMonto");
   }
 
   await rechazarVencidasLocal();
@@ -369,6 +406,10 @@ async function update(id, body = {}) {
   const fechaEvento = body?.cotizacion?.fechaEvento ?? info.fechaEvento;
   if (!isEditableFechaEvento(fechaEvento)) {
     throw badRequest("Cotización no editable el mismo día del evento.");
+  }
+
+  if (Array.isArray(body.items)) {
+    await repo.replaceServiciosFechas(nId, []);
   }
 
   const updated = await repo.updateAdmin(nId, body);

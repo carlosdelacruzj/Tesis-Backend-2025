@@ -61,7 +61,7 @@ INSERT INTO `T_Estado_Equipo` (`PK_EE_Cod`, `EE_Nombre`) VALUES(1, 'Disponible')
 -- T_Estado_Pago
 INSERT INTO `T_Estado_Pago` (`PK_ESP_Cod`, `ESP_Nombre`) VALUES(1, 'Pendiente'),(2, 'Parcial'),(3, 'Pagado'),(4, 'Vencido'),(5, 'Anulado');
 -- T_Estado_Pedido
-INSERT INTO `T_Estado_Pedido` (`PK_EP_Cod`, `EP_Nombre`) VALUES(1, 'Cotizado'),(2, 'Contratado'),(3, 'En ejecución'),(4, 'Entregado'),(5, 'Cerrado'),(6, 'Cancelado');
+INSERT INTO `T_Estado_Pedido` (`PK_EP_Cod`, `EP_Nombre`) VALUES(1, 'Cotizado'),(2, 'Contratado'),(3, 'En ejecución'),(4, 'Entregado'),(5, 'Cerrado'),(6, 'Cancelado'),(7, 'Expirado');
 -- T_Estado_Cotizacion
 INSERT INTO `T_Estado_Cotizacion` (`PK_ECot_Cod`, `ECot_Nombre`) VALUES(1, 'Borrador'),(2, 'Enviada'),(3, 'Aceptada'),(4, 'Rechazada'),(5, 'Expirada');
 -- T_Estado_Proyecto

@@ -44,6 +44,10 @@
  *               type: integer
  *               nullable: true
  *               example: 2
+ *             viaticosMonto:
+ *               type: number
+ *               nullable: true
+ *               example: 150
  *             nombrePedido:
  *               type: string
  *               example: "Boda de Renzo y Pablo"
@@ -203,6 +207,10 @@
  *               type: integer
  *               nullable: true
  *               example: 2
+ *             viaticosMonto:
+ *               type: number
+ *               nullable: true
+ *               example: 150
  *             nombrePedido:
  *               type: string
  *               example: "Boda de Renzo y Pablo"

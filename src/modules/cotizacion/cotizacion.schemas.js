@@ -95,6 +95,7 @@
  *             lugar:          { type: string, example: "Cusco - Catedral" }
  *             horasEstimadas: { type: number, format: float, example: 8.0 }
  *             dias:           { type: integer, nullable: true, example: 2 }
+ *             viaticosMonto:  { type: number, format: float, nullable: true, example: 150.0 }
  *             mensaje:        { type: string, example: "Agregar paquete premium" }
 *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada, Expirada], example: "Enviada" }
  *             total:          { type: number, format: float, example: 1150.0 }
@@ -132,6 +133,7 @@
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: 8
  *           dias: 2
+ *           viaticosMonto: 150
  *           mensaje: "Agregar paquete premium"
  *           estado: "Enviada"
  *           total: 1150.0
@@ -211,6 +213,7 @@
  *         lugar:          { type: string, nullable: true }
  *         horasEstimadas: { type: number, format: float, nullable: true }
  *         dias:           { type: integer, nullable: true }
+ *         viaticosMonto:  { type: number, format: float, nullable: true }
  *         mensaje:        { type: string, nullable: true }
  *         total:          { type: number, format: float, nullable: true, example: 1150 }
  *         contacto:
@@ -234,6 +237,7 @@
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: 8
  *           dias: 2
+ *           viaticosMonto: 150
  *           mensaje: "Paquete premium"
  *           total: 1150
  *           contacto:
@@ -250,6 +254,7 @@
  *           lugar: "Miraflores"
  *           horasEstimadas: 6
  *           dias: 1
+ *           viaticosMonto: 0
  *           mensaje: "Agregar trailer"
  *           total: 4600
  *           contacto:
@@ -311,6 +316,7 @@
  *             lugar:          { type: string, example: "Cusco" }
  *             horasEstimadas: { type: number, format: float, example: 8 }
  *             dias:           { type: integer, nullable: true, example: 2 }
+ *             viaticosMonto:  { type: number, format: float, nullable: true, example: 150.0 }
  *             mensaje:        { type: string, example: "Cobertura básica" }
  *
  *     # ===================== (ACTUALIZADO) CREATE ADMIN (v3 compatible) =====================
@@ -342,6 +348,7 @@
  *             lugar:          { type: string, example: "Cusco - Catedral" }
  *             horasEstimadas: { type: number, format: float, example: 8 }
  *             dias:           { type: integer, nullable: true, example: 2 }
+ *             viaticosMonto:  { type: number, format: float, nullable: true, example: 150.0 }
  *             mensaje:        { type: string, example: "Paquete premium" }
  *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada], example: "Borrador" }
  *         items:
@@ -409,6 +416,7 @@
  *             lugar:          { type: string }
  *             horasEstimadas: { type: number, format: float }
  *             dias:           { type: integer }
+ *             viaticosMonto:  { type: number, format: float, nullable: true }
  *             mensaje:        { type: string }
  *             estado:         { type: string, enum: [Borrador, Enviada, Aceptada, Rechazada] }
  *         items:
@@ -443,6 +451,7 @@
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: 8
  *           dias: 2
+ *           viaticosMonto: 150
  *           mensaje: "Paquete premium actualizado"
  *           estado: "Enviada"
  *         items:
@@ -504,6 +513,7 @@
  *           lugar: "Cusco - Catedral"
  *           horasEstimadas: "8.0"
  *           dias: 2
+ *           viaticosMonto: 150
  *           mensaje: "Agregar paquete premium"
  *           total: "4600.00"
  *           lead:
