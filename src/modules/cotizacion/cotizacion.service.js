@@ -98,6 +98,14 @@ function validateFechasAgainstEventos(serviciosFechas, eventos) {
   }
 }
 
+function toHHmm(value) {
+  if (!value) return "";
+  const s = String(value).trim();
+  // soporta "HH:mm", "HH:mm:ss", "HH:mm:ss.ffffff"
+  const m = s.match(/^(\d{2}):(\d{2})/);
+  return m ? `${m[1]}:${m[2]}` : s;
+}
+
 async function applyServiciosFechas(cotizacionId, payload = {}) {
   const normalized = normalizeServiciosFechas(payload.serviciosFechas);
   if (normalized == null) return;
@@ -248,8 +256,23 @@ async function streamPdf({ id, res } = {}) {
   // Por si acaso (tu SP ya devuelve arrays, pero igual)
   if (!Array.isArray(detail.eventos)) detail.eventos = [];
   if (!Array.isArray(detail.items)) detail.items = [];
+  if (!detail.cotizacion || typeof detail.cotizacion !== "object") detail.cotizacion = {};
 
-  // ✅ Mapeo desde tu JSON real (usa servicioNombre / filmMin / trailerMin)
+  // ===================== VIÁTICOS (Opción A: sin tocar SP) =====================
+  // - Solo aplica si lugar != "Lima"
+  // - viaticosMonto > 0 => "incluido" (se suma)
+  // - viaticosMonto <= 0 => "cliente cubre" (no se suma)
+  const lugarRaw = String(detail.cotizacion?.lugar ?? "").trim();
+  const esLima = lugarRaw.toLowerCase() === "lima";
+
+  const vRaw = Number(detail.cotizacion?.viaticosMonto ?? 0);
+  const viaticosMonto = Number.isFinite(vRaw) ? vRaw : 0;
+
+  // Normalizamos para que el mapper trabaje limpio
+  detail.cotizacion.viaticosMonto = esLima ? 0 : viaticosMonto;
+  // ============================================================================
+
+  // ✅ Mapeo para DOCX
   const templateData = mapSpJsonToTemplateData(detail);
 
   const templatePath = path.join(
@@ -261,9 +284,9 @@ async function streamPdf({ id, res } = {}) {
   );
 
   if (!fs.existsSync(templatePath)) {
-  const err = new Error(`Template DOCX no encontrado: ${templatePath}`);
-  err.status = 500;
-  throw err;
+    const err = new Error(`Template DOCX no encontrado: ${templatePath}`);
+    err.status = 500;
+    throw err;
   }
 
   const pdfBuffer = await generatePdfBufferFromDocxTemplate({
@@ -279,6 +302,9 @@ async function streamPdf({ id, res } = {}) {
   );
   res.end(pdfBuffer);
 }
+
+
+
 
 
 
@@ -492,6 +518,19 @@ function mapSpJsonToTemplateData(detail) {
   const hasFoto = fotoItems.length > 0;
   const hasVideo = videoItems.length > 0;
 
+  // ✅ Cantidad de fotos (viene de T_EventoServicio.ExS_FotosImpresas)
+  // Tomamos el máximo encontrado entre los items de foto
+  const fotosImpresasNum = fotoItems.reduce((max, it) => {
+    const n = Number(
+      it?.fotosImpresas ??
+        it?.eventoServicio?.fotosImpresas ??
+        it?.eventoServicio?.ExS_FotosImpresas ??
+        0
+    );
+    return Number.isFinite(n) ? Math.max(max, n) : max;
+  }, 0);
+  const fotoCantidadFotos = fotosImpresasNum > 0 ? String(fotosImpresasNum) : "";
+
   // ===== Texto “fotografía / video” =====
   let servicioTexto = "fotografía";
   if (hasFoto && hasVideo) servicioTexto = "fotografía y video";
@@ -501,7 +540,7 @@ function mapSpJsonToTemplateData(detail) {
   const tipoDoc = String(contacto?.tipoDocumento || "").toUpperCase();
   const esRuc = tipoDoc === "RUC";
 
-  // ===== títulos dinámicos (si los usas en el DOCX) =====
+  // ===== títulos dinámicos =====
   let tituloCotizacion = "Cotización";
   let textoServicioCotizacion = "fotografía y video";
 
@@ -515,6 +554,9 @@ function mapSpJsonToTemplateData(detail) {
     tituloCotizacion = "Cotización para tomas de video";
     textoServicioCotizacion = "video";
   }
+
+  // ✅ Numeración dinámica para "Video" (si no hay foto, será 1)
+  const videoNumero = hasFoto ? 2 : 1;
 
   const sumImporte = (arr) =>
     arr.reduce((acc, it) => {
@@ -537,11 +579,19 @@ function mapSpJsonToTemplateData(detail) {
         const nombre = normalizeText(eq?.tipoEquipo) || "Equipo";
         const cantidad = Number(eq?.cantidad ?? 0);
         const notas = normalizeText(eq?.notas);
-        const detalle = `${cantidad ? "x" + cantidad : ""}${notas ? " — " + notas : ""}`.trim();
+
+        // 🔥 si quieres OMITIR detalle (dejar solo {nombre}), descomenta esta línea:
+        // out.push({ nombre });
+
+        // (comportamiento actual: {nombre}: {detalle})
+        const detalle = `${cantidad ? "x" + cantidad : ""}${
+          notas ? " — " + notas : ""
+        }`.trim();
         out.push({ nombre, detalle });
       }
     }
-    return dedupeByKey(out, (x) => `${x.nombre}|${x.detalle}`);
+    // si usas out.push({ nombre }) entonces cambia el key para no depender de detalle
+    return dedupeByKey(out, (x) => `${x.nombre}|${x.detalle ?? ""}`);
   };
 
   const collectPersonal = (arr) => {
@@ -553,13 +603,18 @@ function mapSpJsonToTemplateData(detail) {
       for (const st of staff) {
         const rol = normalizeText(st?.rol) || "Staff";
         const cantidad = Number(st?.cantidad ?? 0);
+
+        // 🔥 si quieres NO mostrar rol (solo {nombre}), usa esto:
+        // out.push({ nombre: cantidad ? `${cantidad} ${rol}` : rol });
+
+        // (comportamiento actual: {nombre} ({rol}))
         out.push({
           nombre: cantidad ? `${cantidad} ${rol}` : rol,
           rol: "Personal",
         });
       }
     }
-    return dedupeByKey(out, (x) => `${x.nombre}|${x.rol}`);
+    return dedupeByKey(out, (x) => `${x.nombre}|${x.rol ?? ""}`);
   };
 
   // ===== Locaciones =====
@@ -582,29 +637,58 @@ function mapSpJsonToTemplateData(detail) {
   const eventoFechaRango = normalizeText(fechaPrincipal);
 
   // ===== ClienteEmpresa / ClienteContacto =====
-  const clienteEmpresa = esRuc ? (normalizeText(contacto?.razonSocial) || "") : "";
-
+  const clienteEmpresa = esRuc ? normalizeText(contacto?.razonSocial) || "" : "";
   const clienteContacto = esRuc
-    ? (normalizeText(contacto?.nombreContacto) || normalizeText(contacto?.nombre) || "Cliente")
-    : (normalizeText(contacto?.nombre) || "Cliente");
+    ? normalizeText(contacto?.nombreContacto) ||
+      normalizeText(contacto?.nombre) ||
+      "Cliente"
+    : normalizeText(contacto?.nombre) || "Cliente";
+
+  // ===== VIÁTICOS (Opción A: sin SP) =====
+  const lugar = normalizeText(cot?.lugar || "");
+  const esLima = lugar.toLowerCase() === "lima";
+
+  const viaticosMontoNum = Number(cot?.viaticosMonto ?? 0);
+  const viaticosMontoOk = Number.isFinite(viaticosMontoNum) ? viaticosMontoNum : 0;
+
+  // - fuera de Lima y monto <= 0 => cliente cubre
+  // - fuera de Lima y monto > 0  => incluido en presupuesto
+  const viaticosClienteCubre = !esLima && viaticosMontoOk <= 0;
+
+  // Mostrar texto SIEMPRE que sea fuera de Lima
+  const mostrarViaticos = !esLima;
+
+  const viaticosTexto = viaticosClienteCubre
+    ? "Los boletos aéreos, viáticos y hospedaje serán cubiertos por el cliente."
+    : "Los boletos aéreos, viáticos y hospedaje están incluidos en el presupuesto.";
+
+  // Mostrar línea de monto solo si están incluidos y hay monto > 0
+  const mostrarViaticosMonto = !esLima && !viaticosClienteCubre && viaticosMontoOk > 0;
+
+  // ===== Totales base =====
+  const totalFotoNum = sumImporte(fotoItems);
+  const totalVideoNum = sumImporte(videoItems);
+  const totalServicios = totalFotoNum + totalVideoNum;
+
+  // ===== Total final (suma viáticos solo si están incluidos) =====
+  const montoTotalFinal = totalServicios + (mostrarViaticosMonto ? viaticosMontoOk : 0);
 
   return {
-    // (si los usas en el Word)
+    // Títulos / texto
     tituloCotizacion,
     textoServicioCotizacion,
-
-    // ✅ esta es la que vas a poner en la frase:
     servicioTexto,
 
-    // ✅ para el bloque {#mostrarSres}
+    // Cliente
     mostrarSres: esRuc,
     clienteEmpresa,
     clienteContacto,
 
+    // Evento
     eventoNombre: normalizeText(cot?.tipoEvento) || "Evento",
     eventoFechaRango,
 
-    // (por si luego quieres ocultar secciones)
+    // Secciones
     mostrarFoto: hasFoto,
     mostrarVideo: hasVideo,
 
@@ -613,10 +697,10 @@ function mapSpJsonToTemplateData(detail) {
     fotoPersonal: collectPersonal(fotoItems),
     fotoLocaciones,
     fotoEntregables,
-    fotoCantidadFotos: "",
+    fotoCantidadFotos,
     fotoFecha: eventoFechaRango,
     fotoLugar: normalizeText(cot?.lugar) || normalizeText(eventos[0]?.ubicacion) || "",
-    fotoHorario: normalizeText(eventos[0]?.hora) || "",
+    fotoHorario: toHHmm(eventos[0]?.hora) || "",
 
     // Video
     videoEquipos: collectEquipos(videoItems),
@@ -625,15 +709,31 @@ function mapSpJsonToTemplateData(detail) {
     videoEntregables,
     videoNotas: "",
 
-    // Totales
-    totalFoto: sumImporte(fotoItems).toFixed(2),
-    totalVideo: sumImporte(videoItems).toFixed(2),
+    // Totales por bloque
+    totalFoto: totalFotoNum.toFixed(2),
+    totalVideo: totalVideoNum.toFixed(2),
 
+    // Viáticos
+    mostrarViaticos,
+    mostrarViaticosMonto,
+    viaticosTexto,
+    viaticosMonto: viaticosMontoOk.toFixed(2),
+
+    // Numeración dinámica
+    videoNumero,
+
+    // Total final
+    montoTotal: montoTotalFinal.toFixed(2),
+
+    // Fecha emisión
     fechaEmisionLarga: cot?.fechaCreacion
       ? formatDateLong(cot.fechaCreacion)
       : formatDateLong(new Date()),
   };
 }
+
+
+
 
 module.exports = {
   list,
