@@ -4,6 +4,8 @@ const eventoServicioRepo = require("../eventos_servicios/eventos_servicios.repos
 const path = require("path");
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 const pagosService = require("../pagos/pagos.service");
+const cotRepo = require("../cotizacion/cotizacion.repository");
+
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 const HMS = /^\d{2}:\d{2}(:\d{2})?$/;
@@ -619,7 +621,9 @@ function sumTotal(items = []) {
   }, 0);
 }
 
-function mapPedidoToContratoTemplateData(detail, body = {}) {
+function mapPedidoToContratoTemplateData(detail, body = {}, extra = {}) {
+  const { viaticosToAdd = 0 } = extra;
+
   const pedido = detail?.pedido || {};
   const eventos = Array.isArray(detail?.eventos) ? detail.eventos : [];
   const items = Array.isArray(detail?.items) ? detail.items : [];
@@ -705,15 +709,17 @@ function mapPedidoToContratoTemplateData(detail, body = {}) {
   });
 
   // ===== Montos =====
-  const total = sumTotal(itemsContrato);
+  const totalBase = sumTotal(itemsContrato);
+  const total = totalBase + (Number.isFinite(Number(viaticosToAdd)) ? Number(viaticosToAdd) : 0);
+
   const adelanto = body?.montoAdelanto != null ? Number(body.montoAdelanto) : total * 0.5;
   const saldo = body?.montoSaldo != null ? Number(body.montoSaldo) : total - adelanto;
   const condicionSaldo = normalizeText(body?.condicionSaldo) || "antes del evento";
 
   return {
-    tituloContrato,         // {tituloContrato}
-    tipoEventoTitulo,       // ({tipoEventoTitulo})
-    textoServicioContrato,  // úsalo en el párrafo
+    tituloContrato,
+    tipoEventoTitulo,
+    textoServicioContrato,
     mostrarFoto: hasFoto,
     mostrarVideo: hasVideo,
 
@@ -723,12 +729,15 @@ function mapPedidoToContratoTemplateData(detail, body = {}) {
     agenda,
     entregables,
 
+    // ✅ el contrato SOLO ve el total final (ya con viáticos si aplicó)
     montoTotal: money2(total),
     montoAdelanto: money2(adelanto),
     montoSaldo: money2(saldo),
     condicionSaldo,
   };
 }
+
+
 
 
 async function streamContratoPdf({ id, res, body, query } = {}) {
@@ -740,12 +749,28 @@ async function streamContratoPdf({ id, res, body, query } = {}) {
     e.status = 404;
     throw e;
   }
+    // ✅ Traer cotización para viáticos (sin tocar SP de pedido)
+  const cotizacionId = Number(detail?.pedido?.cotizacionId || 0);
+  let viaticosToAdd = 0;
+
+  if (cotizacionId > 0) {
+    const cot = await cotRepo.findByIdWithItems(cotizacionId);
+
+    const lugar = String(cot?.cotizacion?.lugar || "").trim().toUpperCase();
+    const esLima = lugar === "LIMA";
+
+    const v = Number(cot?.cotizacion?.viaticosMonto ?? 0);
+    if (!esLima && Number.isFinite(v) && v > 0) {
+      viaticosToAdd = v; // ✅ se suma al total del contrato
+    }
+  }
+
 
   // Ruta EXACTA dentro del proyecto (portable)
   // service está en src/modules/pedido, así que subimos a src y bajamos a pdf/templates
   const templatePath = path.join(__dirname, "../../pdf/templates/contrato.docx");
 
-  const data = mapPedidoToContratoTemplateData(detail, body);
+  const data = mapPedidoToContratoTemplateData(detail, body, { viaticosToAdd });
 
   const pdfBuffer = await generatePdfBufferFromDocxTemplate({
     templatePath,
