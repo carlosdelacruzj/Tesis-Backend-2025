@@ -331,8 +331,12 @@ CREATE TABLE "T_Pedido" (
   "FK_Em_Cod" int NOT NULL,
   "P_Nombre_Pedido" varchar(225) DEFAULT NULL,
   "FK_Cot_Cod" int DEFAULT NULL,
-  "P_FechaEvento" varchar(45) DEFAULT NULL,
+  "P_FechaEvento" date DEFAULT NULL,
+  "P_HorasEst" decimal(4,1) DEFAULT NULL,
+  "P_Dias" smallint DEFAULT NULL,
+  "P_IdTipoEvento" int DEFAULT NULL,
   "P_ViaticosMonto" decimal(10,2) NOT NULL DEFAULT '0.00',
+  "P_Mensaje" varchar(500) DEFAULT NULL,
   PRIMARY KEY ("PK_P_Cod"),
   KEY "IX_Pedido_Cliente" ("FK_Cli_Cod"),
   KEY "IX_Pedido_Estado" ("FK_EP_Cod"),
@@ -380,6 +384,19 @@ CREATE TABLE "T_PedidoServicio" (
   CONSTRAINT "FK_PedidoServicio_ExS" FOREIGN KEY ("FK_ExS_Cod") REFERENCES "T_EventoServicio" ("PK_ExS_Cod"),
   CONSTRAINT "FK_PedidoServicio_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod"),
   CONSTRAINT "FK_PedidoServicio_PedidoEvento" FOREIGN KEY ("FK_PE_Cod") REFERENCES "T_PedidoEvento" ("PK_PE_Cod")
+);
+
+CREATE TABLE "T_PedidoServicioFecha" (
+  "PK_PSF_Cod" int NOT NULL AUTO_INCREMENT,
+  "FK_P_Cod" int NOT NULL,
+  "FK_PedServ_Cod" int NOT NULL,
+  "PSF_Fecha" date NOT NULL,
+  PRIMARY KEY ("PK_PSF_Cod"),
+  UNIQUE KEY "UQ_PSF_Servicio_Fecha" ("FK_PedServ_Cod","PSF_Fecha"),
+  KEY "IX_PSF_Pedido" ("FK_P_Cod"),
+  KEY "IX_PSF_Fecha" ("PSF_Fecha"),
+  CONSTRAINT "FK_PSF_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod"),
+  CONSTRAINT "FK_PSF_PedServ" FOREIGN KEY ("FK_PedServ_Cod") REFERENCES "T_PedidoServicio" ("PK_PS_Cod")
 );
 
 CREATE TABLE "T_Proyecto" (

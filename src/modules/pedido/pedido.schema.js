@@ -27,6 +27,11 @@
  *               type: string
  *               format: date
  *               example: "2025-09-20"
+ *             fechaEvento:
+ *               type: string
+ *               format: date
+ *               nullable: true
+ *               example: "2025-09-20"
  *             observaciones:
  *               type: string
  *               example: "Observaciones del pedido"
@@ -44,10 +49,22 @@
  *               type: integer
  *               nullable: true
  *               example: 2
+ *             horasEstimadas:
+ *               type: number
+ *               nullable: true
+ *               example: 6
  *             viaticosMonto:
  *               type: number
  *               nullable: true
  *               example: 150
+ *             viaticosCliente:
+ *               type: boolean
+ *               nullable: true
+ *               example: true
+ *             mensaje:
+ *               type: string
+ *               nullable: true
+ *               example: "Mensaje interno del pedido"
  *             nombrePedido:
  *               type: string
  *               example: "Boda de Renzo y Pablo"
@@ -96,6 +113,10 @@
  *                 type: integer
  *                 nullable: true
  *                 example: 11
+ *               tmpId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "i1"
  *               eventoId:
  *                 type: integer
  *                 nullable: true
@@ -158,6 +179,25 @@
  *                 type: string
  *                 maxLength: 150
  *                 example: "nota del ítem"
+ *         serviciosFechas:
+ *           type: array
+ *           nullable: true
+ *           items:
+ *             type: object
+ *             required: [fecha]
+ *             properties:
+ *               itemTmpId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "i1"
+ *               idPedidoServicio:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 123
+ *               fecha:
+ *                 type: string
+ *                 format: date
+ *                 example: "2025-09-20"
  *
  *     PedidoUpdate:
  *       type: object
@@ -190,6 +230,11 @@
  *               type: string
  *               format: date
  *               example: "2025-09-20"
+ *             fechaEvento:
+ *               type: string
+ *               format: date
+ *               nullable: true
+ *               example: "2025-09-20"
  *             observaciones:
  *               type: string
  *               example: "Observaciones del pedido"
@@ -207,10 +252,22 @@
  *               type: integer
  *               nullable: true
  *               example: 2
+ *             horasEstimadas:
+ *               type: number
+ *               nullable: true
+ *               example: 6
  *             viaticosMonto:
  *               type: number
  *               nullable: true
  *               example: 150
+ *             viaticosCliente:
+ *               type: boolean
+ *               nullable: true
+ *               example: true
+ *             mensaje:
+ *               type: string
+ *               nullable: true
+ *               example: "Mensaje interno del pedido"
  *             nombrePedido:
  *               type: string
  *               example: "Boda de Renzo y Pablo"
@@ -265,6 +322,10 @@
  *                 type: integer
  *                 nullable: true
  *                 example: 11
+ *               tmpId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "i1"
  *               eventoId:
  *                 type: integer
  *                 nullable: true
@@ -324,6 +385,24 @@
  *                 type: string
  *                 maxLength: 150
  *                 example: "nota del ítem"
+ *         serviciosFechas:
+ *           type: array
+ *           nullable: true
+ *           items:
+ *             type: object
+ *             properties:
+ *               itemTmpId:
+ *                 type: string
+ *                 nullable: true
+ *                 example: "i1"
+ *               idPedidoServicio:
+ *                 type: integer
+ *                 nullable: true
+ *                 example: 123
+ *               fecha:
+ *                 type: string
+ *                 format: date
+ *                 example: "2025-09-20"
  *
  *     PedidoCreateResponse:
  *       type: object

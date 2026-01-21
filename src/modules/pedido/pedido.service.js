@@ -35,10 +35,81 @@ function assertPositiveNumber(v, f) {
   }
   return n;
 }
+function assertOptionalNonNegativeNumber(v, f) {
+  if (v == null) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n) || n < 0) {
+    const e = new Error(`El campo '${f}' debe ser un número valido`);
+    e.status = 400;
+    throw e;
+  }
+  return n;
+}
+
+function normalizeViaticos(pedido) {
+  if (!pedido || typeof pedido !== "object") return;
+  if (pedido.viaticosCliente === true) {
+    pedido.viaticosMonto = 0;
+  }
+}
+
+function applyFechaEventoFromEventos(pedido, eventos) {
+  if (!pedido || typeof pedido !== "object") return;
+  if (!Array.isArray(eventos) || eventos.length === 0) return;
+  const fechas = eventos
+    .map((e) => (e && e.fecha ? String(e.fecha).trim() : ""))
+    .filter(Boolean)
+    .filter((f) => ISO_DATE.test(f));
+  if (fechas.length === 0) return;
+  fechas.sort();
+  pedido.fechaEvento = fechas[0];
+}
+
+function normalizeServiciosFechas(serviciosFechas) {
+  if (serviciosFechas === undefined) return undefined;
+  if (serviciosFechas == null) return null;
+  if (!Array.isArray(serviciosFechas))
+    throw Object.assign(
+      new Error("Campo 'serviciosFechas' debe ser un arreglo"),
+      { status: 400 }
+    );
+  return serviciosFechas.map((sf, idx) => {
+    if (!sf || typeof sf !== "object")
+      throw Object.assign(
+        new Error(`serviciosFechas[${idx}] invalido`),
+        { status: 400 }
+      );
+    const fecha = sf.fecha;
+    if (!fecha || !ISO_DATE.test(String(fecha))) {
+      throw Object.assign(
+        new Error(`serviciosFechas[${idx}].fecha invalida`),
+        { status: 400 }
+      );
+    }
+    const itemTmpId = sf.itemTmpId != null ? String(sf.itemTmpId).trim() : null;
+    const idPedidoServicio =
+      sf.idPedidoServicio != null ? Number(sf.idPedidoServicio) : null;
+    if (!itemTmpId && !idPedidoServicio) {
+      throw Object.assign(
+        new Error(
+          `serviciosFechas[${idx}] requiere 'itemTmpId' o 'idPedidoServicio'`
+        ),
+        { status: 400 }
+      );
+    }
+    if (idPedidoServicio != null && !Number.isInteger(idPedidoServicio)) {
+      throw Object.assign(
+        new Error(`serviciosFechas[${idx}].idPedidoServicio invalido`),
+        { status: 400 }
+      );
+    }
+    return { itemTmpId, idPedidoServicio, fecha: String(fecha) };
+  });
+}
 
 function validatePayload(payload) {
   assert(payload && typeof payload === "object", "Body requerido");
-  const { pedido, eventos, items } = payload;
+  const { pedido, eventos, items, serviciosFechas } = payload;
 
   // pedido
   assert(pedido, "pedido requerido");
@@ -58,6 +129,18 @@ function validatePayload(payload) {
     assert(
       Number.isInteger(pedido.dias) && pedido.dias > 0,
       'dias invalido'
+    );
+  }
+  if (pedido.horasEstimadas != null) {
+    assertOptionalNonNegativeNumber(pedido.horasEstimadas, "horasEstimadas");
+  }
+  if (pedido.viaticosMonto != null) {
+    assertOptionalNonNegativeNumber(pedido.viaticosMonto, "viaticosMonto");
+  }
+  if (pedido.mensaje != null && String(pedido.mensaje).length > 500) {
+    throw Object.assign(
+      new Error("pedido.mensaje supera 500 caracteres"),
+      { status: 422 }
     );
   }
 
@@ -128,6 +211,10 @@ function validatePayload(payload) {
         { status: 422 }
       );
   });
+
+  if (serviciosFechas !== undefined) {
+    normalizeServiciosFechas(serviciosFechas);
+  }
 }
 
 function validateUpdatePayload(payload) {
@@ -136,6 +223,7 @@ function validateUpdatePayload(payload) {
   const pedido = payload?.pedido;
   const ev = payload?.eventos; // <— alias, NO “eventos”
   const its = payload?.items; // <— alias, NO “items”
+  const sfs = payload?.serviciosFechas;
 
   // pedido
   assert(pedido && Number.isInteger(pedido.id), "pedido.id requerido");
@@ -157,6 +245,15 @@ function validateUpdatePayload(payload) {
       'dias invalido'
     );
     assert(Number.isInteger(pedido.estadoPagoId), "estadoPagoId inválido");
+  if (pedido.horasEstimadas != null)
+    assertOptionalNonNegativeNumber(pedido.horasEstimadas, "horasEstimadas");
+  if (pedido.viaticosMonto != null)
+    assertOptionalNonNegativeNumber(pedido.viaticosMonto, "viaticosMonto");
+  if (pedido.mensaje != null && String(pedido.mensaje).length > 500)
+    throw Object.assign(
+      new Error("pedido.mensaje supera 500 caracteres"),
+      { status: 422 }
+    );
   if (pedido.cotizacionId != null) {
     assert(
       Number.isInteger(pedido.cotizacionId) && pedido.cotizacionId > 0,
@@ -234,6 +331,10 @@ function validateUpdatePayload(payload) {
     }
     // its === null => “no tocar” coleccion (válido)
   }
+
+  if (sfs !== undefined) {
+    normalizeServiciosFechas(sfs);
+  }
 }
 
 async function listAllPedidos() {
@@ -260,6 +361,9 @@ async function findLastEstadoPedido() {
 async function createNewPedido(payload) {
   validatePayload(payload);
 
+  normalizeViaticos(payload.pedido);
+  applyFechaEventoFromEventos(payload.pedido, payload.eventos);
+
   // Normalizar horas HH:mm -> HH:mm:ss y limpiar strings
   const norm = {
     ...payload,
@@ -269,6 +373,10 @@ async function createNewPedido(payload) {
       cotizacionId: payload.pedido.cotizacionId,
       idTipoEvento: payload.pedido.idTipoEvento ?? null,
       dias: payload.pedido.dias ?? null,
+      fechaEvento: payload.pedido.fechaEvento ?? null,
+      horasEstimadas: payload.pedido.horasEstimadas ?? null,
+      viaticosMonto: payload.pedido.viaticosMonto ?? null,
+      mensaje: (payload.pedido.mensaje || "").trim() || null,
     },
     eventos: payload.eventos.map((e, idx) => ({
       clientEventKey: e.clientEventKey ?? idx + 1, // fallback a índice base 1
@@ -279,6 +387,7 @@ async function createNewPedido(payload) {
       notas: (e.notas || "").trim() || null,
     })),
     items: payload.items.map((it) => ({
+      tmpId: it.tmpId ?? null,
       exsId: it.exsId ?? it.idEventoServicio ?? null,
       idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
       eventoId: it.eventoId ?? null,
@@ -299,6 +408,7 @@ async function createNewPedido(payload) {
       trailerMin: it.trailerMin ?? null,
       filmMin: it.filmMin ?? null,
     })),
+    serviciosFechas: normalizeServiciosFechas(payload.serviciosFechas),
   };
 
   // (opcional) log en dev
@@ -318,9 +428,13 @@ async function updatePedidoById(payload) {
   const pedido = payload.pedido;
   const ev = payload.eventos; // alias
   const its = payload.items; // alias
+  const sfs = payload.serviciosFechas;
 
   const pedidoId = Number(pedido.id);
   assertPositiveNumber(pedidoId, "pedido.id");
+
+  normalizeViaticos(pedido);
+  if (Array.isArray(ev)) applyFechaEventoFromEventos(pedido, ev);
 
   const norm = {
     pedido: {
@@ -338,6 +452,10 @@ async function updatePedidoById(payload) {
       cotizacionId: pedido.cotizacionId ?? null,
       idTipoEvento: pedido.idTipoEvento ?? null,
       dias: pedido.dias ?? null,
+      fechaEvento: pedido.fechaEvento ?? null,
+      horasEstimadas: pedido.horasEstimadas ?? null,
+      viaticosMonto: pedido.viaticosMonto ?? null,
+      mensaje: (pedido.mensaje ?? "").trim() || null,
     },
     eventos: Array.isArray(ev)
       ? ev.map((e, idx) => ({
@@ -355,6 +473,7 @@ async function updatePedidoById(payload) {
     items: Array.isArray(its)
       ? its.map((it) => ({
           id: it.id ?? null,
+          tmpId: it.tmpId ?? null,
           exsId: it.exsId ?? it.idEventoServicio ?? null,
           idEventoServicio: it.idEventoServicio ?? it.exsId ?? null,
           eventoId: it.eventoId ?? null,
@@ -377,6 +496,7 @@ async function updatePedidoById(payload) {
       : its === null
       ? null
       : undefined,
+    serviciosFechas: normalizeServiciosFechas(sfs),
   };
 
   if (process.env.NODE_ENV !== "production") {

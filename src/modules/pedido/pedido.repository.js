@@ -54,6 +54,30 @@ async function runCallMulti(sql, params = []) {
 }
 
 // ------------------------------
+// Servicios por fecha (pedido)
+// ------------------------------
+async function replaceServiciosFechasInTx(conn, pedidoId, rows = []) {
+  await conn.query(
+    `DELETE FROM T_PedidoServicioFecha WHERE FK_P_Cod = ?`,
+    [Number(pedidoId)]
+  );
+
+  if (rows.length) {
+    const values = rows.map((r) => [
+      Number(pedidoId),
+      Number(r.idPedidoServicio),
+      r.fecha,
+    ]);
+    await conn.query(
+      `INSERT INTO T_PedidoServicioFecha
+         (FK_P_Cod, FK_PedServ_Cod, PSF_Fecha)
+       VALUES ?`,
+      [values]
+    );
+  }
+}
+
+// ------------------------------
 // Consultas / Procedures existentes
 // ------------------------------
 async function getAll() {
@@ -88,6 +112,7 @@ async function getById(id) {
   const cab = sets[0]?.[0] || null;
   const eventos = sets[1] || [];
   const items = sets[2] || [];
+  const serviciosFechas = sets[3] || [];
 
   if (!cab) return null;
 
@@ -105,6 +130,9 @@ async function getById(id) {
     observaciones: cab.observaciones ?? null,
     idTipoEvento: cab.idTipoEvento ?? null,
     dias: cab.dias ?? null,
+    horasEstimadas: cab.horasEstimadas != null ? Number(cab.horasEstimadas) : null,
+    viaticosMonto: cab.viaticosMonto != null ? Number(cab.viaticosMonto) : null,
+    mensaje: cab.mensaje ?? null,
     cliente: {
       id: cab.clienteId,
       documento: cab.clienteDocumento,
@@ -154,7 +182,12 @@ async function getById(id) {
     subtotal: it.subtotal != null ? Number(it.subtotal) : null,
   }));
 
-  return { pedido, eventos: eventosOut, items: itemsOut };
+  const serviciosFechasOut = serviciosFechas.map((sf) => ({
+    idPedidoServicio: sf.idPedidoServicio,
+    fecha: toYMD(sf.fecha),
+  }));
+
+  return { pedido, eventos: eventosOut, items: itemsOut, serviciosFechas: serviciosFechasOut };
 }
 
 async function getLastEstado() {
@@ -165,7 +198,7 @@ async function getLastEstado() {
 // ------------------------------
 // Flujo NUEVO app-céntrico (create compuesto)
 // ------------------------------
-async function createComposite({ pedido, eventos, items }) {
+async function createComposite({ pedido, eventos, items, serviciosFechas }) {
   const conn = await pool.getConnection();
   try {
     await conn.beginTransaction();
@@ -202,8 +235,9 @@ async function createComposite({ pedido, eventos, items }) {
     const [rPedido] = await conn.query(
       `
       INSERT INTO T_Pedido
-      (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_IdTipoEvento, P_Dias)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+      (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod,
+       P_Nombre_Pedido, P_FechaEvento, P_IdTipoEvento, P_Dias, P_ViaticosMonto, P_HorasEst, P_Mensaje)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         pedido.estadoPedidoId,
@@ -214,8 +248,12 @@ async function createComposite({ pedido, eventos, items }) {
         pedido.observaciones,
         pedido.empleadoId,
         pedido.nombrePedido,
+        pedido.fechaEvento ?? null,
         pedido.idTipoEvento ?? null,
         pedido.dias ?? null,
+        pedido.viaticosMonto ?? 0,
+        pedido.horasEstimadas ?? null,
+        pedido.mensaje ?? null,
       ]
     );
     const pedidoId = rPedido.insertId;
@@ -272,6 +310,7 @@ async function createComposite({ pedido, eventos, items }) {
     }
 
     // 4) Insertar T_PedidoServicio
+    const tmpIdToItemId = new Map();
     for (const it of items) {
       const exsId = it.exsId ?? it.idEventoServicio ?? null;
       const eventoId = it.eventoId ?? null;
@@ -285,7 +324,7 @@ async function createComposite({ pedido, eventos, items }) {
       if (it.eventoCodigo !== null && it.eventoCodigo !== undefined) {
         fkPe = eventKeyToPeId.get(String(it.eventoCodigo)) || null;
       }
-      await conn.query(
+      const [rIt] = await conn.query(
         `
         INSERT INTO T_PedidoServicio
         (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_EventoId, PS_ServicioId,
@@ -315,6 +354,30 @@ async function createComposite({ pedido, eventos, items }) {
           filmMin,
         ]
       );
+      if (it.tmpId != null) {
+        const key = String(it.tmpId).trim();
+        if (key) tmpIdToItemId.set(key, rIt.insertId);
+      }
+    }
+
+    if (serviciosFechas !== undefined) {
+      const rows = [];
+      const list = Array.isArray(serviciosFechas) ? serviciosFechas : [];
+      for (const sf of list) {
+        const idPedidoServicio =
+          sf.idPedidoServicio != null
+            ? Number(sf.idPedidoServicio)
+            : tmpIdToItemId.get(String(sf.itemTmpId || "").trim());
+        if (!idPedidoServicio) {
+          const e = new Error(
+            `No se pudo mapear itemTmpId en serviciosFechas: ${sf.itemTmpId}`
+          );
+          e.status = 422;
+          throw e;
+        }
+        rows.push({ idPedidoServicio, fecha: sf.fecha });
+      }
+      await replaceServiciosFechasInTx(conn, pedidoId, rows);
     }
 
     await conn.commit();
@@ -331,7 +394,7 @@ async function createComposite({ pedido, eventos, items }) {
 // ------------------------------
 async function updateCompositeById(
   pedidoId,
-  { pedido, eventos = [], items = [] }
+  { pedido, eventos, items, serviciosFechas } = {}
 ) {
   const conn = await pool.getConnection();
   try {
@@ -407,6 +470,22 @@ async function updateCompositeById(
       updFields.push("P_Dias = ?");
       updParams.push(pedido.dias);
     }
+    if (pedido?.fechaEvento != null) {
+      updFields.push("P_FechaEvento = ?");
+      updParams.push(pedido.fechaEvento);
+    }
+    if (pedido?.horasEstimadas != null) {
+      updFields.push("P_HorasEst = ?");
+      updParams.push(pedido.horasEstimadas);
+    }
+    if (pedido?.viaticosMonto != null) {
+      updFields.push("P_ViaticosMonto = ?");
+      updParams.push(pedido.viaticosMonto);
+    }
+    if (pedido?.mensaje != null) {
+      updFields.push("P_Mensaje = ?");
+      updParams.push(pedido.mensaje);
+    }
     if (pedido?.cotizacionId != null) {
       updFields.push("FK_Cot_Cod = ?");
       updParams.push(pedido.cotizacionId);
@@ -440,174 +519,217 @@ async function updateCompositeById(
       }
     }
 
-    // 4) Traer estado actual de eventos e items para calcular diff
-    const [dbEvents] = await conn.query(
-      `SELECT PK_PE_Cod AS id FROM T_PedidoEvento WHERE FK_P_Cod = ?`,
-      [pedidoId]
+    const hasEventos = Object.prototype.hasOwnProperty.call(
+      arguments[1] || {},
+      "eventos"
     );
-    const dbEventIds = new Set(dbEvents.map((e) => e.id));
-
-    const [dbItems] = await conn.query(
-      `SELECT PK_PS_Cod AS id FROM T_PedidoServicio WHERE FK_P_Cod = ?`,
-      [pedidoId]
+    const hasItems = Object.prototype.hasOwnProperty.call(
+      arguments[1] || {},
+      "items"
     );
-    const dbItemIds = new Set(dbItems.map((i) => i.id));
+    const hasServiciosFechas = Object.prototype.hasOwnProperty.call(
+      arguments[1] || {},
+      "serviciosFechas"
+    );
 
-    // 5) UPSERT de eventos
-    const incomingEventIds = new Set();
-    for (const e of eventos || []) {
-      const eid = e.id ?? null;
-      const fecha = e.fecha;
-      const hora = toHms(e.hora);
-      const ubicacion = e.ubicacion;
-      const direccion = e.direccion ?? null;
-      const notas = e.notas ?? null;
+    // 4) Eventos (solo si viene la propiedad)
+    if (hasEventos && eventos !== null) {
+      const [dbEvents] = await conn.query(
+        `SELECT PK_PE_Cod AS id FROM T_PedidoEvento WHERE FK_P_Cod = ?`,
+        [pedidoId]
+      );
+      const dbEventIds = new Set(dbEvents.map((e) => e.id));
 
-      if (eid) {
-        // UPDATE
-        incomingEventIds.add(eid);
+      const incomingEventIds = new Set();
+      for (const e of eventos || []) {
+        const eid = e.id ?? null;
+        const fecha = e.fecha;
+        const hora = toHms(e.hora);
+        const ubicacion = e.ubicacion;
+        const direccion = e.direccion ?? null;
+        const notas = e.notas ?? null;
+
+        if (eid) {
+          incomingEventIds.add(eid);
+          await conn.query(
+            `
+            UPDATE T_PedidoEvento
+            SET PE_Fecha = ?, PE_Hora = ?, PE_Ubicacion = ?, PE_Direccion = ?, PE_Notas = ?
+            WHERE PK_PE_Cod = ? AND FK_P_Cod = ?
+            `,
+            [fecha, hora, ubicacion, direccion, notas, eid, pedidoId]
+          );
+        } else {
+          const [rEv] = await conn.query(
+            `
+            INSERT INTO T_PedidoEvento
+            (FK_P_Cod, PE_Fecha, PE_Hora, PE_Ubicacion, PE_Direccion, PE_Notas)
+            VALUES (?, ?, ?, ?, ?, ?)
+            `,
+            [pedidoId, fecha, hora, ubicacion, direccion, notas]
+          );
+          const newId = rEv.insertId;
+          incomingEventIds.add(newId);
+        }
+      }
+
+      const eventsToDelete = [...dbEventIds].filter(
+        (id) => !incomingEventIds.has(id)
+      );
+      if (eventsToDelete.length) {
         await conn.query(
-          `
-          UPDATE T_PedidoEvento
-          SET PE_Fecha = ?, PE_Hora = ?, PE_Ubicacion = ?, PE_Direccion = ?, PE_Notas = ?
-          WHERE PK_PE_Cod = ? AND FK_P_Cod = ?
-          `,
-          [fecha, hora, ubicacion, direccion, notas, eid, pedidoId]
+          `DELETE FROM T_PedidoEvento WHERE FK_P_Cod = ? AND PK_PE_Cod IN (${eventsToDelete
+            .map(() => "?")
+            .join(",")})`,
+          [pedidoId, ...eventsToDelete]
         );
-      } else {
-        // INSERT
-        const [rEv] = await conn.query(
-          `
-          INSERT INTO T_PedidoEvento
-          (FK_P_Cod, PE_Fecha, PE_Hora, PE_Ubicacion, PE_Direccion, PE_Notas)
-          VALUES (?, ?, ?, ?, ?, ?)
-          `,
-          [pedidoId, fecha, hora, ubicacion, direccion, notas]
-        );
-        const newId = rEv.insertId;
-        incomingEventIds.add(newId);
-        // (Opcional) podrías mapear e.clientEventKey -> newId si decides soportar re-asignación de items
       }
     }
 
-    // 6) Borrado de eventos que ya no vienen
-    const eventsToDelete = [...dbEventIds].filter(
-      (id) => !incomingEventIds.has(id)
-    );
-    if (eventsToDelete.length) {
-      // Si tu FK T_PedidoServicio(FK_PE_Cod) **no** está en CASCADE, primero desasocia o borra items
-      // a) Desasociar:
-      // await conn.query(
-      //   `UPDATE T_PedidoServicio SET FK_PE_Cod = NULL WHERE FK_P_Cod = ? AND FK_PE_Cod IN (${eventsToDelete.map(()=>'?').join(',')})`,
-      //   [pedidoId, ...eventsToDelete]
-      // );
-      // b) O borrar directamente los items colgantes (elige una):
-      // await conn.query(
-      //   `DELETE FROM T_PedidoServicio WHERE FK_P_Cod = ? AND FK_PE_Cod IN (${eventsToDelete.map(()=>'?').join(',')})`,
-      //   [pedidoId, ...eventsToDelete]
-      // );
-
+    // 5) Items (solo si viene la propiedad)
+    const tmpIdToItemId = new Map();
+    if (hasItems && items !== null) {
       await conn.query(
-        `DELETE FROM T_PedidoEvento WHERE FK_P_Cod = ? AND PK_PE_Cod IN (${eventsToDelete
-          .map(() => "?")
-          .join(",")})`,
-        [pedidoId, ...eventsToDelete]
+        `DELETE FROM T_PedidoServicioFecha WHERE FK_P_Cod = ?`,
+        [pedidoId]
       );
-    }
 
-    // 7) UPSERT de items
-    const incomingItemIds = new Set();
-    for (const it of items || []) {
-      const eventoId = it.eventoId ?? null;
-      const servicioId = it.servicioId ?? null;
-      const horas = it.horas ?? null;
-      const personal = it.personal ?? it.staff ?? null;
-      const fotosImpresas = it.fotosImpresas ?? null;
-      const trailerMin = it.trailerMin ?? null;
-      const filmMin = it.filmMin ?? null;
-      const iid = it.id ?? null; // <- si existe, actualiza
-      const exsId = it.exsId ?? it.idEventoServicio ?? null; // FK a T_EventoServicio (obligatorio)
-      const fkPe = it.eventoCodigo ?? null; // si asocias item a un evento específico
+      const [dbItems] = await conn.query(
+        `SELECT PK_PS_Cod AS id FROM T_PedidoServicio WHERE FK_P_Cod = ?`,
+        [pedidoId]
+      );
+      const dbItemIds = new Set(dbItems.map((i) => i.id));
 
-      if (iid) {
-        incomingItemIds.add(iid);
+      const incomingItemIds = new Set();
+      for (const it of items || []) {
+        const eventoId = it.eventoId ?? null;
+        const servicioId = it.servicioId ?? null;
+        const horas = it.horas ?? null;
+        const personal = it.personal ?? it.staff ?? null;
+        const fotosImpresas = it.fotosImpresas ?? null;
+        const trailerMin = it.trailerMin ?? null;
+        const filmMin = it.filmMin ?? null;
+        const iid = it.id ?? null;
+        const exsId = it.exsId ?? it.idEventoServicio ?? null;
+        const fkPe = it.eventoCodigo ?? null;
+
+        if (iid) {
+          incomingItemIds.add(iid);
+          await conn.query(
+            `
+            UPDATE T_PedidoServicio
+            SET FK_ExS_Cod = ?, FK_PE_Cod = ?, PS_EventoId = ?, PS_ServicioId = ?,
+                PS_Nombre = ?, PS_Descripcion = ?, PS_Moneda = ?,
+                PS_PrecioUnit = ?, PS_Cantidad = ?, PS_Descuento = ?, PS_Recargo = ?, PS_Notas = ?,
+                PS_Horas = ?, PS_Staff = ?, PS_FotosImpresas = ?, PS_TrailerMin = ?, PS_FilmMin = ?
+            WHERE PK_PS_Cod = ? AND FK_P_Cod = ?
+            `,
+            [
+              exsId,
+              fkPe,
+              eventoId,
+              servicioId,
+              it.nombre,
+              it.descripcion,
+              it.moneda || "USD",
+              it.precioUnit,
+              it.cantidad ?? 1,
+              it.descuento ?? 0,
+              it.recargo ?? 0,
+              it.notas ?? null,
+              horas,
+              personal,
+              fotosImpresas,
+              trailerMin,
+              filmMin,
+              iid,
+              pedidoId,
+            ]
+          );
+          if (it.tmpId != null) {
+            const key = String(it.tmpId).trim();
+            if (key) tmpIdToItemId.set(key, iid);
+          }
+        } else {
+          const [rIt] = await conn.query(
+            `
+            INSERT INTO T_PedidoServicio
+            (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_EventoId, PS_ServicioId,
+             PS_Nombre, PS_Descripcion, PS_Moneda,
+             PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas,
+             PS_Horas, PS_Staff, PS_FotosImpresas, PS_TrailerMin, PS_FilmMin)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            `,
+            [
+              pedidoId,
+              exsId,
+              fkPe,
+              eventoId,
+              servicioId,
+              it.nombre,
+              it.descripcion,
+              it.moneda || "USD",
+              it.precioUnit,
+              it.cantidad ?? 1,
+              it.descuento ?? 0,
+              it.recargo ?? 0,
+              it.notas ?? null,
+              horas,
+              personal,
+              fotosImpresas,
+              trailerMin,
+              filmMin,
+            ]
+          );
+          incomingItemIds.add(rIt.insertId);
+          if (it.tmpId != null) {
+            const key = String(it.tmpId).trim();
+            if (key) tmpIdToItemId.set(key, rIt.insertId);
+          }
+        }
+      }
+
+      const itemsToDelete = [...dbItemIds].filter(
+        (id) => !incomingItemIds.has(id)
+      );
+      if (itemsToDelete.length) {
         await conn.query(
-          `
-          UPDATE T_PedidoServicio
-          SET FK_ExS_Cod = ?, FK_PE_Cod = ?, PS_EventoId = ?, PS_ServicioId = ?,
-              PS_Nombre = ?, PS_Descripcion = ?, PS_Moneda = ?,
-              PS_PrecioUnit = ?, PS_Cantidad = ?, PS_Descuento = ?, PS_Recargo = ?, PS_Notas = ?,
-              PS_Horas = ?, PS_Staff = ?, PS_FotosImpresas = ?, PS_TrailerMin = ?, PS_FilmMin = ?
-          WHERE PK_PS_Cod = ? AND FK_P_Cod = ?
-          `,
-          [
-            exsId,
-            fkPe,
-            eventoId,
-            servicioId,
-            it.nombre,
-            it.descripcion,
-            it.moneda || "USD",
-            it.precioUnit,
-            it.cantidad ?? 1,
-            it.descuento ?? 0,
-            it.recargo ?? 0,
-            it.notas ?? null,
-            horas,
-            personal,
-            fotosImpresas,
-            trailerMin,
-            filmMin,
-            iid,
-            pedidoId,
-          ]
+          `DELETE FROM T_PedidoServicio WHERE FK_P_Cod = ? AND PK_PS_Cod IN (${itemsToDelete
+            .map(() => "?")
+            .join(",")})`,
+          [pedidoId, ...itemsToDelete]
         );
-      } else {
-        const [rIt] = await conn.query(
-          `
-          INSERT INTO T_PedidoServicio
-          (FK_P_Cod, FK_ExS_Cod, FK_PE_Cod, PS_EventoId, PS_ServicioId,
-           PS_Nombre, PS_Descripcion, PS_Moneda,
-           PS_PrecioUnit, PS_Cantidad, PS_Descuento, PS_Recargo, PS_Notas,
-           PS_Horas, PS_Staff, PS_FotosImpresas, PS_TrailerMin, PS_FilmMin)
-          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-          `,
-          [
-            pedidoId,
-            exsId,
-            fkPe,
-            eventoId,
-            servicioId,
-            it.nombre,
-            it.descripcion,
-            it.moneda || "USD",
-            it.precioUnit,
-            it.cantidad ?? 1,
-            it.descuento ?? 0,
-            it.recargo ?? 0,
-            it.notas ?? null,
-            horas,
-            personal,
-            fotosImpresas,
-            trailerMin,
-            filmMin,
-          ]
-        );
-        incomingItemIds.add(rIt.insertId);
       }
     }
 
-    // 8) Borrado de items que ya no vienen
-    const itemsToDelete = [...dbItemIds].filter(
-      (id) => !incomingItemIds.has(id)
-    );
-    if (itemsToDelete.length) {
-      await conn.query(
-        `DELETE FROM T_PedidoServicio WHERE FK_P_Cod = ? AND PK_PS_Cod IN (${itemsToDelete
-          .map(() => "?")
-          .join(",")})`,
-        [pedidoId, ...itemsToDelete]
-      );
+    if (hasServiciosFechas) {
+      if (!hasItems && Array.isArray(serviciosFechas)) {
+        const hasTmpId = serviciosFechas.some((sf) => sf.itemTmpId != null);
+        if (hasTmpId) {
+          const e = new Error(
+            "serviciosFechas con itemTmpId requiere enviar items en el payload"
+          );
+          e.status = 422;
+          throw e;
+        }
+      }
+      const rows = [];
+      const list = Array.isArray(serviciosFechas) ? serviciosFechas : [];
+      for (const sf of list) {
+        const idPedidoServicio =
+          sf.idPedidoServicio != null
+            ? Number(sf.idPedidoServicio)
+            : tmpIdToItemId.get(String(sf.itemTmpId || "").trim());
+        if (!idPedidoServicio) {
+          const e = new Error(
+            `No se pudo mapear itemTmpId en serviciosFechas: ${sf.itemTmpId}`
+          );
+          e.status = 422;
+          throw e;
+        }
+        rows.push({ idPedidoServicio, fecha: sf.fecha });
+      }
+      await replaceServiciosFechasInTx(conn, pedidoId, rows);
     }
 
     await conn.commit();
