@@ -135,12 +135,17 @@ async function marcarPedidosPagoVencido({
        AND ev.fechaEvento IS NOT NULL
        AND (
          ev.fechaEvento <= ?
-         OR ev.fechaEvento <= DATE_ADD(?, INTERVAL 7 DAY)
+         OR p.P_Fecha_Creacion <= DATE_SUB(?, INTERVAL 90 DAY)
+         OR (
+           ev.fechaEvento <= DATE_ADD(?, INTERVAL 7 DAY)
+           AND NOT (DATEDIFF(ev.fechaEvento, p.P_Fecha_Creacion) BETWEEN 1 AND 7)
+         )
        )`,
     [
       Number(vencidoId),
       Number(pedidoExpiradoId),
       Number(pendienteId),
+      fechaCorte,
       fechaCorte,
       fechaCorte,
     ]
