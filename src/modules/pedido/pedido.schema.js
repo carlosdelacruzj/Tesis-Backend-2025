@@ -32,6 +32,11 @@
  *               format: date
  *               nullable: true
  *               example: "2025-09-20"
+ *             lugar:
+ *               type: string
+ *               nullable: true
+ *               maxLength: 150
+ *               example: "Cusco"
  *             observaciones:
  *               type: string
  *               example: "Observaciones del pedido"
@@ -235,6 +240,11 @@
  *               format: date
  *               nullable: true
  *               example: "2025-09-20"
+ *             lugar:
+ *               type: string
+ *               nullable: true
+ *               maxLength: 150
+ *               example: "Cusco"
  *             observaciones:
  *               type: string
  *               example: "Observaciones del pedido"

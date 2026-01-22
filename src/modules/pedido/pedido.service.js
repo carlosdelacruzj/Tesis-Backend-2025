@@ -139,6 +139,11 @@ function validatePayload(payload) {
   if (pedido.viaticosMonto != null) {
     assertOptionalNonNegativeNumber(pedido.viaticosMonto, "viaticosMonto");
   }
+  if (pedido.lugar != null && String(pedido.lugar).length > 150) {
+    throw Object.assign(new Error("pedido.lugar supera 150 caracteres"), {
+      status: 422,
+    });
+  }
   if (pedido.mensaje != null && String(pedido.mensaje).length > 500) {
     throw Object.assign(
       new Error("pedido.mensaje supera 500 caracteres"),
@@ -251,6 +256,10 @@ function validateUpdatePayload(payload) {
     assertOptionalNonNegativeNumber(pedido.horasEstimadas, "horasEstimadas");
   if (pedido.viaticosMonto != null)
     assertOptionalNonNegativeNumber(pedido.viaticosMonto, "viaticosMonto");
+  if (pedido.lugar != null && String(pedido.lugar).length > 150)
+    throw Object.assign(new Error("pedido.lugar supera 150 caracteres"), {
+      status: 422,
+    });
   if (pedido.mensaje != null && String(pedido.mensaje).length > 500)
     throw Object.assign(
       new Error("pedido.mensaje supera 500 caracteres"),
@@ -376,6 +385,7 @@ async function createNewPedido(payload) {
       idTipoEvento: payload.pedido.idTipoEvento ?? null,
       dias: payload.pedido.dias ?? null,
       fechaEvento: payload.pedido.fechaEvento ?? null,
+      lugar: (payload.pedido.lugar || "").trim() || null,
       horasEstimadas: payload.pedido.horasEstimadas ?? null,
       viaticosMonto: payload.pedido.viaticosMonto ?? null,
       mensaje: (payload.pedido.mensaje || "").trim() || null,
@@ -455,6 +465,7 @@ async function updatePedidoById(payload) {
       idTipoEvento: pedido.idTipoEvento ?? null,
       dias: pedido.dias ?? null,
       fechaEvento: pedido.fechaEvento ?? null,
+      lugar: pedido.lugar != null ? String(pedido.lugar).trim() || null : null,
       horasEstimadas: pedido.horasEstimadas ?? null,
       viaticosMonto: pedido.viaticosMonto ?? null,
       mensaje: (pedido.mensaje ?? "").trim() || null,

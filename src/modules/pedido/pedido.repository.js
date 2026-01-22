@@ -129,6 +129,7 @@ async function getById(id) {
     estadoPagoId: cab.estadoPagoId,
     observaciones: cab.observaciones ?? null,
     idTipoEvento: cab.idTipoEvento ?? null,
+    lugar: cab.lugar ?? null,
     dias: cab.dias ?? null,
     horasEstimadas: cab.horasEstimadas != null ? Number(cab.horasEstimadas) : null,
     viaticosMonto: cab.viaticosMonto != null ? Number(cab.viaticosMonto) : null,
@@ -236,8 +237,8 @@ async function createComposite({ pedido, eventos, items, serviciosFechas }) {
       `
       INSERT INTO T_Pedido
       (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod,
-       P_Nombre_Pedido, P_FechaEvento, P_IdTipoEvento, P_Dias, P_ViaticosMonto, P_HorasEst, P_Mensaje)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       P_Nombre_Pedido, P_FechaEvento, P_Lugar, P_IdTipoEvento, P_Dias, P_ViaticosMonto, P_HorasEst, P_Mensaje)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         pedido.estadoPedidoId,
@@ -249,6 +250,7 @@ async function createComposite({ pedido, eventos, items, serviciosFechas }) {
         pedido.empleadoId,
         pedido.nombrePedido,
         pedido.fechaEvento ?? null,
+        pedido.lugar ?? null,
         pedido.idTipoEvento ?? null,
         pedido.dias ?? null,
         pedido.viaticosMonto ?? 0,
@@ -473,6 +475,10 @@ async function updateCompositeById(
     if (pedido?.fechaEvento != null) {
       updFields.push("P_FechaEvento = ?");
       updParams.push(pedido.fechaEvento);
+    }
+    if (pedido?.lugar != null) {
+      updFields.push("P_Lugar = ?");
+      updParams.push(pedido.lugar);
     }
     if (pedido?.horasEstimadas != null) {
       updFields.push("P_HorasEst = ?");

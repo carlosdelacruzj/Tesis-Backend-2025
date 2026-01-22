@@ -1006,9 +1006,9 @@ BEGIN
   );
 
   INSERT INTO T_Pedido
-    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento, P_IdTipoEvento, P_Dias)
+    (FK_EP_Cod, FK_Cot_Cod, FK_Cli_Cod, FK_ESP_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod, P_Nombre_Pedido, P_FechaEvento, P_Lugar, P_IdTipoEvento, P_Dias)
   VALUES
-    (1, p_cot_id, v_fk_cli, 1, v_fecha_ref, CONCAT('Origen: Cotizacion #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev, v_id_tipo_evento, v_dias);
+    (1, p_cot_id, v_fk_cli, 1, v_fecha_ref, CONCAT('Origen: Cotizacion #', p_cot_id), p_empleado_id, v_nombre, v_fecha_ev, v_lugar, v_id_tipo_evento, v_dias);
 
   SET o_pedido_id = LAST_INSERT_ID();
 
@@ -2638,6 +2638,8 @@ BEGIN
     u.U_Numero_Documento                                 AS Documento,
     p.P_Fecha_Creacion                                   AS Creado,
     p.P_Dias                                             AS dias,
+    p.P_ViaticosMonto                                    AS viaticosMonto,
+    p.P_Lugar                                            AS Lugar,
 
     -- Próximo evento elegido (futuro más cercano; si no hay, el primero)
     evProx.PE_Fecha                                      AS ProxFecha,
@@ -2659,7 +2661,13 @@ BEGIN
 
     -- Totales por moneda (string listo para tabla)
     (
-      SELECT GROUP_CONCAT(CONCAT(t.moneda, ' ', FORMAT(t.total, 2)) SEPARATOR ' | ')
+      SELECT GROUP_CONCAT(
+        CONCAT(
+          t.moneda,
+          ' ',
+          FORMAT(t.total + COALESCE(p.P_ViaticosMonto, 0), 2)
+        ) SEPARATOR ' | '
+      )
       FROM (
         SELECT PS_Moneda AS moneda, SUM(PS_Subtotal) AS total
         FROM T_PedidoServicio
@@ -2670,7 +2678,14 @@ BEGIN
 
     -- Totales por moneda en JSON (útil si luego quieres chips por moneda)
     (
-      SELECT JSON_ARRAYAGG(JSON_OBJECT('moneda', t.moneda, 'total', t.total))
+      SELECT JSON_ARRAYAGG(
+        JSON_OBJECT(
+          'moneda',
+          t.moneda,
+          'total',
+          t.total + COALESCE(p.P_ViaticosMonto, 0)
+        )
+      )
       FROM (
         SELECT PS_Moneda AS moneda, SUM(PS_Subtotal) AS total
         FROM T_PedidoServicio
@@ -2730,6 +2745,8 @@ BEGIN
     esp.ESP_Nombre AS estadoPago,
     p.FK_Em_Cod AS empleadoId,
     MAX(CONCAT_WS(' ', uEm.U_Nombre, uEm.U_Apellido)) AS empleadoNombre,
+    p.P_ViaticosMonto AS viaticosMonto,
+    p.P_Lugar AS lugar,
     COALESCE(sal.CostoTotal, it.totalCalculado, 0) AS total,
     COALESCE(sal.MontoAbonado, 0) AS montoAbonado,
     COALESCE(
@@ -2782,6 +2799,8 @@ BEGIN
     ep.EP_Nombre,
     esp.ESP_Nombre,
     p.FK_Em_Cod,
+    p.P_ViaticosMonto,
+    p.P_Lugar,
     sal.CostoTotal,
     sal.MontoAbonado,
     sal.SaldoPendiente,
@@ -2817,6 +2836,7 @@ BEGIN
     p.FK_EP_Cod        AS estadoPedidoId,
     p.FK_ESP_Cod       AS estadoPagoId,
     p.P_FechaEvento    AS fechaEvento,
+    p.P_Lugar          AS lugar,
     p.P_IdTipoEvento   AS idTipoEvento,
     p.P_Dias           AS dias,
     p.P_Observaciones  AS observaciones,
