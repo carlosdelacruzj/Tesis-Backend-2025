@@ -40,6 +40,18 @@ function applyFechaEventoFromEventos(cotizacion, eventos) {
   cotizacion.fechaEvento = fechas[0];
 }
 
+function joinEquiposTexto(arr = []) {
+  // arr viene como [{nombre, detalle}]
+  // Ej: "Cámara x2 — 24-70mm; Flash x1"
+  return (arr || [])
+    .map((x) => {
+      const n = normalizeText(x?.nombre);
+      const d = normalizeText(x?.detalle);
+      return d ? `${n} ${d}`.trim() : n;
+    })
+    .filter(Boolean)
+    .join("; ");
+}
 
 function normalizeServiciosFechas(serviciosFechas) {
   if (serviciosFechas == null) return null;
@@ -258,18 +270,32 @@ async function streamPdf({ id, res } = {}) {
   if (!Array.isArray(detail.items)) detail.items = [];
   if (!detail.cotizacion || typeof detail.cotizacion !== "object") detail.cotizacion = {};
 
+  // ✅ IMPORTANTÍSIMO: para que el Word con {#dias}{#servicios} pinte
+  // (si no existe, el loop queda vacío y no muestra nada)
+  try {
+    const sf = await repo.listServiciosFechasByCotizacionId(cotizacionId);
+    detail.serviciosFechas = Array.isArray(sf) ? sf : [];
+  } catch {
+    detail.serviciosFechas = [];
+  }
+
   // ===================== VIÁTICOS (Opción A: sin tocar SP) =====================
   // - Solo aplica si lugar != "Lima"
-  // - viaticosMonto > 0 => "incluido" (se suma)
-  // - viaticosMonto <= 0 => "cliente cubre" (no se suma)
+  // - viaticosMonto > 0 => incluido (se suma)
+  // - viaticosMonto <= 0 => cliente cubre (no se suma)
   const lugarRaw = String(detail.cotizacion?.lugar ?? "").trim();
   const esLima = lugarRaw.toLowerCase() === "lima";
 
   const vRaw = Number(detail.cotizacion?.viaticosMonto ?? 0);
   const viaticosMonto = Number.isFinite(vRaw) ? vRaw : 0;
 
-  // Normalizamos para que el mapper trabaje limpio
-  detail.cotizacion.viaticosMonto = esLima ? 0 : viaticosMonto;
+  if (esLima) {
+    detail.cotizacion.viaticosMonto = 0;
+    detail.cotizacion.viaticosClienteCubre = false;
+  } else {
+    detail.cotizacion.viaticosMonto = viaticosMonto;
+    detail.cotizacion.viaticosClienteCubre = viaticosMonto <= 0; // opción A
+  }
   // ============================================================================
 
   // ✅ Mapeo para DOCX
@@ -302,10 +328,6 @@ async function streamPdf({ id, res } = {}) {
   );
   res.end(pdfBuffer);
 }
-
-
-
-
 
 
 async function migrarAPedido(id, { empleadoId, nombrePedido } = {}) {
@@ -487,6 +509,37 @@ function classifyItem(it) {
   return "foto";
 }
 
+  function collectEquiposNombres(arr = []) {
+    const out = [];
+
+    for (const it of arr) {
+      const equipos = it?.eventoServicio?.equipos;
+      if (!Array.isArray(equipos)) continue;
+
+      for (const eq of equipos) {
+        const nombre = normalizeText(eq?.tipoEquipo) || "Equipo";
+        const cantidad = Number(eq?.cantidad ?? 0);
+
+        // solo nombre + cantidad (ej: "Cámara x4")
+        const text = cantidad > 0 ? `${nombre} x${cantidad}` : nombre;
+        out.push(text);
+      }
+    }
+
+    // dedupe manteniendo orden
+    const uniq = [];
+    const seen = new Set();
+    for (const t of out) {
+      const k = String(t || "").trim();
+      if (!k || seen.has(k)) continue;
+      seen.add(k);
+      uniq.push(k);
+    }
+
+    return uniq.join(", ");
+  }
+
+
 function dedupeByKey(arr, keyFn) {
   const seen = new Set();
   const out = [];
@@ -504,12 +557,174 @@ function mapSpJsonToTemplateData(detail) {
   const contacto = detail?.contacto || {};
   const items = Array.isArray(detail?.items) ? detail.items : [];
   const eventos = Array.isArray(detail?.eventos) ? detail.eventos : [];
+  const serviciosFechas = Array.isArray(detail?.serviciosFechas) ? detail.serviciosFechas : [];
 
-  // ===== separar items (PRIMERO) =====
+  // =========================
+  // Helpers locales
+  // =========================
+  const normalize = (v) => normalizeText(v);
+
+  const getItemId = (it) =>
+    it?.idCotizacionServicio ??
+    it?.idCotServ ??
+    it?.PK_CotServ_Cod ??
+    it?.PK_CotServCod ??
+    null;
+
+  const sumItemSubtotal = (it) => {
+    const subtotal = Number(it?.subtotal);
+    if (Number.isFinite(subtotal)) return subtotal;
+
+    const qty = Number(it?.cantidad ?? 1);
+    const pu = Number(it?.precioUnit ?? 0);
+    if (Number.isFinite(qty) && Number.isFinite(pu)) return qty * pu;
+
+    return 0;
+  };
+
+  const collectEquiposNombres = (arr) => {
+    const map = new Map();
+
+    for (const it of arr || []) {
+      const equipos = it?.eventoServicio?.equipos;
+      if (!Array.isArray(equipos)) continue;
+
+      for (const eq of equipos) {
+        const nombre = normalize(eq?.tipoEquipo) || "Equipo";
+        const cant = Number(eq?.cantidad ?? 0);
+        const key = nombre.toLowerCase();
+
+        const prev = map.get(key) || { nombre, cantidad: 0 };
+        prev.cantidad += Number.isFinite(cant) ? cant : 0;
+        map.set(key, prev);
+      }
+    }
+
+    return Array.from(map.values())
+      .sort((a, b) => a.nombre.localeCompare(b.nombre, "es"))
+      .map((x) => (x.cantidad > 0 ? `${x.nombre} x${x.cantidad}` : x.nombre))
+      .join(", ");
+  };
+
+  const collectPersonal = (arr) => {
+    const out = [];
+    for (const it of arr || []) {
+      const staff = it?.eventoServicio?.staff;
+      if (!Array.isArray(staff)) continue;
+
+      for (const st of staff) {
+        const rol = normalize(st?.rol) || "Staff";
+        const cantidad = Number(st?.cantidad ?? 0);
+        out.push({ nombre: cantidad ? `${cantidad} ${rol}` : rol });
+      }
+    }
+    return dedupeByKey(out, (x) => x.nombre);
+  };
+
+  const buildLocaciones = (evs = []) => {
+    const out = [];
+    for (const e of evs || []) {
+      const u = normalize(e?.ubicacion);
+      const d = normalize(e?.direccion);
+      const h = toHHmm(e?.hora);
+      const parts = [u, d, h].filter(Boolean);
+      if (!parts.length) continue;
+      out.push({ nombre: parts.join(" - ") });
+    }
+    return dedupeByKey(out, (x) => x.nombre);
+  };
+
+  const toEntregable = (it) => {
+    const nombre = normalize(it?.nombre) || "Servicio";
+    const desc = normalize(it?.descripcion);
+    return { descripcion: desc ? `${nombre} — ${desc}` : nombre };
+  };
+
+  const isDrone = (it) => {
+    const name = normalize(it?.eventoServicio?.servicioNombre || it?.nombre).toLowerCase();
+    return name.includes("dron") || name.includes("drone");
+  };
+
+  const isBooth = (it) => {
+    const name = normalize(it?.eventoServicio?.servicioNombre || it?.nombre).toLowerCase();
+    return (
+      name.includes("photobooth") ||
+      name.includes("photo booth") ||
+      name.includes("cabina") ||
+      name.includes("totem") ||
+      name.includes("tótem")
+    );
+  };
+
+  // ✅ Listar fechas bonito en una sola línea:
+  // - mismo mes/año: "28, 29 y 31 de Enero de 2026"
+  // - meses distintos: "28 y 31 de Enero de 2026; 2 de Febrero de 2026"
+  const fechasInline = (dates = []) => {
+    const ds = (dates || []).filter(Boolean);
+
+    const parseISO = (s) => {
+      const m = String(s).trim().match(/^(\d{4})-(\d{2})-(\d{2})$/);
+      if (!m) return null;
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const d = Number(m[3]);
+      if (!y || !mo || !d) return null;
+      return { y, mo, d };
+    };
+
+    const monthName = (mo) =>
+      new Intl.DateTimeFormat("es-PE", { month: "long" }).format(new Date(2026, mo - 1, 1));
+
+    const joinDays = (days) => {
+      const arr = [...days].sort((a, b) => a - b);
+      if (arr.length === 1) return String(arr[0]);
+      if (arr.length === 2) return `${arr[0]} y ${arr[1]}`;
+      return `${arr.slice(0, -1).join(", ")} y ${arr[arr.length - 1]}`;
+    };
+
+    const groups = new Map(); // "YYYY-MM" -> {y, mo, days:Set}
+    for (const raw of ds) {
+      const p = parseISO(raw);
+      if (!p) continue;
+      const key = `${p.y}-${String(p.mo).padStart(2, "0")}`;
+      if (!groups.has(key)) groups.set(key, { y: p.y, mo: p.mo, days: new Set() });
+      groups.get(key).days.add(p.d);
+    }
+
+    const sortedGroups = Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([, g]) => g);
+
+    if (sortedGroups.length === 0) return ds.join(", ");
+
+    const parts = sortedGroups.map((g) => {
+      const daysStr = joinDays(g.days);
+      const mes = monthName(g.mo);
+      const mesCap = mes.charAt(0).toUpperCase() + mes.slice(1);
+      return `${daysStr} de ${mesCap} de ${g.y}`;
+    });
+
+    return parts.join("; ");
+  };
+
+  // =========================
+  // 1) CLASIFICAR ITEMS (foto/video/drone/booth)
+  // =========================
   const fotoItems = [];
   const videoItems = [];
+  const droneItems = [];
+  const boothItems = [];
 
   for (const it of items) {
+    if (isDrone(it)) {
+      droneItems.push(it);
+      continue;
+    }
+    if (isBooth(it)) {
+      boothItems.push(it);
+      continue;
+    }
+
     const kind = classifyItem(it);
     if (kind === "video") videoItems.push(it);
     else fotoItems.push(it);
@@ -517,215 +732,227 @@ function mapSpJsonToTemplateData(detail) {
 
   const hasFoto = fotoItems.length > 0;
   const hasVideo = videoItems.length > 0;
+  const hasDrone = droneItems.length > 0;
+  const hasBooth = boothItems.length > 0;
 
-  // ✅ Cantidad de fotos (viene de T_EventoServicio.ExS_FotosImpresas)
-  // Tomamos el máximo encontrado entre los items de foto
-  const fotosImpresasNum = fotoItems.reduce((max, it) => {
-    const n = Number(
-      it?.fotosImpresas ??
-        it?.eventoServicio?.fotosImpresas ??
-        it?.eventoServicio?.ExS_FotosImpresas ??
-        0
-    );
-    return Number.isFinite(n) ? Math.max(max, n) : max;
-  }, 0);
-  const fotoCantidadFotos = fotosImpresasNum > 0 ? String(fotosImpresasNum) : "";
+  // =========================
+  // 2) CABECERA (texto general)
+  // =========================
+  const partsMain = [];
+  if (hasFoto) partsMain.push("fotografía");
+  if (hasVideo) partsMain.push("video");
 
-  // ===== Texto “fotografía / video” =====
-  let servicioTexto = "fotografía";
-  if (hasFoto && hasVideo) servicioTexto = "fotografía y video";
-  else if (!hasFoto && hasVideo) servicioTexto = "video";
+  const partsExtra = [];
+  if (hasDrone) partsExtra.push("drones");
+  if (hasBooth) partsExtra.push("photobooth");
 
-  // ===== RUC => mostrar Sres. + razón social =====
+  let servicioTexto = "servicios";
+  if (partsMain.length && partsExtra.length) {
+    servicioTexto = `${partsMain.join(" y ")} (incluye ${partsExtra.join(" y ")})`;
+  } else if (partsMain.length) {
+    servicioTexto = partsMain.join(" y ");
+  } else if (partsExtra.length) {
+    servicioTexto = partsExtra.join(" y ");
+  }
+
   const tipoDoc = String(contacto?.tipoDocumento || "").toUpperCase();
   const esRuc = tipoDoc === "RUC";
 
-  // ===== títulos dinámicos =====
   let tituloCotizacion = "Cotización";
-  let textoServicioCotizacion = "fotografía y video";
+  if (hasFoto && hasVideo) tituloCotizacion = "Cotización para tomas fotográficas y video";
+  else if (hasFoto) tituloCotizacion = "Cotización para tomas fotográficas";
+  else if (hasVideo) tituloCotizacion = "Cotización para tomas de video";
+  else if (hasDrone && !hasBooth) tituloCotizacion = "Cotización para servicio de drones";
+  else if (!hasDrone && hasBooth) tituloCotizacion = "Cotización para servicio de photobooth";
+  else if (hasDrone && hasBooth) tituloCotizacion = "Cotización para drones y photobooth";
 
-  if (hasFoto && hasVideo) {
-    tituloCotizacion = "Cotización para tomas fotográficas y video";
-    textoServicioCotizacion = "fotografía y video";
-  } else if (hasFoto) {
-    tituloCotizacion = "Cotización para tomas fotográficas";
-    textoServicioCotizacion = "fotografía";
-  } else if (hasVideo) {
-    tituloCotizacion = "Cotización para tomas de video";
-    textoServicioCotizacion = "video";
+  const clienteEmpresa = esRuc ? normalize(contacto?.razonSocial) || "" : "";
+  const clienteContacto = esRuc
+    ? normalize(contacto?.nombreContacto) || normalize(contacto?.nombre) || "Cliente"
+    : normalize(contacto?.nombre) || "Cliente";
+
+  const eventoNombre = normalize(cot?.tipoEvento) || "Evento";
+
+  // =========================
+  // 3) MAPA itemId -> fechas asignadas (serviciosFechas)
+  // =========================
+  const itemDatesMap = new Map(); // id -> Set(fecha)
+  for (const sf of serviciosFechas) {
+    const id = Number(sf?.idCotizacionServicio ?? sf?.FK_CotServ_Cod ?? 0);
+    const fecha = normalize(sf?.fecha ?? sf?.CSF_Fecha);
+    if (!id || !fecha) continue;
+    if (!itemDatesMap.has(id)) itemDatesMap.set(id, new Set());
+    itemDatesMap.get(id).add(fecha);
   }
 
-  // ✅ Numeración dinámica para "Video" (si no hay foto, será 1)
-  const videoNumero = hasFoto ? 2 : 1;
+  // ✅ Fechas únicas del evento (ordenadas)
+  const allDates = Array.from(
+    new Set(
+      eventos
+        .map((e) => normalize(e?.fecha))
+        .filter(Boolean)
+        .sort()
+    )
+  );
 
-  const sumImporte = (arr) =>
-    arr.reduce((acc, it) => {
-      const subtotal = Number(it?.subtotal);
-      if (Number.isFinite(subtotal)) return acc + subtotal;
+  // fallback si no hay eventos
+  const fechaPrincipal = normalize(cot?.fechaEvento || "");
+  if (allDates.length === 0 && fechaPrincipal) allDates.push(fechaPrincipal);
 
-      const qty = Number(it?.cantidad ?? 1);
-      const pu = Number(it?.precioUnit ?? 0);
-      return Number.isFinite(qty) && Number.isFinite(pu) ? acc + qty * pu : acc;
+  const getDatesForItem = (it) => {
+    const id = Number(getItemId(it) ?? 0);
+    const set = itemDatesMap.get(id);
+    if (set && set.size) return Array.from(set).sort();
+    return allDates; // si no está asignado => todos los días
+  };
+
+  const itemHappensOn = (it, fecha) => getDatesForItem(it).includes(fecha);
+
+  // ✅ Header inline con días/mes/año
+  const eventoFechaRango = fechasInline(allDates);
+
+  // =========================
+  // 4) Construir DÍAS => {#dias}{#servicios}
+  //    ✅ Locaciones solo 1 vez por día
+  // =========================
+  const dias = [];
+
+  for (const fecha of allDates) {
+    const eventosDia = eventos.filter((e) => normalize(e?.fecha) === fecha);
+    const locacionesDia = buildLocaciones(eventosDia.length ? eventosDia : eventos);
+
+    const fotoDia = fotoItems.filter((it) => itemHappensOn(it, fecha));
+    const videoDia = videoItems.filter((it) => itemHappensOn(it, fecha));
+    const droneDia = droneItems.filter((it) => itemHappensOn(it, fecha));
+    const boothDia = boothItems.filter((it) => itemHappensOn(it, fecha));
+
+    const hasMainDia = fotoDia.length > 0 || videoDia.length > 0;
+
+    const servicios = [];
+    let n = 1;
+
+  const pushServicio = (key, arr) => {
+    if (!arr.length) return;
+
+    let titulo = "";
+    if (key === "foto") titulo = `${n++}) Fotografía`;
+    else if (key === "video") titulo = `${n++}) Video`;
+    else if (key === "drone") titulo = hasMainDia ? "Extra: Drones" : `${n++}) Drones`;
+    else if (key === "booth") titulo = hasMainDia ? "Extra: Photobooth" : `${n++}) Photobooth`;
+    else titulo = `${n++}) Servicio`;
+
+    // ✅ En vez de objeto/loop (que deja párrafo vacío cuando no aplica),
+    // mandamos una línea lista (o vacío), con salto \n dentro del MISMO párrafo.
+    let cantidadFotosLinea = "";
+    if (key === "foto") {
+      const maxFotos = arr.reduce((max, it) => {
+        const val = Number(
+          it?.fotosImpresas ??
+            it?.eventoServicio?.fotosImpresas ??
+            it?.eventoServicio?.ExS_FotosImpresas ??
+            0
+        );
+        return Number.isFinite(val) ? Math.max(max, val) : max;
+      }, 0);
+
+      if (maxFotos > 0) {
+        cantidadFotosLinea = `• Cantidad de fotos: ${maxFotos}\n`;
+      }
+    }
+
+    const subtotalProrrateado = arr.reduce((acc, it) => {
+      const subtotal = sumItemSubtotal(it);
+      const ds = getDatesForItem(it);
+      const k = ds.length || 1;
+      return acc + subtotal / k;
     }, 0);
 
-  // ===== Equipos y personal =====
-  const collectEquipos = (arr) => {
-    const out = [];
-    for (const it of arr) {
-      const equipos = it?.eventoServicio?.equipos;
-      if (!Array.isArray(equipos)) continue;
-
-      for (const eq of equipos) {
-        const nombre = normalizeText(eq?.tipoEquipo) || "Equipo";
-        const cantidad = Number(eq?.cantidad ?? 0);
-        const notas = normalizeText(eq?.notas);
-
-        // 🔥 si quieres OMITIR detalle (dejar solo {nombre}), descomenta esta línea:
-        // out.push({ nombre });
-
-        // (comportamiento actual: {nombre}: {detalle})
-        const detalle = `${cantidad ? "x" + cantidad : ""}${
-          notas ? " — " + notas : ""
-        }`.trim();
-        out.push({ nombre, detalle });
-      }
-    }
-    // si usas out.push({ nombre }) entonces cambia el key para no depender de detalle
-    return dedupeByKey(out, (x) => `${x.nombre}|${x.detalle ?? ""}`);
+    servicios.push({
+      titulo,
+      equiposTexto: collectEquiposNombres(arr),
+      personal: collectPersonal(arr),
+      // ✅ ya NO locaciones aquí (se muestran 1 vez por día)
+      cantidadFotosLinea,
+      entregables: arr.map(toEntregable),
+      _subtotalNum: subtotalProrrateado,
+    });
   };
 
-  const collectPersonal = (arr) => {
-    const out = [];
-    for (const it of arr) {
-      const staff = it?.eventoServicio?.staff;
-      if (!Array.isArray(staff)) continue;
 
-      for (const st of staff) {
-        const rol = normalizeText(st?.rol) || "Staff";
-        const cantidad = Number(st?.cantidad ?? 0);
+    pushServicio("foto", fotoDia);
+    pushServicio("video", videoDia);
+    pushServicio("drone", droneDia);
+    pushServicio("booth", boothDia);
 
-        // 🔥 si quieres NO mostrar rol (solo {nombre}), usa esto:
-        // out.push({ nombre: cantidad ? `${cantidad} ${rol}` : rol });
+    if (!servicios.length) continue;
 
-        // (comportamiento actual: {nombre} ({rol}))
-        out.push({
-          nombre: cantidad ? `${cantidad} ${rol}` : rol,
-          rol: "Personal",
-        });
-      }
-    }
-    return dedupeByKey(out, (x) => `${x.nombre}|${x.rol ?? ""}`);
-  };
+    const subtotalDiaNum = servicios.reduce((acc, s) => acc + (Number(s._subtotalNum) || 0), 0);
+    for (const s of servicios) delete s._subtotalNum;
 
-  // ===== Locaciones =====
-  const locs = eventos.map((e) => normalizeText(e?.ubicacion)).filter(Boolean);
-  const fotoLocaciones = dedupeByKey(locs, (x) => x).map((nombre) => ({ nombre }));
-  const videoLocaciones = fotoLocaciones;
+    dias.push({
+      diaNumero: dias.length + 1,
+      fecha,
+      locacionesDia, // ✅ NUEVO: Word mostrará locaciones 1 vez por día
+      servicios,
+      subtotalDia: subtotalDiaNum.toFixed(2),
+      _subtotalDiaNum: subtotalDiaNum,
+    });
+  }
 
-  // ===== Entregables =====
-  const toEntregable = (it) => {
-    const nombre = normalizeText(it?.nombre) || "Servicio";
-    const desc = normalizeText(it?.descripcion);
-    return { descripcion: desc ? `${nombre} — ${desc}` : nombre };
-  };
-
-  const fotoEntregables = fotoItems.map(toEntregable);
-  const videoEntregables = videoItems.map(toEntregable);
-
-  // ===== Fechas =====
-  const fechaPrincipal = cot?.fechaEvento || (eventos[0]?.fecha ?? "");
-  const eventoFechaRango = normalizeText(fechaPrincipal);
-
-  // ===== ClienteEmpresa / ClienteContacto =====
-  const clienteEmpresa = esRuc ? normalizeText(contacto?.razonSocial) || "" : "";
-  const clienteContacto = esRuc
-    ? normalizeText(contacto?.nombreContacto) ||
-      normalizeText(contacto?.nombre) ||
-      "Cliente"
-    : normalizeText(contacto?.nombre) || "Cliente";
-
-  // ===== VIÁTICOS (Opción A: sin SP) =====
-  const lugar = normalizeText(cot?.lugar || "");
+  // =========================
+  // 5) VIÁTICOS (opción A)
+  // =========================
+  const lugar = normalize(cot?.lugar || "");
   const esLima = lugar.toLowerCase() === "lima";
 
   const viaticosMontoNum = Number(cot?.viaticosMonto ?? 0);
   const viaticosMontoOk = Number.isFinite(viaticosMontoNum) ? viaticosMontoNum : 0;
 
-  // - fuera de Lima y monto <= 0 => cliente cubre
-  // - fuera de Lima y monto > 0  => incluido en presupuesto
-  const viaticosClienteCubre = !esLima && viaticosMontoOk <= 0;
+  const viaticosClienteCubre =
+    Boolean(cot?.viaticosClienteCubre) || (!esLima && viaticosMontoOk <= 0);
 
-  // Mostrar texto SIEMPRE que sea fuera de Lima
   const mostrarViaticos = !esLima;
 
   const viaticosTexto = viaticosClienteCubre
     ? "Los boletos aéreos, viáticos y hospedaje serán cubiertos por el cliente."
     : "Los boletos aéreos, viáticos y hospedaje están incluidos en el presupuesto.";
 
-  // Mostrar línea de monto solo si están incluidos y hay monto > 0
   const mostrarViaticosMonto = !esLima && !viaticosClienteCubre && viaticosMontoOk > 0;
 
-  // ===== Totales base =====
-  const totalFotoNum = sumImporte(fotoItems);
-  const totalVideoNum = sumImporte(videoItems);
-  const totalServicios = totalFotoNum + totalVideoNum;
+  // =========================
+  // 6) TOTALES (resumen final)
+  // =========================
+  const totalServicios = items.reduce((acc, it) => acc + sumItemSubtotal(it), 0);
 
-  // ===== Total final (suma viáticos solo si están incluidos) =====
+  const subtotalServiciosDiasNum = dias.reduce(
+    (acc, d) => acc + (Number(d._subtotalDiaNum) || 0),
+    0
+  );
+  const subtotalServiciosDias = subtotalServiciosDiasNum.toFixed(2);
+
   const montoTotalFinal = totalServicios + (mostrarViaticosMonto ? viaticosMontoOk : 0);
 
-  return {
-    // Títulos / texto
-    tituloCotizacion,
-    textoServicioCotizacion,
-    servicioTexto,
+  for (const d of dias) delete d._subtotalDiaNum;
 
-    // Cliente
+  return {
+    tituloCotizacion,
     mostrarSres: esRuc,
     clienteEmpresa,
     clienteContacto,
 
-    // Evento
-    eventoNombre: normalizeText(cot?.tipoEvento) || "Evento",
+    servicioTexto,
+    eventoNombre,
     eventoFechaRango,
 
-    // Secciones
-    mostrarFoto: hasFoto,
-    mostrarVideo: hasVideo,
+    dias,
+    subtotalServiciosDias,
 
-    // Foto
-    fotoEquipos: collectEquipos(fotoItems),
-    fotoPersonal: collectPersonal(fotoItems),
-    fotoLocaciones,
-    fotoEntregables,
-    fotoCantidadFotos,
-    fotoFecha: eventoFechaRango,
-    fotoLugar: normalizeText(cot?.lugar) || normalizeText(eventos[0]?.ubicacion) || "",
-    fotoHorario: toHHmm(eventos[0]?.hora) || "",
-
-    // Video
-    videoEquipos: collectEquipos(videoItems),
-    videoPersonal: collectPersonal(videoItems),
-    videoLocaciones,
-    videoEntregables,
-    videoNotas: "",
-
-    // Totales por bloque
-    totalFoto: totalFotoNum.toFixed(2),
-    totalVideo: totalVideoNum.toFixed(2),
-
-    // Viáticos
     mostrarViaticos,
-    mostrarViaticosMonto,
     viaticosTexto,
+    mostrarViaticosMonto,
     viaticosMonto: viaticosMontoOk.toFixed(2),
-
-    // Numeración dinámica
-    videoNumero,
-
-    // Total final
     montoTotal: montoTotalFinal.toFixed(2),
 
-    // Fecha emisión
     fechaEmisionLarga: cot?.fechaCreacion
       ? formatDateLong(cot.fechaCreacion)
       : formatDateLong(new Date()),
@@ -746,10 +973,3 @@ module.exports = {
   remove,
   cambiarEstadoOptimista,
 };
-
-
-
-
-
-
-
