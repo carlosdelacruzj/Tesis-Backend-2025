@@ -11,9 +11,17 @@ SELECT
   COALESCE(ev.PrimerFecha, p.P_Fecha_Creacion) AS Fecha,
   p.P_Fecha_Creacion AS FechaCreacion,
   pr.Proyecto AS Proyecto,
-  (COALESCE(sv.CostoTotal, 0) + COALESCE(p.P_ViaticosMonto, 0)) AS CostoTotal,
+  (COALESCE(sv.CostoTotal, 0) + CASE
+    WHEN UPPER(TRIM(COALESCE(p.P_Lugar, ''))) = 'LIMA' THEN 0
+    WHEN COALESCE(p.P_ViaticosMonto, 0) > 0 THEN COALESCE(p.P_ViaticosMonto, 0)
+    ELSE 0
+  END) AS CostoTotal,
   COALESCE(ab.MontoAbonado, 0) AS MontoAbonado,
-  (COALESCE(sv.CostoTotal, 0) + COALESCE(p.P_ViaticosMonto, 0) - COALESCE(ab.MontoAbonado, 0)) AS SaldoPendiente,
+  (COALESCE(sv.CostoTotal, 0) + CASE
+    WHEN UPPER(TRIM(COALESCE(p.P_Lugar, ''))) = 'LIMA' THEN 0
+    WHEN COALESCE(p.P_ViaticosMonto, 0) > 0 THEN COALESCE(p.P_ViaticosMonto, 0)
+    ELSE 0
+  END - COALESCE(ab.MontoAbonado, 0)) AS SaldoPendiente,
   p.FK_ESP_Cod AS EstadoPagoId,
   p.FK_EP_Cod AS EstadoPedidoId
 FROM T_Pedido p
@@ -81,7 +89,11 @@ BEGIN
         CONCAT(
           t.moneda,
           ' ',
-          FORMAT(t.total + COALESCE(p.P_ViaticosMonto, 0), 2)
+          FORMAT(t.total + CASE
+            WHEN UPPER(TRIM(COALESCE(p.P_Lugar, ''))) = 'LIMA' THEN 0
+            WHEN COALESCE(p.P_ViaticosMonto, 0) > 0 THEN COALESCE(p.P_ViaticosMonto, 0)
+            ELSE 0
+          END, 2)
         ) SEPARATOR ' | '
       )
       FROM (
@@ -99,7 +111,11 @@ BEGIN
           'moneda',
           t.moneda,
           'total',
-          t.total + COALESCE(p.P_ViaticosMonto, 0)
+          t.total + CASE
+            WHEN UPPER(TRIM(COALESCE(p.P_Lugar, ''))) = 'LIMA' THEN 0
+            WHEN COALESCE(p.P_ViaticosMonto, 0) > 0 THEN COALESCE(p.P_ViaticosMonto, 0)
+            ELSE 0
+          END
         )
       )
       FROM (
@@ -160,11 +176,27 @@ BEGIN
     MAX(CONCAT_WS(' ', uEm.U_Nombre, uEm.U_Apellido)) AS empleadoNombre,
     p.P_ViaticosMonto AS viaticosMonto,
     p.P_Lugar AS lugar,
-    COALESCE(sal.CostoTotal, it.totalCalculado, 0) AS total,
+    COALESCE(
+      sal.CostoTotal,
+      it.totalCalculado + CASE
+        WHEN UPPER(TRIM(COALESCE(p.P_Lugar, ''))) = 'LIMA' THEN 0
+        WHEN COALESCE(p.P_ViaticosMonto, 0) > 0 THEN COALESCE(p.P_ViaticosMonto, 0)
+        ELSE 0
+      END,
+      0
+    ) AS total,
     COALESCE(sal.MontoAbonado, 0) AS montoAbonado,
     COALESCE(
       sal.SaldoPendiente,
-      COALESCE(sal.CostoTotal, it.totalCalculado, 0) - COALESCE(sal.MontoAbonado, 0),
+      COALESCE(
+        sal.CostoTotal,
+        it.totalCalculado + CASE
+          WHEN UPPER(TRIM(COALESCE(p.P_Lugar, ''))) = 'LIMA' THEN 0
+          WHEN COALESCE(p.P_ViaticosMonto, 0) > 0 THEN COALESCE(p.P_ViaticosMonto, 0)
+          ELSE 0
+        END,
+        0
+      ) - COALESCE(sal.MontoAbonado, 0),
       0
     ) AS saldoPendiente,
     ev.primerEventoFecha,

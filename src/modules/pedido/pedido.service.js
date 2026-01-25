@@ -4,7 +4,6 @@ const eventoServicioRepo = require("../eventos_servicios/eventos_servicios.repos
 const path = require("path");
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 const pagosService = require("../pagos/pagos.service");
-const cotRepo = require("../cotizacion/cotizacion.repository");
 
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -363,7 +362,24 @@ async function findPedidoById(id) {
     e.status = 404;
     throw e;
   }
-  return p;
+  const items = Array.isArray(p.items) ? p.items : [];
+  const subtotalServicios = sumTotal(items);
+
+  const lugarRaw = String(p.pedido?.lugar ?? "").trim();
+  const esLima = lugarRaw.toLowerCase() === "lima";
+  const vRaw = Number(p.pedido?.viaticosMonto ?? 0);
+  const viaticosMonto = Number.isFinite(vRaw) ? vRaw : 0;
+  const viaticosAplicado = !esLima && viaticosMonto > 0 ? viaticosMonto : 0;
+
+  const total = subtotalServicios + viaticosAplicado;
+
+  return {
+    ...p,
+    pedido: {
+      ...p.pedido,
+      total,
+    },
+  };
 }
 async function findLastEstadoPedido() {
   return repo.getLastEstado();
@@ -592,6 +608,13 @@ function normalizeText(v) {
   return String(v).trim();
 }
 
+function formatDateDMY(value) {
+  if (!value) return "";
+  const s = String(value).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  return m ? `${m[3]}-${m[2]}-${m[1]}` : s;
+}
+
 function classifyItem(it) {
   const exs = it?.eventoServicio;
   const servicioNombre = normalizeText(exs?.servicioNombre || it?.nombre).toLowerCase();
@@ -691,7 +714,7 @@ function mapPedidoToContratoTemplateData(detail, body = {}, extra = {}) {
   const agenda = (eventos.length ? eventos : [null]).map((e) => {
     if (!e) return { item: "Fecha / hora / ubicación por confirmar." };
 
-    const fecha = normalizeText(e?.fecha);
+    const fecha = formatDateDMY(e?.fecha);
     const hora = normalizeText(e?.hora);
     const ubi = normalizeText(e?.ubicacion);
     const dir = normalizeText(e?.direccion);
@@ -760,20 +783,14 @@ async function streamContratoPdf({ id, res, body, query } = {}) {
     e.status = 404;
     throw e;
   }
-    // ✅ Traer cotización para viáticos (sin tocar SP de pedido)
-  const cotizacionId = Number(detail?.pedido?.cotizacionId || 0);
+  // Viaticos: usar los datos del pedido para mantener paridad con GET
   let viaticosToAdd = 0;
 
-  if (cotizacionId > 0) {
-    const cot = await cotRepo.findByIdWithItems(cotizacionId);
-
-    const lugar = String(cot?.cotizacion?.lugar || "").trim().toUpperCase();
-    const esLima = lugar === "LIMA";
-
-    const v = Number(cot?.cotizacion?.viaticosMonto ?? 0);
-    if (!esLima && Number.isFinite(v) && v > 0) {
-      viaticosToAdd = v; // ✅ se suma al total del contrato
-    }
+  const lugar = String(detail?.pedido?.lugar || "").trim().toUpperCase();
+  const esLima = lugar === "LIMA";
+  const v = Number(detail?.pedido?.viaticosMonto ?? 0);
+  if (!esLima && Number.isFinite(v) && v > 0) {
+    viaticosToAdd = v;
   }
 
 

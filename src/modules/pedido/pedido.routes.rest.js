@@ -54,7 +54,12 @@ router.get("/:id/requerimientos", ctrl.getRequerimientos);
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PedidoDetailResponse'
  *       '404': { description: No encontrado }
  */
 router.get("/:id", ctrl.getPedidoById);

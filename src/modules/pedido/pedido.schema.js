@@ -424,6 +424,112 @@
  *           type: integer
  *           example: 123
  *
+ *     PedidoDetailResponse:
+ *       type: object
+ *       properties:
+ *         pedido:
+ *           type: object
+ *           properties:
+ *             id:
+ *               type: integer
+ *               example: 123
+ *             clienteId:
+ *               type: integer
+ *               example: 1
+ *             cotizacionId:
+ *               type: integer
+ *               nullable: true
+ *               example: 45
+ *             nombrePedido:
+ *               type: string
+ *               example: "Boda de Renzo y Pablo"
+ *             fechaCreacion:
+ *               type: string
+ *               format: date
+ *               example: "2025-09-20"
+ *             fechaEvento:
+ *               type: string
+ *               format: date
+ *               nullable: true
+ *               example: "2025-09-20"
+ *             lugar:
+ *               type: string
+ *               nullable: true
+ *               example: "Cusco"
+ *             viaticosMonto:
+ *               type: number
+ *               nullable: true
+ *               example: 150
+ *             total:
+ *               type: number
+ *               example: 1150
+ *         eventos:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 example: 555
+ *               fecha:
+ *                 type: string
+ *                 format: date
+ *                 example: "2025-09-20"
+ *               hora:
+ *                 type: string
+ *                 pattern: '^\\d{2}:\\d{2}(:\\d{2})?$'
+ *                 example: "09:00:00"
+ *               ubicacion:
+ *                 type: string
+ *                 example: "Casa del Novio"
+ *               direccion:
+ *                 type: string
+ *                 example: "Calle Piura Mz B4 Lote 10"
+ *               notas:
+ *                 type: string
+ *                 example: "Llegar 15 min antes"
+ *         items:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               id:
+ *                 type: integer
+ *                 example: 777
+ *               nombre:
+ *                 type: string
+ *                 example: "Foto boda full day + album impreso"
+ *               moneda:
+ *                 type: string
+ *                 example: "USD"
+ *               precioUnit:
+ *                 type: number
+ *                 example: 2500
+ *               cantidad:
+ *                 type: number
+ *                 example: 1
+ *               descuento:
+ *                 type: number
+ *                 example: 0
+ *               recargo:
+ *                 type: number
+ *                 example: 0
+ *               subtotal:
+ *                 type: number
+ *                 example: 2500
+ *         serviciosFechas:
+ *           type: array
+ *           items:
+ *             type: object
+ *             properties:
+ *               idPedidoServicio:
+ *                 type: integer
+ *                 example: 123
+ *               fecha:
+ *                 type: string
+ *                 format: date
+ *                 example: "2025-09-20"
+ *
  *     PedidoIndexItem:
  *       type: object
  *       additionalProperties: true
