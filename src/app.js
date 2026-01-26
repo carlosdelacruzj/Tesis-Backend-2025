@@ -16,7 +16,10 @@ const errorHandler = require("./middlewares/error-handler");
 const basicAuth = require("./middlewares/basic-auth");
 
 // ───────────── FS ─────────────
-try { fs.mkdirSync("uploads", { recursive: true }); } catch (_) {}
+try {
+  fs.mkdirSync("uploads", { recursive: true });
+  fs.mkdirSync("uploads/portafolio", { recursive: true });
+} catch (_) {}
 
 const PORT = Number(process.env.PORT || 3000);
 app.set("port", PORT);
@@ -38,6 +41,14 @@ app.use(cors({
 // ───────────── Parsers / Logs ─────────────
 app.use(express.json({ limit: "10mb" }));
 app.use(express.urlencoded({ extended: true }));
+app.use(
+  "/uploads",
+  (_req, res, next) => {
+    res.setHeader("Cross-Origin-Resource-Policy", "cross-origin");
+    next();
+  },
+  express.static("uploads")
+);
 
 app.use(pinoHttp({
   logger,
