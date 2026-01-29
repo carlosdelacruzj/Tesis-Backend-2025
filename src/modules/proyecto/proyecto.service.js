@@ -1,6 +1,4 @@
-const repo = require("./proyecto.repository");
-const equipoService = require("../inventario/equipo/equipo.service");
-const { getLimaDateTimeString } = require("../../utils/dates");
+﻿const repo = require("./proyecto.repository");
 
 function ensurePositiveInt(value, field) {
   const num = Number(value);
@@ -12,6 +10,28 @@ function ensurePositiveInt(value, field) {
   return num;
 }
 
+function ensureArray(payload, field) {
+  if (!Object.prototype.hasOwnProperty.call(payload || {}, field)) {
+    const err = new Error(`${field} es requerido`);
+    err.status = 400;
+    throw err;
+  }
+  if (!Array.isArray(payload[field])) {
+    const err = new Error(`${field} debe ser un arreglo`);
+    err.status = 400;
+    throw err;
+  }
+  return payload[field];
+}
+
+function toCleanText(value, maxLen = 255) {
+  if (value == null) return null;
+  const text = String(value).trim();
+  if (!text) return null;
+  return text.length > maxLen ? text.slice(0, maxLen) : text;
+}
+
+
 /* Proyecto */
 async function listProyecto() {
   return repo.getAllProyecto();
@@ -19,13 +39,21 @@ async function listProyecto() {
 async function findProyectoById(id) {
   const data = await repo.getByIdProyecto(id);
   const row = data?.proyecto ?? (Array.isArray(data) ? data[0] : data);
-  const recursos = Array.isArray(data?.recursos) ? data.recursos : [];
   if (!row) {
     const err = new Error("Proyecto no encontrado");
     err.status = 404;
     throw err;
   }
-  return { ...row, recursos };
+  return {
+    proyecto: row,
+    dias: data?.dias || [],
+    bloquesDia: data?.bloquesDia || [],
+    serviciosDia: data?.serviciosDia || [],
+    empleadosDia: data?.empleadosDia || [],
+    equiposDia: data?.equiposDia || [],
+    requerimientosPersonalDia: data?.requerimientosPersonalDia || [],
+    requerimientosEquipoDia: data?.requerimientosEquipoDia || [],
+  };
 }
 async function createProyecto(payload) {
   const pedidoId = payload.pedidoId;
@@ -44,7 +72,12 @@ async function createProyecto(payload) {
     throw err;
   }
 
-  const result = await repo.postProyecto(payload);
+  const result = await repo.postProyecto({
+    pedidoId,
+    responsableId: payload?.responsableId ?? null,
+    notas: payload?.notas ?? null,
+    enlace: payload?.enlace ?? null,
+  });
   const first = Array.isArray(result) ? result[0] : result;
   return { status: "Registro exitoso", proyectoId: first?.proyectoId ?? null };
 }
@@ -53,79 +86,6 @@ async function updateProyecto(id, payload) {
   return { status: "Actualización exitosa", proyectoId: Number(id) };
 }
 
-async function addRecurso(payload = {}) {
-  const proyectoIdGlobal = payload.proyectoId;
-  const lista = Array.isArray(payload.asignaciones) ? payload.asignaciones : null;
-
-  // Soporta body plano (legacy) o con arreglo "asignaciones"
-  const items = lista && lista.length ? lista : [payload];
-
-  // Si viene arreglo (pantalla completa), limpiar previo y reinsertar todo
-  if (lista && lista.length) {
-    const pid = proyectoIdGlobal ?? lista[0]?.proyectoId;
-    if (!pid) {
-      const err = new Error("proyectoId es requerido en el payload");
-      err.status = 400;
-      throw err;
-    }
-    await repo.resetRecursosProyecto(pid);
-  }
-
-  const results = [];
-  for (let i = 0; i < items.length; i++) {
-    const item = items[i] || {};
-    const {
-      proyectoId = proyectoIdGlobal,
-      equipoId,
-      empleadoId = null,
-      fechaInicio,
-      fechaFin,
-      notas = null,
-    } = item;
-
-    if (!proyectoId || !equipoId || !fechaInicio || !fechaFin) {
-      const err = new Error("proyectoId, equipoId, fechaInicio y fechaFin son requeridos");
-      err.status = 400;
-      throw err;
-    }
-
-    const r = await repo.addProyectoRecurso({
-      proyectoId,
-      equipoId,
-      empleadoId,
-      fechaInicio,
-      fechaFin,
-      notas,
-    });
-    const first = Array.isArray(r) ? r[0] : r;
-    results.push({
-      index: i,
-      proyectoId: Number(proyectoId),
-      equipoId: Number(equipoId),
-      empleadoId: empleadoId == null ? null : Number(empleadoId),
-      recursoId: first?.recursoId ?? null,
-    });
-  }
-
-  return {
-    status: items.length > 1 ? "Recursos agregados" : "Recurso agregado",
-    results,
-  };
-}
-
-async function listAsignaciones(proyectoId) {
-  if (!proyectoId) {
-    const err = new Error("proyectoId es requerido");
-    err.status = 400;
-    throw err;
-  }
-  return repo.listAsignacionesByProyecto(proyectoId);
-}
-
-async function listPendientesDevolucion(proyectoId) {
-  const pid = ensurePositiveInt(proyectoId, "proyectoId");
-  return repo.listAsignacionesPendientes(pid);
-}
 async function deleteProyecto(id) {
   await repo.deleteProyecto(id);
   return { status: "Eliminada" };
@@ -146,142 +106,122 @@ async function listEstadosProyecto() {
   return repo.listEstadoProyecto();
 }
 
-async function disponibilidad(query = {}) {
-  const { fechaInicio, fechaFin, proyectoId, tipoEquipoId, cargoId } = query;
-  if (!fechaInicio || !fechaFin) {
-    const err = new Error("fechaInicio y fechaFin son requeridos");
+async function listEstadosProyectoDia() {
+  return repo.listEstadoProyectoDia();
+}
+
+async function updateProyectoDiaEstado(diaId, estadoDiaId) {
+  const did = ensurePositiveInt(diaId, "diaId");
+  const eid = ensurePositiveInt(estadoDiaId, "estadoDiaId");
+
+  const estados = await repo.listEstadoProyectoDia();
+  const existe = Array.isArray(estados)
+    ? estados.some((e) => Number(e.estadoDiaId) === eid)
+    : false;
+  if (!existe) {
+    const err = new Error("estadoDiaId no valido");
     err.status = 400;
     throw err;
   }
-  if (new Date(fechaFin) < new Date(fechaInicio)) {
+
+  const result = await repo.updateProyectoDiaEstado(did, eid);
+  if (!result || result.affectedRows === 0) {
+    const err = new Error("Dia no encontrado o sin cambios");
+    err.status = 404;
+    throw err;
+  }
+  return { status: "Actualizacion exitosa", diaId: did, estadoDiaId: eid };
+}
+
+async function disponibilidadAsignaciones(query = {}) {
+  const { fecha, fechaInicio, fechaFin, proyectoId, tipoEquipoId, cargoId } = query;
+  const inicio = fecha || fechaInicio;
+  const fin = fecha || fechaFin;
+  if (!inicio || !fin) {
+    const err = new Error("fecha es requerida (o fechaInicio y fechaFin)");
+    err.status = 400;
+    throw err;
+  }
+  if (new Date(fin) < new Date(inicio)) {
     const err = new Error("fechaFin no puede ser menor a fechaInicio");
     err.status = 400;
     throw err;
   }
+
   const { empleados, equipos } = await repo.getDisponibilidad({
-    fechaInicio,
-    fechaFin,
+    fechaInicio: inicio,
+    fechaFin: fin,
     proyectoId,
     tipoEquipoId,
     cargoId,
   });
 
-  // Normaliza nombres a los usados en endpoints existentes (empleados operativos / inventario equipos)
-  const empleadosMapped = (empleados || []).map((e) => ({
-    empleadoId: e.empleadoId,
-    usuarioId: e.usuarioId,
-    nombre: e.nombre,
-    apellido: e.apellido,
-    cargoId: e.cargoId,
-    cargo: e.cargo,
-    estadoId: e.estadoId,
-    estado: e.estado,
-    operativoCampo: !!e.operativoCampo,
-    disponible: !!e.disponible,
-    conflictos: e.conflictos || [],
-  }));
+  const empleadosDisponibles = (empleados || [])
+    .filter((e) => Number(e.disponible) === 1)
+    .map((e) => ({
+      empleadoId: e.empleadoId,
+      usuarioId: e.usuarioId,
+      nombre: e.nombre,
+      apellido: e.apellido,
+      cargoId: e.cargoId,
+      cargo: e.cargo,
+    }));
 
-  const equiposMapped = (equipos || []).map((eq) => ({
-    idEquipo: eq.idEquipo,
-    fechaIngreso: eq.fechaIngreso,
-    idModelo: eq.idModelo,
-    nombreModelo: eq.nombreModelo,
-    idMarca: eq.idMarca,
-    nombreMarca: eq.nombreMarca,
-    idTipoEquipo: eq.idTipoEquipo,
-    nombreTipoEquipo: eq.nombreTipoEquipo,
-    idEstado: eq.idEstado,
-    nombreEstado: eq.nombreEstado,
-    serie: eq.serie,
-    disponible: !!eq.disponible,
-    conflictos: eq.conflictos || [],
-  }));
+  const equiposDisponibles = (equipos || [])
+    .filter((eq) => Number(eq.disponible) === 1)
+    .map((eq) => ({
+      equipoId: eq.idEquipo,
+      serie: eq.serie,
+      idModelo: eq.idModelo,
+      nombreModelo: eq.nombreModelo,
+      idTipoEquipo: eq.idTipoEquipo,
+      nombreTipoEquipo: eq.nombreTipoEquipo,
+    }));
 
-  return { empleados: empleadosMapped, equipos: equiposMapped };
+  return { empleados: empleadosDisponibles, equipos: equiposDisponibles };
 }
 
-async function registrarDevolucion(proyectoId, payload = {}, { usuarioId = null } = {}) {
-  const pid = ensurePositiveInt(proyectoId, "proyectoId");
-  const lista = Array.isArray(payload.devoluciones) ? payload.devoluciones : null;
-  if (!lista || !lista.length) {
-    const err = new Error("devoluciones es requerido y debe contener al menos un elemento");
+async function upsertProyectoAsignaciones(payload = {}) {
+  const proyectoId = ensurePositiveInt(payload?.proyectoId, "proyectoId");
+  const diasInput = ensureArray(payload, "dias");
+  if (diasInput.length === 0) {
+    const err = new Error("dias no puede estar vacio");
     err.status = 400;
     throw err;
   }
 
-  const allowedEstados = new Set(["devuelto", "daniado", "faltante"]);
-  const [disponibleId, mantenimientoId, bajaId] = await Promise.all([
-    equipoService.getEstadoEquipoIdByNombre("Disponible"),
-    equipoService.getEstadoEquipoIdByNombre("En Mantenimiento"),
-    equipoService.getEstadoEquipoIdByNombre("De baja"),
-  ]);
-  const results = [];
+  const dias = diasInput.map((dia) => {
+    const diaId = ensurePositiveInt(dia?.diaId, "diaId");
+    const empleadosInput = ensureArray(dia, "empleados");
+    const equiposInput = ensureArray(dia, "equipos");
 
-  for (let i = 0; i < lista.length; i++) {
-    const item = lista[i] || {};
-    const equipoId = ensurePositiveInt(item.equipoId, "equipoId");
-    const estadoDevolucion =
-      typeof item.estadoDevolucion === "string" ? item.estadoDevolucion.trim().toLowerCase() : null;
-    if (!estadoDevolucion || !allowedEstados.has(estadoDevolucion)) {
-      const err = new Error(
-        `estadoDevolucion inválido para devoluciones[${i}]. Use devuelto | daniado | faltante`
-      );
-      err.status = 400;
-      throw err;
-    }
-    const notas =
-      typeof item.notas === "string" && item.notas.trim() ? item.notas.trim().slice(0, 255) : null;
+    const empleados = empleadosInput.map((item) => ({
+      empleadoId: ensurePositiveInt(item?.empleadoId, "empleadoId"),
+      notas: toCleanText(item?.notas, 255),
+    }));
+    const empleadosSet = new Set(empleados.map((e) => e.empleadoId));
 
-    const asignacion = await repo.findAsignacionPendiente(pid, equipoId);
-    if (!asignacion) {
-      const err = new Error(
-        `El equipo ${equipoId} no tiene una asignación pendiente de devolución en el proyecto ${pid}`
-      );
-      err.status = 404;
-      throw err;
-    }
+    const equipos = equiposInput.map((item) => ({
+      equipoId: ensurePositiveInt(item?.equipoId, "equipoId"),
+      responsableId:
+        item?.responsableId == null
+          ? null
+          : empleadosSet.has(Number(item.responsableId))
+          ? ensurePositiveInt(item.responsableId, "responsableId")
+          : null,
+      notas: toCleanText(item?.notas, 255),
+    }));
 
-    await repo.marcarDevolucion({
-      proyectoId: pid,
-      equipoId,
-      estadoDevolucion,
-      notas,
-      usuarioId: usuarioId == null ? null : ensurePositiveInt(usuarioId, "usuarioId"),
-      fechaDevolucion: getLimaDateTimeString(),
-    });
+    return { diaId, empleados, equipos };
+  });
 
-    let nuevoEstado = null;
-    let proyectosAfectados = [];
-
-    if (estadoDevolucion === "devuelto") {
-      nuevoEstado = disponibleId;
-    } else if (estadoDevolucion === "daniado") {
-      nuevoEstado = mantenimientoId;
-    } else if (estadoDevolucion === "faltante") {
-      nuevoEstado = bajaId;
-    }
-
-    if (nuevoEstado) {
-      const resp = await equipoService.updateEstado(equipoId, {
-        idEstado: nuevoEstado,
-        proyectoExcluidoId: pid, // no borres asignaciones del proyecto actual
-      });
-      proyectosAfectados = resp?.proyectosAfectados || [];
-    }
-
-    results.push({
-      index: i,
-      equipoId,
-      estadoDevolucion,
-      nuevoEstado,
-      proyectosAfectados,
-    });
-  }
-
+  const result = await repo.upsertProyectoAsignaciones(proyectoId, dias);
   return {
-    status: "Devoluciones registradas",
-    proyectoId: pid,
-    results,
+    status: "Actualizacion exitosa",
+    proyectoId,
+    dias: result?.dias ?? dias.length,
+    empleados: result?.empleados ?? dias.reduce((s, d) => s + d.empleados.length, 0),
+    equipos: result?.equipos ?? dias.reduce((s, d) => s + d.equipos.length, 0),
   };
 }
 
@@ -290,12 +230,12 @@ module.exports = {
   findProyectoById,
   createProyecto,
   updateProyecto,
-  addRecurso,
-  listAsignaciones,
-  listPendientesDevolucion,
   deleteProyecto,
   patchProyecto,
   listEstadosProyecto,
-  disponibilidad,
-  registrarDevolucion,
+  listEstadosProyectoDia,
+  updateProyectoDiaEstado,
+  disponibilidadAsignaciones,
+  upsertProyectoAsignaciones,
 };
+

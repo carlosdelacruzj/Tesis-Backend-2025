@@ -30,24 +30,32 @@ router.post("/", ctrl.postProyecto);
 
 /**
  * @swagger
- * /proyecto/disponibilidad:
+ * /proyecto/asignaciones/disponibles:
  *   get:
  *     tags: [proyecto]
- *     summary: Disponibilidad de equipos y empleados para un rango de fechas
+ *     summary: Listas disponibles para asignaciones (solo disponibles)
+ *     description: |
+ *       Devuelve solo empleados/equipos disponibles para la(s) fecha(s) consultada(s),
+ *       listo para usar en el post de asignaciones.
  *     parameters:
  *       - in: query
+ *         name: fecha
+ *         required: false
+ *         schema: { type: string, format: date }
+ *         description: Fecha unica (si se envia, no requiere fechaInicio/fechaFin).
+ *       - in: query
  *         name: fechaInicio
- *         required: true
+ *         required: false
  *         schema: { type: string, format: date }
  *       - in: query
  *         name: fechaFin
- *         required: true
+ *         required: false
  *         schema: { type: string, format: date }
  *       - in: query
  *         name: proyectoId
  *         required: false
  *         schema: { type: integer }
- *         description: Se excluyen las asignaciones de este proyecto (útil al editar)
+ *         description: Se excluyen las asignaciones de este proyecto (util al editar)
  *       - in: query
  *         name: tipoEquipoId
  *         required: false
@@ -56,189 +64,16 @@ router.post("/", ctrl.postProyecto);
  *         name: cargoId
  *         required: false
  *         schema: { type: integer }
- *     responses: { '200': { description: OK } }
- */
-router.get("/disponibilidad", ctrl.getDisponibilidad);
-
-/**
- * @swagger
- * /proyecto/recursos:
- *   post:
- *     tags: [proyecto]
- *     summary: Asignar equipo (con o sin empleado) a un proyecto
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [proyectoId, asignaciones]
- *             properties:
- *               proyectoId: { type: integer }
- *               asignaciones:
- *                 type: array
- *                 items:
- *                   type: object
- *                   required: [equipoId, fechaInicio, fechaFin]
- *                   properties:
- *                     empleadoId:  { type: integer, nullable: true }
- *                     equipoId:    { type: integer }
- *                     fechaInicio: { type: string, format: date }
- *                     fechaFin:    { type: string, format: date }
- *                     notas:       { type: string, maxLength: 255 }
- *             example:
- *               proyectoId: 42
- *               asignaciones:
- *                 - empleadoId: 7
- *                   equipoId: 101
- *                   fechaInicio: "2024-07-18"
- *                   fechaFin: "2024-07-18"
- *                   notas: "Turno completo"
- *                 - empleadoId: 8
- *                   equipoId: 102
- *                   fechaInicio: "2024-07-18"
- *                   fechaFin: "2024-07-18"
- *                   notas: "Solo mañana"
- *                 - empleadoId: null
- *                   equipoId: 103
- *                   fechaInicio: "2024-07-18"
- *                   fechaFin: "2024-07-18"
- *                   notas: "Repuesto"
- *     responses: { '201': { description: Recurso agregado } }
- */
-router.post("/recursos", ctrl.postRecurso);
-
-/**
- * @swagger
- * /proyecto/{id}/asignaciones:
- *   get:
- *     tags: [proyecto]
- *     summary: Listar asignaciones (equipo/empleado/fechas) de un proyecto
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
  *     responses:
  *       '200':
  *         description: OK
  *         content:
  *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   recursoId: { type: integer }
- *                   proyectoId: { type: integer }
- *                   equipoId: { type: integer }
- *                   equipoSerie: { type: string }
- *                   modelo: { type: string }
- *                   tipoEquipo: { type: string }
- *                   estadoEquipoId: { type: integer }
- *                   empleadoId: { type: integer, nullable: true }
- *                   empleadoNombre: { type: string, nullable: true }
- *                   empleadoFechaInicio: { type: string, format: date, nullable: true }
- *                   empleadoFechaFin: { type: string, format: date, nullable: true }
- *                   empleadoEstado: { type: string, nullable: true }
- *                   empleadoNotas: { type: string, nullable: true }
- *                   equipoFechaInicio: { type: string, format: date, nullable: true }
- *                   equipoFechaFin: { type: string, format: date, nullable: true }
- *                   equipoEstado: { type: string, nullable: true }
- *                   equipoNotas: { type: string, nullable: true }
- *                   equipoDevuelto:
- *                     type: integer
- *                     nullable: true
- *                     description: Flag de devolucion (0 = pendiente, 1 = devuelto)
- *                   equipoFechaDevolucion: { type: string, format: date-time, nullable: true }
- *                   equipoEstadoDevolucion: { type: string, nullable: true }
- *                   equipoNotasDevolucion: { type: string, nullable: true }
- *                   equipoUsuarioDevolucion: { type: integer, nullable: true }
+ *             schema: { $ref: '#/components/schemas/ProyectoAsignacionesDisponibles' }
+ *       '400':
+ *         description: Datos invalidos
  */
-router.get("/:id(\\d+)/asignaciones", ctrl.getAsignaciones);
-
-/**
- * @swagger
- * /proyecto/{id}/devoluciones/pendientes:
- *   get:
- *     tags: [proyecto]
- *     summary: Listar asignaciones de equipo pendientes de devolución para un proyecto
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     responses:
- *       '200':
- *         description: OK
- *         content:
- *           application/json:
- *             schema:
- *               type: array
- *               items:
- *                 type: object
- *                 properties:
- *                   asignacionId: { type: integer }
- *                   proyectoId: { type: integer }
- *                   equipoId: { type: integer }
- *                   equipoSerie: { type: string, nullable: true }
- *                   modelo: { type: string }
- *                   marca: { type: string }
- *                   tipoEquipo: { type: string }
- *                   fechaInicio: { type: string, format: date }
- *                   fechaFin: { type: string, format: date }
- *                   notas: { type: string, nullable: true }
- */
-router.get("/:id(\\d+)/devoluciones/pendientes", ctrl.getPendientesDevolucion);
-
-/**
- * @swagger
- * /proyecto/{id}/devolucion:
- *   post:
- *     tags: [proyecto]
- *     summary: Registrar devolución de equipos de un proyecto
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema: { type: integer }
- *     requestBody:
- *       required: true
- *       content:
- *         application/json:
- *           schema:
- *             type: object
- *             required: [devoluciones]
- *             properties:
- *               devoluciones:
- *                 type: array
- *                 items:
- *                   type: object
- *                   required: [equipoId, estadoDevolucion]
- *                   properties:
- *                     equipoId: { type: integer }
- *                     estadoDevolucion:
- *                       type: string
- *                       enum: [devuelto, daniado, faltante]
- *                     notas: { type: string, maxLength: 255 }
- *                     usuarioId:
- *                       type: integer
- *                       nullable: true
- *                       description: Se tomará del token si está disponible
- *             example:
- *               devoluciones:
- *                 - equipoId: 101
- *                   estadoDevolucion: devuelto
- *                   notas: "Ok"
- *                 - equipoId: 102
- *                   estadoDevolucion: daniado
- *                   notas: "Golpe en lente"
- *                 - equipoId: 103
- *                   estadoDevolucion: faltante
- *                   notas: "Extraviado"
- *     responses: { '200': { description: Devoluciones registradas } }
- */
-router.post("/:id(\\d+)/devolucion", ctrl.postDevolucion);
+router.get("/asignaciones/disponibles", ctrl.getDisponibilidadAsignaciones);
 
 /**
  * @swagger
@@ -249,6 +84,61 @@ router.post("/:id(\\d+)/devolucion", ctrl.postDevolucion);
  *     responses: { '200': { description: OK } }
  */
 router.get("/estados", ctrl.getEstados);
+
+/**
+ * @swagger
+ * /proyecto/dias/estados:
+ *   get:
+ *     tags: [proyecto]
+ *     summary: Listar estados por dia de proyecto
+ *     responses: { '200': { description: OK } }
+ */
+router.get("/dias/estados", ctrl.getEstadosDia);
+
+/**
+ * @swagger
+ * /proyecto/asignaciones:
+ *   post:
+ *     tags: [proyecto]
+ *     summary: Upsert de asignaciones por proyecto (bulk por dia)
+ *     description: |
+ *       Reemplaza completamente las asignaciones de los dias enviados.
+ *       Los dias no enviados NO se modifican.
+ *       Para limpiar un dia, enviar empleados: [] y equipos: [].
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ProyectoAsignacionesUpsert' }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *       '400':
+ *         description: Datos invalidos
+ *       '404':
+ *         description: Proyecto o dia no encontrado
+ */
+router.post("/asignaciones", ctrl.postProyectoAsignacionesUpsert);
+
+/**
+ * @swagger
+ * /proyecto/dias/{diaId}/estado:
+ *   patch:
+ *     tags: [proyecto]
+ *     summary: Actualizar estado de un dia del proyecto
+ *     parameters:
+ *       - in: path
+ *         name: diaId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ProyectoDiaEstadoUpdate' }
+ *     responses: { '200': { description: OK } }
+ */
+router.patch("/dias/:diaId(\\d+)/estado", ctrl.patchProyectoDiaEstado);
 
 /**
  * @swagger
@@ -290,7 +180,7 @@ router.delete("/:id(\\d+)", ctrl.deleteProyecto);
  * /proyecto/{id}:
  *   patch:
  *     tags: [proyecto]
- *     summary: Actualización parcial de proyecto
+ *     summary: Actualizacion parcial de proyecto
  *     parameters:
  *       - in: path
  *         name: id
@@ -314,8 +204,8 @@ router.delete("/:id(\\d+)", ctrl.deleteProyecto);
  *               edicion: { type: integer }
  *             example:
  *               estadoId: 2
- *               notas: "Actualizando estado a En ejecución"
- *     responses: { '200': { description: Actualización parcial exitosa } }
+ *               notas: "Actualizando estado a En ejecucion"
+ *     responses: { '200': { description: Actualizacion parcial exitosa } }
  */
 router.patch("/:id(\\d+)", ctrl.patchProyecto);
 
@@ -324,14 +214,18 @@ router.patch("/:id(\\d+)", ctrl.patchProyecto);
  * /proyecto/{id}:
  *   get:
  *     tags: [proyecto]
- *     summary: Obtener proyecto por ID
+ *     summary: Obtener proyecto por ID (edicion)
  *     parameters:
  *       - in: path
  *         name: id
  *         required: true
  *         schema: { type: integer }
  *     responses:
- *       '200': { description: OK }
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ProyectoEdicion' }
  *       '404': { description: No encontrado }
  */
 router.get("/:id(\\d+)", ctrl.getByIdProyecto);

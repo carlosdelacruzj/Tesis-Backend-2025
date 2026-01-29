@@ -7,7 +7,7 @@ async function runCall(sql, params = []) {
   return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
 }
 
-// Para SP que devuelven múltiples result sets (proyecto + recursos, etc.)
+// Para SP que devuelven múltiples result sets
 async function runCallMulti(sql, params = []) {
   const [rows] = await pool.query(sql, params);
   return Array.isArray(rows) ? rows.filter(Array.isArray) : [];
@@ -15,6 +15,7 @@ async function runCallMulti(sql, params = []) {
 
 const nombreCache = {
   estadoProyecto: new Map(),
+  estadoProyectoDia: new Map(),
 };
 
 async function getIdByNombre({ table, idCol, nameCol, nombre, cache }) {
@@ -43,6 +44,16 @@ async function getEstadoProyectoIdByNombre(nombre) {
   });
 }
 
+async function getEstadoProyectoDiaIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Estado_Proyecto_Dia",
+    idCol: "PK_EPD_Cod",
+    nameCol: "EPD_Nombre",
+    nombre,
+    cache: nombreCache.estadoProyectoDia,
+  });
+}
+
 /* Proyecto */
 async function getAllProyecto() {
   const rows = await runCall("CALL sp_proyecto_listar()");
@@ -57,8 +68,14 @@ async function getAllProyecto() {
 
 async function getByIdProyecto(id) {
   // Se espera que el SP retorne:
-  //   result set 0: una sola fila con los campos del proyecto
-  //   result set 1: lista de recursos asociados al proyecto
+  //   0: proyecto
+  //   1: dias
+  //   2: bloques por dia
+  //   3: servicios por dia
+  //   4: empleados por dia
+  //   5: equipos por dia
+  //   6: requerimientos personal por dia
+  //   7: requerimientos equipo por dia
   const sets = await runCallMulti("CALL sp_proyecto_obtener(?)", [Number(id)]);
   const proyectoRaw = sets[0]?.[0] || null;
   const pedidoId =
@@ -72,39 +89,23 @@ async function getByIdProyecto(id) {
     : null;
   return {
     proyecto,
-    recursos: sets[1] || [],
+    dias: sets[1] || [],
+    bloquesDia: sets[2] || [],
+    serviciosDia: sets[3] || [],
+    empleadosDia: sets[4] || [],
+    equiposDia: sets[5] || [],
+    requerimientosPersonalDia: sets[6] || [],
+    requerimientosEquipoDia: sets[7] || [],
   };
 }
 
 async function postProyecto(payload) {
-  const {
-    proyectoNombre,
-    pedidoId,
-    fechaInicioEdicion,
-    fechaFinEdicion,
-    estadoId,
-    responsableId,
-    notas,
-    enlace,
-    multimedia,
-    edicion,
-  } = payload;
-  const estadoDefaultId =
-    estadoId == null ? await getEstadoProyectoIdByNombre("Planificado") : estadoId;
-  const fechaCreacion = getLimaDateTimeString();
-  return runCall("CALL sp_proyecto_crear(?,?,?,?,?,?,?,?,?,?,?,?)", [
-    proyectoNombre ?? null,
+  const { pedidoId, responsableId = null, notas = null, enlace = null } = payload;
+  return runCall("CALL sp_proyecto_crear_desde_pedido(?,?,?,?)", [
     Number(pedidoId),
-    estadoDefaultId,
-    responsableId ?? null,
-    fechaInicioEdicion ?? null,
-    fechaFinEdicion ?? null,
-    enlace ?? null,
+    responsableId == null ? null : Number(responsableId),
     notas ?? null,
-    multimedia ?? null,
-    edicion ?? null,
-    fechaCreacion,
-    fechaCreacion,
+    enlace ?? null,
   ]);
 }
 
@@ -233,30 +234,27 @@ async function listEstadoProyecto() {
   return rows;
 }
 
-async function listAsignacionesByProyecto(proyectoId) {
-  return runCall("CALL sp_proyecto_asignaciones(?)", [Number(proyectoId)]);
+async function listEstadoProyectoDia() {
+  const [rows] = await pool.query(
+    `SELECT
+       PK_EPD_Cod AS estadoDiaId,
+       EPD_Nombre AS estadoDiaNombre,
+       EPD_Orden  AS orden,
+       Activo     AS activo
+     FROM T_Estado_Proyecto_Dia
+     ORDER BY EPD_Orden, PK_EPD_Cod`
+  );
+  return rows;
 }
 
-async function resetRecursosProyecto(proyectoId) {
-  return runCall("CALL sp_proyecto_recursos_reset(?)", [Number(proyectoId)]);
-}
-
-async function addProyectoRecurso({
-  proyectoId,
-  equipoId,
-  empleadoId = null,
-  fechaInicio,
-  fechaFin,
-  notas = null,
-}) {
-  return runCall("CALL sp_proyecto_recurso_agregar(?,?,?,?,?,?)", [
-    Number(proyectoId),
-    Number(equipoId),
-    empleadoId == null ? null : Number(empleadoId),
-    fechaInicio ?? null,
-    fechaFin ?? null,
-    notas ?? null,
-  ]);
+async function updateProyectoDiaEstado(diaId, estadoDiaId) {
+  const [result] = await pool.query(
+    `UPDATE T_ProyectoDia
+     SET FK_EPD_Cod = ?, updated_at = ?
+     WHERE PK_PD_Cod = ?`,
+    [Number(estadoDiaId), getLimaDateTimeString(), Number(diaId)]
+  );
+  return { affectedRows: result.affectedRows };
 }
 
 async function getDisponibilidad({
@@ -279,76 +277,75 @@ async function getDisponibilidad({
   };
 }
 
-// Busca una asignación de equipo para un proyecto que no haya sido devuelta.
-async function findAsignacionPendiente(proyectoId, equipoId) {
-  const [rows] = await pool.query(
-    `SELECT
-       PK_EqAsig_Cod AS asignacionId,
-       FK_Eq_Cod     AS equipoId,
-       FK_Pro_Cod    AS proyectoId,
-       EqAsig_Fecha_Inicio AS fechaInicio,
-       EqAsig_Fecha_Fin    AS fechaFin,
-       EqAsig_Estado       AS estado,
-       EqAsig_Devuelto     AS devuelto
-     FROM T_Equipo_Asignacion
-     WHERE FK_Pro_Cod = ? AND FK_Eq_Cod = ? AND EqAsig_Devuelto = 0
-     LIMIT 1`,
-    [Number(proyectoId), Number(equipoId)]
-  );
-  return rows[0] || null;
-}
+async function upsertProyectoAsignaciones(proyectoId, dias = []) {
+  const conn = await pool.getConnection();
+  let totalEmpleados = 0;
+  let totalEquipos = 0;
+  try {
+    await conn.beginTransaction();
 
-async function listAsignacionesPendientes(proyectoId) {
-  const [rows] = await pool.query(
-    `SELECT
-       a.PK_EqAsig_Cod  AS asignacionId,
-       a.FK_Pro_Cod     AS proyectoId,
-       a.FK_Eq_Cod      AS equipoId,
-       e.Eq_Serie       AS equipoSerie,
-       mo.NMo_Nombre    AS modelo,
-       ma.NMa_Nombre    AS marca,
-       te.TE_Nombre     AS tipoEquipo,
-       a.EqAsig_Fecha_Inicio AS fechaInicio,
-       a.EqAsig_Fecha_Fin    AS fechaFin,
-       a.EqAsig_Notas        AS notas
-     FROM T_Equipo_Asignacion a
-     INNER JOIN T_Equipo e ON e.PK_Eq_Cod = a.FK_Eq_Cod
-     INNER JOIN T_Modelo mo ON mo.PK_IMo_Cod = e.FK_IMo_Cod
-     INNER JOIN T_Marca ma ON ma.PK_IMa_Cod = mo.FK_IMa_Cod
-     INNER JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
-     WHERE a.FK_Pro_Cod = ? AND a.EqAsig_Devuelto = 0
-     ORDER BY a.EqAsig_Fecha_Inicio, a.PK_EqAsig_Cod`,
-    [Number(proyectoId)]
-  );
-  return rows;
-}
+    for (const dia of dias) {
+      const diaId = Number(dia.diaId);
+      const [rowsDia] = await conn.query(
+        `SELECT 1
+         FROM T_ProyectoDia
+         WHERE PK_PD_Cod = ? AND FK_Pro_Cod = ?
+         LIMIT 1`,
+        [diaId, Number(proyectoId)]
+      );
+      if (!rowsDia.length) {
+        const err = new Error("Dia no encontrado en el proyecto");
+        err.status = 404;
+        throw err;
+      }
 
-// Marca una asignación como devuelta y almacena información de devolución.
-async function marcarDevolucion({
-  proyectoId,
-  equipoId,
-  estadoDevolucion,
-  notas,
-  usuarioId = null,
-  fechaDevolucion,
-}) {
-  await pool.query(
-    `UPDATE T_Equipo_Asignacion
-       SET EqAsig_Devuelto = 1,
-           EqAsig_Fecha_Devolucion = ?,
-           EqAsig_Estado_Devolucion = ?,
-           EqAsig_Notas_Devolucion = ?,
-           EqAsig_Usuario_Devolucion = ?
-     WHERE FK_Pro_Cod = ? AND FK_Eq_Cod = ?`,
-    [
-      fechaDevolucion ?? getLimaDateTimeString(),
-      estadoDevolucion ?? null,
-      notas ?? null,
-      usuarioId ?? null,
-      Number(proyectoId),
-      Number(equipoId),
-    ]
-  );
+      await conn.query(`DELETE FROM T_ProyectoDiaEmpleado WHERE FK_PD_Cod = ?`, [
+        diaId,
+      ]);
+      await conn.query(`DELETE FROM T_ProyectoDiaEquipo WHERE FK_PD_Cod = ?`, [
+        diaId,
+      ]);
+
+      if (dia.empleados?.length) {
+        const values = dia.empleados.map((e) => [
+          diaId,
+          Number(e.empleadoId),
+          e.notas ?? null,
+        ]);
+        await conn.query(
+          `INSERT INTO T_ProyectoDiaEmpleado
+             (FK_PD_Cod, FK_Em_Cod, PDE_Notas)
+           VALUES ?`,
+          [values]
+        );
+        totalEmpleados += dia.empleados.length;
+      }
+
+      if (dia.equipos?.length) {
+        const values = dia.equipos.map((e) => [
+          diaId,
+          Number(e.equipoId),
+          e.responsableId == null ? null : Number(e.responsableId),
+          e.notas ?? null,
+        ]);
+        await conn.query(
+          `INSERT INTO T_ProyectoDiaEquipo
+             (FK_PD_Cod, FK_Eq_Cod, FK_Em_Cod, PDQ_Notas)
+           VALUES ?`,
+          [values]
+        );
+        totalEquipos += dia.equipos.length;
+      }
+    }
+
+    await conn.commit();
+    return { dias: dias.length, empleados: totalEmpleados, equipos: totalEquipos };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 module.exports = {
@@ -359,13 +356,11 @@ module.exports = {
   deleteProyecto,
   getPagoInfoByPedido,
   listEstadoProyecto,
-  listAsignacionesByProyecto,
-  resetRecursosProyecto,
-  addProyectoRecurso,
   getDisponibilidad,
   patchProyectoById,
-  findAsignacionPendiente,
-  listAsignacionesPendientes,
-  marcarDevolucion,
   getEstadoProyectoIdByNombre,
+  getEstadoProyectoDiaIdByNombre,
+  listEstadoProyectoDia,
+  updateProyectoDiaEstado,
+  upsertProyectoAsignaciones,
 };

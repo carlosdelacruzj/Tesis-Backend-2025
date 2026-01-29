@@ -86,7 +86,9 @@ const limiter = rateLimit({
     });
   },
 });
-app.use(limiter);
+if ((process.env.NODE_ENV || "").toLowerCase() !== "development") {
+  app.use(limiter);
+}
 
 // ───────────── Health / Root ─────────────
 app.get("/", (_req, res) => res.status(200).send("OK"));

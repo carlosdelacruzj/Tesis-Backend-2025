@@ -1,6 +1,6 @@
 # Tablas
 
-## ?ndice
+## Indice
 
 - [T_Cliente](#t_cliente)
 - [T_Contrato](#t_contrato)
@@ -9,22 +9,22 @@
 - [T_CotizacionServicio](#t_cotizacionservicio)
 - [T_CotizacionServicioFecha](#t_cotizacionserviciofecha)
 - [T_Empleados](#t_empleados)
-- [T_Empleado_Asignacion](#t_empleado_asignacion)
 - [T_Equipo](#t_equipo)
-- [T_Equipo_Asignacion](#t_equipo_asignacion)
 - [T_Estado_Cliente](#t_estado_cliente)
+- [T_Estado_Cotizacion](#t_estado_cotizacion)
 - [T_Estado_Empleado](#t_estado_empleado)
 - [T_Estado_Equipo](#t_estado_equipo)
 - [T_Estado_Pago](#t_estado_pago)
 - [T_Estado_Pedido](#t_estado_pedido)
-- [T_Estado_Cotizacion](#t_estado_cotizacion)
 - [T_Estado_Proyecto](#t_estado_proyecto)
+- [T_Estado_Proyecto_Dia](#t_estado_proyecto_dia)
 - [T_Estado_voucher](#t_estado_voucher)
-- [T_Eventos](#t_eventos)
 - [T_EventoServicio](#t_eventoservicio)
 - [T_EventoServicioCategoria](#t_eventoserviciocategoria)
 - [T_EventoServicioEquipo](#t_eventoservicioequipo)
+- [T_EventoServicioEstado](#t_eventoservicioestado)
 - [T_EventoServicioStaff](#t_eventoserviciostaff)
+- [T_Eventos](#t_eventos)
 - [T_Lead](#t_lead)
 - [T_Marca](#t_marca)
 - [T_Metodo_Pago](#t_metodo_pago)
@@ -33,17 +33,19 @@
 - [T_PedidoEvento](#t_pedidoevento)
 - [T_PedidoServicio](#t_pedidoservicio)
 - [T_PedidoServicioFecha](#t_pedidoserviciofecha)
+- [T_PortafolioImagen](#t_portafolioimagen)
 - [T_Proyecto](#t_proyecto)
-- [T_Proyecto_Recurso](#t_proyecto_recurso)
+- [T_ProyectoDia](#t_proyectodia)
+- [T_ProyectoDiaBloque](#t_proyectodiabloque)
+- [T_ProyectoDiaEmpleado](#t_proyectodiaempleado)
+- [T_ProyectoDiaEquipo](#t_proyectodiaequipo)
+- [T_ProyectoDiaServicio](#t_proyectodiaservicio)
 - [T_Servicios](#t_servicios)
+- [T_TipoDocumento](#t_tipodocumento)
 - [T_Tipo_Empleado](#t_tipo_empleado)
 - [T_Tipo_Equipo](#t_tipo_equipo)
 - [T_Usuario](#t_usuario)
 - [T_Voucher](#t_voucher)
-- [T_EventoServicioEstado](#t_eventoservicioestado)
-- [T_TipoDocumento](#t_tipodocumento)
-
----
 
 ## T_Cliente
 
@@ -52,14 +54,14 @@ CREATE TABLE "T_Cliente" (
   "PK_Cli_Cod" int NOT NULL AUTO_INCREMENT,
   "FK_U_Cod" int NOT NULL,
   "Cli_Tipo_Cliente" int DEFAULT NULL,
-  "Cli_RazonSocial" varchar(150) DEFAULT NULL,
   "FK_ECli_Cod" int NOT NULL,
+  "Cli_RazonSocial" varchar(150) DEFAULT NULL,
   PRIMARY KEY ("PK_Cli_Cod"),
   UNIQUE KEY "UQ_T_Cliente_FK_U" ("FK_U_Cod"),
   KEY "FK_T_Cliente_T_Estado_Cliente" ("FK_ECli_Cod"),
   CONSTRAINT "FK_T_Cliente_T_Estado_Cliente" FOREIGN KEY ("FK_ECli_Cod") REFERENCES "T_Estado_Cliente" ("PK_ECli_Cod"),
   CONSTRAINT "FK_T_Cliente_T_Usuario" FOREIGN KEY ("FK_U_Cod") REFERENCES "T_Usuario" ("PK_U_Cod")
-)
+);
 ```
 
 ## T_Contrato
@@ -72,7 +74,7 @@ CREATE TABLE "T_Contrato" (
   PRIMARY KEY ("PK_Cont_Cod"),
   KEY "FK_T_Contrato_T_Pedido" ("FK_P_Cod"),
   CONSTRAINT "FK_T_Contrato_T_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod")
-)
+);
 ```
 
 ## T_Cotizacion
@@ -85,12 +87,13 @@ CREATE TABLE "T_Cotizacion" (
   "Cot_FechaEvento" date DEFAULT NULL,
   "Cot_Lugar" varchar(150) DEFAULT NULL,
   "Cot_HorasEst" decimal(4,1) DEFAULT NULL,
-  "Cot_ViaticosMonto" decimal(10,2) NOT NULL DEFAULT '0.00',
+  "Cot_Dias" smallint DEFAULT NULL,
   "Cot_Mensaje" varchar(500) DEFAULT NULL,
   "Cot_Fecha_Crea" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "Cot_IdTipoEvento" int NOT NULL,
   "FK_Cli_Cod" int DEFAULT NULL,
   "FK_ECot_Cod" int NOT NULL DEFAULT '1',
+  "Cot_ViaticosMonto" decimal(10,2) NOT NULL DEFAULT '0.00',
   PRIMARY KEY ("PK_Cot_Cod"),
   KEY "ix_cot_lead" ("FK_Lead_Cod"),
   KEY "ix_cot_cli" ("FK_Cli_Cod"),
@@ -99,7 +102,7 @@ CREATE TABLE "T_Cotizacion" (
   CONSTRAINT "FK_Cot_Lead" FOREIGN KEY ("FK_Lead_Cod") REFERENCES "T_Lead" ("PK_Lead_Cod"),
   CONSTRAINT "FK_T_Cotizacion_T_Estado_Cotizacion" FOREIGN KEY ("FK_ECot_Cod") REFERENCES "T_Estado_Cotizacion" ("PK_ECot_Cod"),
   CONSTRAINT "chk_cot_origen" CHECK ((((`FK_Lead_Cod` is not null) and (`FK_Cli_Cod` is null)) or ((`FK_Lead_Cod` is null) and (`FK_Cli_Cod` is not null))))
-)
+);
 ```
 
 ## T_CotizacionEvento
@@ -116,7 +119,7 @@ CREATE TABLE "T_CotizacionEvento" (
   PRIMARY KEY ("PK_CotE_Cod"),
   KEY "FK_CotizacionEvento_Cotizacion" ("FK_Cot_Cod"),
   CONSTRAINT "FK_CotizacionEvento_Cotizacion" FOREIGN KEY ("FK_Cot_Cod") REFERENCES "T_Cotizacion" ("PK_Cot_Cod")
-)
+);
 ```
 
 ## T_CotizacionServicio
@@ -147,7 +150,7 @@ CREATE TABLE "T_CotizacionServicio" (
   KEY "FK_CotServ_ExS" ("FK_ExS_Cod"),
   CONSTRAINT "FK_CotServ_Cot" FOREIGN KEY ("FK_Cot_Cod") REFERENCES "T_Cotizacion" ("PK_Cot_Cod"),
   CONSTRAINT "FK_CotServ_ExS" FOREIGN KEY ("FK_ExS_Cod") REFERENCES "T_EventoServicio" ("PK_ExS_Cod")
-)
+);
 ```
 
 ## T_CotizacionServicioFecha
@@ -164,7 +167,7 @@ CREATE TABLE "T_CotizacionServicioFecha" (
   KEY "IX_CSF_Fecha" ("CSF_Fecha"),
   CONSTRAINT "FK_CSF_Cot" FOREIGN KEY ("FK_Cot_Cod") REFERENCES "T_Cotizacion" ("PK_Cot_Cod"),
   CONSTRAINT "FK_CSF_CotServ" FOREIGN KEY ("FK_CotServ_Cod") REFERENCES "T_CotizacionServicio" ("PK_CotServ_Cod")
-)
+);
 ```
 
 ## T_Empleados
@@ -183,28 +186,7 @@ CREATE TABLE "T_Empleados" (
   CONSTRAINT "FK_T_Empleados_Estado" FOREIGN KEY ("FK_Estado_Emp_Cod") REFERENCES "T_Estado_Empleado" ("PK_Estado_Emp_Cod"),
   CONSTRAINT "FK_T_Empleados_T_Tipo_Empleado" FOREIGN KEY ("FK_Tipo_Emp_Cod") REFERENCES "T_Tipo_Empleado" ("PK_Tipo_Emp_Cod"),
   CONSTRAINT "FK_T_Empleados_T_Usuario" FOREIGN KEY ("FK_U_Cod") REFERENCES "T_Usuario" ("PK_U_Cod")
-)
-```
-
-## T_Empleado_Asignacion
-
-```sql
-CREATE TABLE "T_Empleado_Asignacion" (
-  "PK_EAsig_Cod" int NOT NULL AUTO_INCREMENT,
-  "FK_Em_Cod" int NOT NULL,
-  "FK_Pro_Cod" int NOT NULL,
-  "EAsig_Fecha_Inicio" date NOT NULL,
-  "EAsig_Fecha_Fin" date NOT NULL,
-  "EAsig_Estado" varchar(20) NOT NULL DEFAULT 'Confirmado',
-  "EAsig_Notas" varchar(255) DEFAULT NULL,
-  PRIMARY KEY ("PK_EAsig_Cod"),
-  UNIQUE KEY "ux_empleado_proyecto" ("FK_Em_Cod","FK_Pro_Cod"),
-  KEY "ix_emp_fecha" ("FK_Em_Cod","EAsig_Fecha_Inicio","EAsig_Fecha_Fin","EAsig_Estado"),
-  KEY "FK_EAsig_Proyecto" ("FK_Pro_Cod"),
-  CONSTRAINT "FK_EAsig_Empleado" FOREIGN KEY ("FK_Em_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
-  CONSTRAINT "FK_EAsig_Proyecto" FOREIGN KEY ("FK_Pro_Cod") REFERENCES "T_Proyecto" ("PK_Pro_Cod"),
-  CONSTRAINT "chk_easig_fecha" CHECK ((`EAsig_Fecha_Fin` >= `EAsig_Fecha_Inicio`))
-)
+);
 ```
 
 ## T_Equipo
@@ -222,36 +204,7 @@ CREATE TABLE "T_Equipo" (
   KEY "FK_T_Equipo_T_Modelo" ("FK_IMo_Cod"),
   CONSTRAINT "FK_T_Equipo_T_Estado_Equipo" FOREIGN KEY ("FK_EE_Cod") REFERENCES "T_Estado_Equipo" ("PK_EE_Cod"),
   CONSTRAINT "FK_T_Equipo_T_Modelo" FOREIGN KEY ("FK_IMo_Cod") REFERENCES "T_Modelo" ("PK_IMo_Cod") ON DELETE RESTRICT ON UPDATE RESTRICT
-)
-```
-
-## T_Equipo_Asignacion
-
-```sql
-CREATE TABLE "T_Equipo_Asignacion" (
-  "PK_EqAsig_Cod" int NOT NULL AUTO_INCREMENT,
-  "FK_Eq_Cod" int NOT NULL,
-  "FK_Pro_Cod" int NOT NULL,
-  "EqAsig_Fecha_Inicio" date NOT NULL,
-  "EqAsig_Fecha_Fin" date NOT NULL,
-  "EqAsig_Estado" varchar(20) NOT NULL DEFAULT 'Confirmado',
-  "EqAsig_Notas" varchar(255) DEFAULT NULL,
-  "EqAsig_Devuelto" tinyint(1) NOT NULL DEFAULT '0',
-  "EqAsig_Fecha_Devolucion" datetime DEFAULT NULL,
-  "EqAsig_Estado_Devolucion" varchar(20) DEFAULT NULL,
-  "EqAsig_Notas_Devolucion" varchar(255) DEFAULT NULL,
-  "EqAsig_Usuario_Devolucion" int DEFAULT NULL,
-  PRIMARY KEY ("PK_EqAsig_Cod"),
-  UNIQUE KEY "ux_equipo_proyecto" ("FK_Eq_Cod","FK_Pro_Cod"),
-  KEY "ix_eq_fecha" ("FK_Eq_Cod","EqAsig_Fecha_Inicio","EqAsig_Fecha_Fin","EqAsig_Estado"),
-  KEY "FK_EqAsig_Proyecto" ("FK_Pro_Cod"),
-  KEY "ix_eq_devolucion_fecha" ("EqAsig_Devuelto","EqAsig_Fecha_Devolucion"),
-  KEY "fk_eqasig_usuario_devolucion" ("EqAsig_Usuario_Devolucion"),
-  CONSTRAINT "FK_EqAsig_Equipo" FOREIGN KEY ("FK_Eq_Cod") REFERENCES "T_Equipo" ("PK_Eq_Cod"),
-  CONSTRAINT "FK_EqAsig_Proyecto" FOREIGN KEY ("FK_Pro_Cod") REFERENCES "T_Proyecto" ("PK_Pro_Cod"),
-  CONSTRAINT "fk_eqasig_usuario_devolucion" FOREIGN KEY ("EqAsig_Usuario_Devolucion") REFERENCES "T_Usuario" ("PK_U_Cod"),
-  CONSTRAINT "chk_eqasig_fecha" CHECK ((`EqAsig_Fecha_Fin` >= `EqAsig_Fecha_Inicio`))
-)
+);
 ```
 
 ## T_Estado_Cliente
@@ -261,7 +214,17 @@ CREATE TABLE "T_Estado_Cliente" (
   "PK_ECli_Cod" int NOT NULL AUTO_INCREMENT,
   "ECli_Nombre" varchar(25) DEFAULT NULL,
   PRIMARY KEY ("PK_ECli_Cod")
-)
+);
+```
+
+## T_Estado_Cotizacion
+
+```sql
+CREATE TABLE "T_Estado_Cotizacion" (
+  "PK_ECot_Cod" int NOT NULL AUTO_INCREMENT,
+  "ECot_Nombre" varchar(25) DEFAULT NULL,
+  PRIMARY KEY ("PK_ECot_Cod")
+);
 ```
 
 ## T_Estado_Empleado
@@ -272,7 +235,7 @@ CREATE TABLE "T_Estado_Empleado" (
   "EsEm_Nombre" varchar(20) NOT NULL,
   PRIMARY KEY ("PK_Estado_Emp_Cod"),
   UNIQUE KEY "EsEm_Nombre" ("EsEm_Nombre")
-)
+);
 ```
 
 ## T_Estado_Equipo
@@ -283,7 +246,7 @@ CREATE TABLE "T_Estado_Equipo" (
   "EE_Nombre" varchar(40) NOT NULL,
   PRIMARY KEY ("PK_EE_Cod"),
   UNIQUE KEY "uq_estado_nombre" ("EE_Nombre")
-)
+);
 ```
 
 ## T_Estado_Pago
@@ -293,7 +256,7 @@ CREATE TABLE "T_Estado_Pago" (
   "PK_ESP_Cod" int NOT NULL AUTO_INCREMENT,
   "ESP_Nombre" varchar(25) DEFAULT NULL,
   PRIMARY KEY ("PK_ESP_Cod")
-)
+);
 ```
 
 ## T_Estado_Pedido
@@ -303,17 +266,7 @@ CREATE TABLE "T_Estado_Pedido" (
   "PK_EP_Cod" int NOT NULL AUTO_INCREMENT,
   "EP_Nombre" varchar(25) DEFAULT NULL,
   PRIMARY KEY ("PK_EP_Cod")
-)
-```
-
-## T_Estado_Cotizacion
-
-```sql
-CREATE TABLE "T_Estado_Cotizacion" (
-  "PK_ECot_Cod" int NOT NULL AUTO_INCREMENT,
-  "ECot_Nombre" varchar(25) DEFAULT NULL,
-  PRIMARY KEY ("PK_ECot_Cod")
-)
+);
 ```
 
 ## T_Estado_Proyecto
@@ -326,7 +279,22 @@ CREATE TABLE "T_Estado_Proyecto" (
   "Activo" tinyint(1) NOT NULL DEFAULT '1',
   PRIMARY KEY ("PK_EPro_Cod"),
   UNIQUE KEY "uq_estado_proyecto_nombre" ("EPro_Nombre")
-)
+);
+```
+
+## T_Estado_Proyecto_Dia
+
+```sql
+CREATE TABLE "T_Estado_Proyecto_Dia" (
+  "PK_EPD_Cod" int NOT NULL AUTO_INCREMENT,
+  "EPD_Nombre" varchar(30) NOT NULL,
+  "EPD_Orden" int NOT NULL DEFAULT '1',
+  "Activo" tinyint(1) NOT NULL DEFAULT '1',
+  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY ("PK_EPD_Cod"),
+  UNIQUE KEY "uq_epd_nombre" ("EPD_Nombre")
+);
 ```
 
 ## T_Estado_voucher
@@ -336,19 +304,7 @@ CREATE TABLE "T_Estado_voucher" (
   "PK_EV_Cod" int NOT NULL AUTO_INCREMENT,
   "EV_Nombre" varchar(25) DEFAULT NULL,
   PRIMARY KEY ("PK_EV_Cod")
-)
-```
-
-## T_Eventos
-
-```sql
-CREATE TABLE "T_Eventos" (
-  "PK_E_Cod" int NOT NULL AUTO_INCREMENT,
-  "E_Nombre" varchar(25) NOT NULL,
-  "E_IconUrl" varchar(500) DEFAULT NULL,
-  PRIMARY KEY ("PK_E_Cod"),
-  UNIQUE KEY "uq_eventos_nombre" ("E_Nombre")
-)
+);
 ```
 
 ## T_EventoServicio
@@ -377,7 +333,7 @@ CREATE TABLE "T_EventoServicio" (
   CONSTRAINT "FK_EventoServicio_Estado" FOREIGN KEY ("FK_ESE_Cod") REFERENCES "T_EventoServicioEstado" ("PK_ESE_Cod"),
   CONSTRAINT "FK_T_EventoServicio_T_Eventos" FOREIGN KEY ("PK_E_Cod") REFERENCES "T_Eventos" ("PK_E_Cod"),
   CONSTRAINT "FK_T_EventoServicio_T_Servicios" FOREIGN KEY ("PK_S_Cod") REFERENCES "T_Servicios" ("PK_S_Cod")
-)
+);
 ```
 
 ## T_EventoServicioCategoria
@@ -391,7 +347,7 @@ CREATE TABLE "T_EventoServicioCategoria" (
   "ESC_Fecha_Creacion" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY ("PK_ESC_Cod"),
   UNIQUE KEY "ESC_Nombre" ("ESC_Nombre")
-)
+);
 ```
 
 ## T_EventoServicioEquipo
@@ -408,7 +364,17 @@ CREATE TABLE "T_EventoServicioEquipo" (
   KEY "fk_exs_equipo_tipo" ("FK_TE_Cod"),
   CONSTRAINT "fk_exs_equipo_exs" FOREIGN KEY ("FK_ExS_Cod") REFERENCES "T_EventoServicio" ("PK_ExS_Cod") ON DELETE CASCADE,
   CONSTRAINT "fk_exs_equipo_tipo" FOREIGN KEY ("FK_TE_Cod") REFERENCES "T_Tipo_Equipo" ("PK_TE_Cod") ON DELETE RESTRICT
-)
+);
+```
+
+## T_EventoServicioEstado
+
+```sql
+CREATE TABLE "T_EventoServicioEstado" (
+  "PK_ESE_Cod" int NOT NULL AUTO_INCREMENT,
+  "ESE_Nombre" varchar(25) NOT NULL,
+  PRIMARY KEY ("PK_ESE_Cod")
+);
 ```
 
 ## T_EventoServicioStaff
@@ -422,7 +388,20 @@ CREATE TABLE "T_EventoServicioStaff" (
   PRIMARY KEY ("PK_ExS_Staff_Cod"),
   KEY "fk_exs_staff_exs" ("FK_ExS_Cod"),
   CONSTRAINT "fk_exs_staff_exs" FOREIGN KEY ("FK_ExS_Cod") REFERENCES "T_EventoServicio" ("PK_ExS_Cod") ON DELETE CASCADE
-)
+);
+```
+
+## T_Eventos
+
+```sql
+CREATE TABLE "T_Eventos" (
+  "PK_E_Cod" int NOT NULL AUTO_INCREMENT,
+  "E_Nombre" varchar(25) NOT NULL,
+  "E_IconUrl" varchar(500) DEFAULT NULL,
+  "E_MostrarPortafolio" tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY ("PK_E_Cod"),
+  UNIQUE KEY "uq_eventos_nombre" ("E_Nombre")
+);
 ```
 
 ## T_Lead
@@ -435,7 +414,7 @@ CREATE TABLE "T_Lead" (
   "Lead_Origen" varchar(40) DEFAULT NULL,
   "Lead_Fecha_Crea" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY ("PK_Lead_Cod")
-)
+);
 ```
 
 ## T_Marca
@@ -446,7 +425,7 @@ CREATE TABLE "T_Marca" (
   "NMa_Nombre" varchar(100) NOT NULL,
   PRIMARY KEY ("PK_IMa_Cod"),
   UNIQUE KEY "uq_marca_nombre" ("NMa_Nombre")
-)
+);
 ```
 
 ## T_Metodo_Pago
@@ -456,7 +435,7 @@ CREATE TABLE "T_Metodo_Pago" (
   "PK_MP_Cod" int NOT NULL AUTO_INCREMENT,
   "MP_Nombre" varchar(25) DEFAULT NULL,
   PRIMARY KEY ("PK_MP_Cod")
-)
+);
 ```
 
 ## T_Modelo
@@ -473,7 +452,7 @@ CREATE TABLE "T_Modelo" (
   KEY "FK_T_Modelo_T_Tipo_Equipo" ("FK_TE_Cod"),
   CONSTRAINT "FK_T_Modelo_T_Marca" FOREIGN KEY ("FK_IMa_Cod") REFERENCES "T_Marca" ("PK_IMa_Cod"),
   CONSTRAINT "FK_T_Modelo_T_Tipo_Equipo" FOREIGN KEY ("FK_TE_Cod") REFERENCES "T_Tipo_Equipo" ("PK_TE_Cod") ON DELETE RESTRICT ON UPDATE RESTRICT
-)
+);
 ```
 
 ## T_Pedido
@@ -495,6 +474,7 @@ CREATE TABLE "T_Pedido" (
   "P_IdTipoEvento" int DEFAULT NULL,
   "P_ViaticosMonto" decimal(10,2) NOT NULL DEFAULT '0.00',
   "P_Mensaje" varchar(500) DEFAULT NULL,
+  "P_Lugar" varchar(150) DEFAULT NULL,
   PRIMARY KEY ("PK_P_Cod"),
   KEY "IX_Pedido_Cliente" ("FK_Cli_Cod"),
   KEY "IX_Pedido_Estado" ("FK_EP_Cod"),
@@ -506,7 +486,7 @@ CREATE TABLE "T_Pedido" (
   CONSTRAINT "FK_Pedido_Empleado" FOREIGN KEY ("FK_Em_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
   CONSTRAINT "FK_Pedido_EstadoPago" FOREIGN KEY ("FK_ESP_Cod") REFERENCES "T_Estado_Pago" ("PK_ESP_Cod"),
   CONSTRAINT "FK_Pedido_EstadoPedido" FOREIGN KEY ("FK_EP_Cod") REFERENCES "T_Estado_Pedido" ("PK_EP_Cod")
-)
+);
 ```
 
 ## T_PedidoEvento
@@ -523,7 +503,7 @@ CREATE TABLE "T_PedidoEvento" (
   PRIMARY KEY ("PK_PE_Cod"),
   KEY "FK_PedidoEvento_Pedido" ("FK_P_Cod"),
   CONSTRAINT "FK_PedidoEvento_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod")
-)
+);
 ```
 
 ## T_PedidoServicio
@@ -534,6 +514,8 @@ CREATE TABLE "T_PedidoServicio" (
   "FK_P_Cod" int NOT NULL,
   "FK_ExS_Cod" int DEFAULT NULL,
   "FK_PE_Cod" int DEFAULT NULL,
+  "PS_EventoId" int DEFAULT NULL,
+  "PS_ServicioId" int DEFAULT NULL,
   "PS_Nombre" varchar(120) NOT NULL,
   "PS_Descripcion" varchar(255) DEFAULT NULL,
   "PS_Moneda" char(3) NOT NULL DEFAULT 'USD',
@@ -543,6 +525,11 @@ CREATE TABLE "T_PedidoServicio" (
   "PS_Recargo" decimal(10,2) NOT NULL DEFAULT '0.00',
   "PS_Subtotal" decimal(10,2) GENERATED ALWAYS AS ((((`PS_PrecioUnit` - `PS_Descuento`) + `PS_Recargo`) * `PS_Cantidad`)) STORED,
   "PS_Notas" varchar(150) DEFAULT NULL,
+  "PS_Horas" decimal(4,1) DEFAULT NULL,
+  "PS_Staff" smallint DEFAULT NULL,
+  "PS_FotosImpresas" int DEFAULT NULL,
+  "PS_TrailerMin" int DEFAULT NULL,
+  "PS_FilmMin" int DEFAULT NULL,
   PRIMARY KEY ("PK_PS_Cod"),
   KEY "FK_PedidoServicio_Pedido" ("FK_P_Cod"),
   KEY "FK_PedidoServicio_ExS" ("FK_ExS_Cod"),
@@ -550,7 +537,7 @@ CREATE TABLE "T_PedidoServicio" (
   CONSTRAINT "FK_PedidoServicio_ExS" FOREIGN KEY ("FK_ExS_Cod") REFERENCES "T_EventoServicio" ("PK_ExS_Cod"),
   CONSTRAINT "FK_PedidoServicio_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod"),
   CONSTRAINT "FK_PedidoServicio_PedidoEvento" FOREIGN KEY ("FK_PE_Cod") REFERENCES "T_PedidoEvento" ("PK_PE_Cod")
-)
+);
 ```
 
 ## T_PedidoServicioFecha
@@ -567,7 +554,25 @@ CREATE TABLE "T_PedidoServicioFecha" (
   KEY "IX_PSF_Fecha" ("PSF_Fecha"),
   CONSTRAINT "FK_PSF_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod"),
   CONSTRAINT "FK_PSF_PedServ" FOREIGN KEY ("FK_PedServ_Cod") REFERENCES "T_PedidoServicio" ("PK_PS_Cod")
-)
+);
+```
+
+## T_PortafolioImagen
+
+```sql
+CREATE TABLE "T_PortafolioImagen" (
+  "PK_PI_Cod" int NOT NULL AUTO_INCREMENT,
+  "FK_E_Cod" int NOT NULL,
+  "PI_Url" varchar(500) NOT NULL,
+  "PI_Titulo" varchar(120) DEFAULT NULL,
+  "PI_Descripcion" varchar(255) DEFAULT NULL,
+  "PI_Orden" int NOT NULL DEFAULT '0',
+  "PI_Fecha_Creacion" timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("PK_PI_Cod"),
+  KEY "IX_Portafolio_Evento" ("FK_E_Cod"),
+  KEY "IX_Portafolio_Orden" ("PI_Orden"),
+  CONSTRAINT "FK_Portafolio_Evento" FOREIGN KEY ("FK_E_Cod") REFERENCES "T_Eventos" ("PK_E_Cod")
+);
 ```
 
 ## T_Proyecto
@@ -594,26 +599,109 @@ CREATE TABLE "T_Proyecto" (
   CONSTRAINT "fk_proyecto_estado" FOREIGN KEY ("Pro_Estado") REFERENCES "T_Estado_Proyecto" ("PK_EPro_Cod"),
   CONSTRAINT "fk_proyecto_responsable" FOREIGN KEY ("FK_Em_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
   CONSTRAINT "FK_T_Proyecto_T_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod")
-)
+);
 ```
 
-## T_Proyecto_Recurso
+## T_ProyectoDia
 
 ```sql
-CREATE TABLE "T_Proyecto_Recurso" (
-  "PK_RxP_Cod" int NOT NULL AUTO_INCREMENT,
+CREATE TABLE "T_ProyectoDia" (
+  "PK_PD_Cod" int NOT NULL AUTO_INCREMENT,
   "FK_Pro_Cod" int NOT NULL,
-  "FK_Em_Cod" int DEFAULT NULL,
-  "FK_Eq_Cod" int NOT NULL,
+  "FK_EPD_Cod" int NOT NULL DEFAULT '1',
+  "PD_Fecha" date NOT NULL,
   "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
-  PRIMARY KEY ("PK_RxP_Cod"),
-  UNIQUE KEY "ux_proyecto_equipo" ("FK_Pro_Cod","FK_Eq_Cod"),
-  KEY "FK_T_RecursosxProyecto_T_Empleados" ("FK_Em_Cod"),
-  KEY "FK_T_RecursosxProyecto_T_Equipo" ("FK_Eq_Cod"),
-  CONSTRAINT "FK_T_RecursosxProyecto_T_Empleados" FOREIGN KEY ("FK_Em_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
-  CONSTRAINT "FK_T_RecursosxProyecto_T_Equipo" FOREIGN KEY ("FK_Eq_Cod") REFERENCES "T_Equipo" ("PK_Eq_Cod") ON DELETE RESTRICT ON UPDATE RESTRICT,
-  CONSTRAINT "FK_T_RecursosxProyecto_T_Proyecto" FOREIGN KEY ("FK_Pro_Cod") REFERENCES "T_Proyecto" ("PK_Pro_Cod")
-)
+  "updated_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY ("PK_PD_Cod"),
+  UNIQUE KEY "uq_proyecto_dia" ("FK_Pro_Cod","PD_Fecha"),
+  KEY "ix_proyecto_dia_fecha" ("PD_Fecha"),
+  KEY "ix_proyecto_dia_estado" ("FK_EPD_Cod"),
+  CONSTRAINT "fk_proyecto_dia_estado" FOREIGN KEY ("FK_EPD_Cod") REFERENCES "T_Estado_Proyecto_Dia" ("PK_EPD_Cod"),
+  CONSTRAINT "fk_proyecto_dia_proyecto" FOREIGN KEY ("FK_Pro_Cod") REFERENCES "T_Proyecto" ("PK_Pro_Cod")
+);
+```
+
+## T_ProyectoDiaBloque
+
+```sql
+CREATE TABLE "T_ProyectoDiaBloque" (
+  "PK_PDB_Cod" int NOT NULL AUTO_INCREMENT,
+  "FK_PD_Cod" int NOT NULL,
+  "PDB_Hora" time DEFAULT NULL,
+  "PDB_Ubicacion" varchar(100) DEFAULT NULL,
+  "PDB_Direccion" varchar(150) DEFAULT NULL,
+  "PDB_Notas" varchar(255) DEFAULT NULL,
+  "PDB_Orden" int NOT NULL DEFAULT '1',
+  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  "updated_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY ("PK_PDB_Cod"),
+  UNIQUE KEY "uq_pdb_dia_orden" ("FK_PD_Cod","PDB_Orden"),
+  KEY "ix_pdb_dia" ("FK_PD_Cod"),
+  CONSTRAINT "fk_pdb_pd" FOREIGN KEY ("FK_PD_Cod") REFERENCES "T_ProyectoDia" ("PK_PD_Cod") ON DELETE CASCADE
+);
+```
+
+## T_ProyectoDiaEmpleado
+
+```sql
+CREATE TABLE "T_ProyectoDiaEmpleado" (
+  "PK_PDE_Cod" int NOT NULL AUTO_INCREMENT,
+  "FK_PD_Cod" int NOT NULL,
+  "FK_Em_Cod" int NOT NULL,
+  "PDE_Estado" varchar(20) NOT NULL DEFAULT 'Confirmado',
+  "PDE_Notas" varchar(255) DEFAULT NULL,
+  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("PK_PDE_Cod"),
+  UNIQUE KEY "uq_pd_empleado" ("FK_PD_Cod","FK_Em_Cod"),
+  KEY "ix_pde_empleado" ("FK_Em_Cod"),
+  CONSTRAINT "fk_pde_empleado" FOREIGN KEY ("FK_Em_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
+  CONSTRAINT "fk_pde_pd" FOREIGN KEY ("FK_PD_Cod") REFERENCES "T_ProyectoDia" ("PK_PD_Cod") ON DELETE CASCADE
+);
+```
+
+## T_ProyectoDiaEquipo
+
+```sql
+CREATE TABLE "T_ProyectoDiaEquipo" (
+  "PK_PDQ_Cod" int NOT NULL AUTO_INCREMENT,
+  "FK_PD_Cod" int NOT NULL,
+  "FK_Eq_Cod" int NOT NULL,
+  "FK_Em_Cod" int DEFAULT NULL,
+  "PDQ_Estado" varchar(20) NOT NULL DEFAULT 'Confirmado',
+  "PDQ_Notas" varchar(255) DEFAULT NULL,
+  "PDQ_Devuelto" tinyint(1) NOT NULL DEFAULT '0',
+  "PDQ_Fecha_Devolucion" datetime DEFAULT NULL,
+  "PDQ_Estado_Devolucion" varchar(20) DEFAULT NULL,
+  "PDQ_Notas_Devolucion" varchar(255) DEFAULT NULL,
+  "PDQ_Usuario_Devolucion" int DEFAULT NULL,
+  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("PK_PDQ_Cod"),
+  UNIQUE KEY "uq_pd_equipo" ("FK_PD_Cod","FK_Eq_Cod"),
+  KEY "ix_pdq_equipo" ("FK_Eq_Cod"),
+  KEY "ix_pdq_devolucion_fecha" ("PDQ_Devuelto","PDQ_Fecha_Devolucion"),
+  KEY "fk_pdq_usuario_devolucion" ("PDQ_Usuario_Devolucion"),
+  KEY "ix_pdq_responsable" ("FK_Em_Cod"),
+  CONSTRAINT "fk_pdq_equipo" FOREIGN KEY ("FK_Eq_Cod") REFERENCES "T_Equipo" ("PK_Eq_Cod"),
+  CONSTRAINT "fk_pdq_pd" FOREIGN KEY ("FK_PD_Cod") REFERENCES "T_ProyectoDia" ("PK_PD_Cod") ON DELETE CASCADE,
+  CONSTRAINT "fk_pdq_responsable" FOREIGN KEY ("FK_Em_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
+  CONSTRAINT "fk_pdq_usuario_devolucion" FOREIGN KEY ("PDQ_Usuario_Devolucion") REFERENCES "T_Usuario" ("PK_U_Cod")
+);
+```
+
+## T_ProyectoDiaServicio
+
+```sql
+CREATE TABLE "T_ProyectoDiaServicio" (
+  "PK_PDS_Cod" int NOT NULL AUTO_INCREMENT,
+  "FK_PD_Cod" int NOT NULL,
+  "FK_PS_Cod" int NOT NULL,
+  "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("PK_PDS_Cod"),
+  UNIQUE KEY "uq_pd_servicio" ("FK_PD_Cod","FK_PS_Cod"),
+  KEY "ix_pd_servicio_serv" ("FK_PS_Cod"),
+  CONSTRAINT "fk_pds_pd" FOREIGN KEY ("FK_PD_Cod") REFERENCES "T_ProyectoDia" ("PK_PD_Cod") ON DELETE CASCADE,
+  CONSTRAINT "fk_pds_ps" FOREIGN KEY ("FK_PS_Cod") REFERENCES "T_PedidoServicio" ("PK_PS_Cod") ON DELETE RESTRICT
+);
 ```
 
 ## T_Servicios
@@ -624,7 +712,23 @@ CREATE TABLE "T_Servicios" (
   "S_Nombre" varchar(25) NOT NULL,
   PRIMARY KEY ("PK_S_Cod"),
   UNIQUE KEY "uq_servicios_nombre" ("S_Nombre")
-)
+);
+```
+
+## T_TipoDocumento
+
+```sql
+CREATE TABLE "T_TipoDocumento" (
+  "PK_TD_Cod" int NOT NULL AUTO_INCREMENT,
+  "TD_Codigo" varchar(10) NOT NULL,
+  "TD_Nombre" varchar(60) NOT NULL,
+  "TD_TipoDato" enum('N','A') NOT NULL,
+  "TD_TamMin" tinyint unsigned NOT NULL,
+  "TD_TamMax" tinyint unsigned NOT NULL,
+  "TD_Activo" tinyint(1) NOT NULL DEFAULT '1',
+  PRIMARY KEY ("PK_TD_Cod"),
+  UNIQUE KEY "UQ_TipoDocumento_Codigo" ("TD_Codigo")
+);
 ```
 
 ## T_Tipo_Empleado
@@ -636,7 +740,7 @@ CREATE TABLE "T_Tipo_Empleado" (
   "TiEm_PermiteLogin" tinyint(1) NOT NULL DEFAULT '0',
   "TiEm_OperativoCampo" tinyint(1) DEFAULT '0',
   PRIMARY KEY ("PK_Tipo_Emp_Cod")
-)
+);
 ```
 
 ## T_Tipo_Equipo
@@ -647,7 +751,7 @@ CREATE TABLE "T_Tipo_Equipo" (
   "TE_Nombre" varchar(60) NOT NULL,
   PRIMARY KEY ("PK_TE_Cod"),
   UNIQUE KEY "uq_tipo_nombre" ("TE_Nombre")
-)
+);
 ```
 
 ## T_Usuario
@@ -661,19 +765,18 @@ CREATE TABLE "T_Usuario" (
   "U_Contrasena" varchar(255) DEFAULT NULL,
   "U_Celular" varchar(25) NOT NULL,
   "U_Numero_Documento" varchar(12) NOT NULL,
-  "FK_TD_Cod" int NOT NULL,
   "U_Direccion" varchar(150) DEFAULT NULL,
   "U_Fecha_Crea" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   "U_Fecha_Upd" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  "FK_TD_Cod" int NOT NULL,
   PRIMARY KEY ("PK_U_Cod"),
   UNIQUE KEY "UQ_T_Usuario_Correo" ("U_Correo"),
   UNIQUE KEY "UQ_T_Usuario_Celular" ("U_Celular"),
   UNIQUE KEY "UQ_T_Usuario_NumDoc" ("U_Numero_Documento"),
   KEY "FK_T_Usuario_T_TipoDocumento" ("FK_TD_Cod"),
-  CONSTRAINT "chk_usuario_correo_formato" CHECK (regexp_like(`U_Correo`,_utf8mb4'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}$')),
-  CONSTRAINT "chk_usuario_doc_len_digits" CHECK (regexp_like(`U_Numero_Documento`,_utf8mb4'^[A-Za-z0-9]{1,12}$')),
-  CONSTRAINT "FK_T_Usuario_T_TipoDocumento" FOREIGN KEY ("FK_TD_Cod") REFERENCES "T_TipoDocumento" ("PK_TD_Cod")
-)
+  CONSTRAINT "FK_T_Usuario_T_TipoDocumento" FOREIGN KEY ("FK_TD_Cod") REFERENCES "T_TipoDocumento" ("PK_TD_Cod"),
+  CONSTRAINT "chk_usuario_correo_formato" CHECK (regexp_like(`U_Correo`,_utf8mb4'^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+[.][A-Za-z]{2,}$'))
+);
 ```
 
 ## T_Voucher
@@ -697,31 +800,6 @@ CREATE TABLE "T_Voucher" (
   CONSTRAINT "FK_T_Voucher_T_Estado_voucher" FOREIGN KEY ("FK_EV_Cod") REFERENCES "T_Estado_voucher" ("PK_EV_Cod"),
   CONSTRAINT "FK_T_Voucher_T_Metodo_Pago" FOREIGN KEY ("FK_MP_Cod") REFERENCES "T_Metodo_Pago" ("PK_MP_Cod"),
   CONSTRAINT "FK_T_Voucher_T_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod")
-)
+);
 ```
 
-## T_EventoServicioEstado
-
-```sql
-CREATE TABLE "T_EventoServicioEstado" (
-  "PK_ESE_Cod" int NOT NULL AUTO_INCREMENT,
-  "ESE_Nombre" varchar(25) NOT NULL,
-  PRIMARY KEY ("PK_ESE_Cod")
-)
-```
-
-## T_TipoDocumento
-
-```sql
-CREATE TABLE "T_TipoDocumento" (
-  "PK_TD_Cod" int NOT NULL AUTO_INCREMENT,
-  "TD_Codigo" varchar(10) NOT NULL,
-  "TD_Nombre" varchar(60) NOT NULL,
-  "TD_TipoDato" enum('N','A') NOT NULL,
-  "TD_TamMin" tinyint unsigned NOT NULL,
-  "TD_TamMax" tinyint unsigned NOT NULL,
-  "TD_Activo" tinyint(1) NOT NULL DEFAULT '1',
-  PRIMARY KEY ("PK_TD_Cod"),
-  UNIQUE KEY "UQ_TipoDocumento_Codigo" ("TD_Codigo")
-)
-```

@@ -53,6 +53,118 @@
  *         notas:               { type: string, nullable: true }
  *         enlace:              { type: string, nullable: true }
  *
+ *     ProyectoEdicion:
+ *       type: object
+ *       properties:
+ *         proyecto:
+ *           $ref: '#/components/schemas/Proyecto'
+ *         dias:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDia' }
+ *         bloquesDia:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaBloque' }
+ *         serviciosDia:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaServicio' }
+ *         empleadosDia:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaEmpleado' }
+ *         equiposDia:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaEquipo' }
+ *         requerimientosPersonalDia:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/RequerimientoPersonalDia' }
+ *         requerimientosEquipoDia:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/RequerimientoEquipoDia' }
+ *
+ *     ProyectoDia:
+ *       type: object
+ *       properties:
+ *         diaId:      { type: integer }
+ *         proyectoId: { type: integer }
+ *         fecha:      { type: string, format: date }
+ *         estadoDiaId: { type: integer }
+ *         estadoDiaNombre: { type: string }
+ *
+ *     ProyectoDiaBloque:
+ *       type: object
+ *       properties:
+ *         bloqueId:   { type: integer }
+ *         diaId:      { type: integer }
+ *         fecha:      { type: string, format: date }
+ *         hora:       { type: string, format: time, nullable: true }
+ *         ubicacion:  { type: string, nullable: true }
+ *         direccion:  { type: string, nullable: true }
+ *         notas:      { type: string, nullable: true }
+ *         orden:      { type: integer }
+ *
+ *     ProyectoDiaServicio:
+ *       type: object
+ *       properties:
+ *         id:               { type: integer }
+ *         diaId:            { type: integer }
+ *         fecha:            { type: string, format: date }
+ *         pedidoServicioId: { type: integer }
+ *         eventoServicioId: { type: integer, nullable: true }
+ *         nombre:           { type: string }
+ *         descripcion:      { type: string, nullable: true }
+ *         moneda:           { type: string }
+ *         precioUnit:       { type: number, format: double }
+ *         cantidad:         { type: number, format: double }
+ *         descuento:        { type: number, format: double }
+ *         recargo:          { type: number, format: double }
+ *         subtotal:         { type: number, format: double }
+ *
+ *     ProyectoDiaEmpleado:
+ *       type: object
+ *       properties:
+ *         asignacionId:   { type: integer }
+ *         diaId:          { type: integer }
+ *         fecha:          { type: string, format: date }
+ *         empleadoId:     { type: integer }
+ *         empleadoNombre: { type: string }
+ *         notas:          { type: string, nullable: true }
+ *
+ *     ProyectoDiaEquipo:
+ *       type: object
+ *       properties:
+ *         asignacionId:      { type: integer }
+ *         diaId:             { type: integer }
+ *         fecha:             { type: string, format: date }
+ *         equipoId:          { type: integer }
+ *         equipoSerie:       { type: string, nullable: true }
+ *         modelo:            { type: string, nullable: true }
+ *         tipoEquipo:        { type: string, nullable: true }
+ *         estadoEquipoId:    { type: integer, nullable: true }
+ *         responsableId:     { type: integer, nullable: true }
+ *         responsableNombre: { type: string, nullable: true }
+ *         notas:             { type: string, nullable: true }
+ *         devuelto:          { type: integer, nullable: true }
+ *         fechaDevolucion:   { type: string, format: date-time, nullable: true }
+ *         estadoDevolucion:  { type: string, nullable: true }
+ *         notasDevolucion:   { type: string, nullable: true }
+ *         usuarioDevolucion: { type: integer, nullable: true }
+ *
+ *     RequerimientoPersonalDia:
+ *       type: object
+ *       properties:
+ *         diaId:    { type: integer }
+ *         fecha:    { type: string, format: date }
+ *         rol:      { type: string }
+ *         cantidad: { type: integer }
+ *
+ *     RequerimientoEquipoDia:
+ *       type: object
+ *       properties:
+ *         diaId:           { type: integer }
+ *         fecha:           { type: string, format: date }
+ *         tipoEquipoId:    { type: integer }
+ *         tipoEquipoNombre: { type: string }
+ *         cantidad:        { type: integer }
+ *
  *     EstadoProyecto:
  *       type: object
  *       properties:
@@ -66,24 +178,145 @@
  *         orden: 2
  *         activo: 1
  *
+ *     EstadoProyectoDia:
+ *       type: object
+ *       properties:
+ *         estadoDiaId:     { type: integer }
+ *         estadoDiaNombre: { type: string }
+ *         orden:           { type: integer }
+ *         activo:          { type: integer, enum: [0,1] }
+ *       example:
+ *         estadoDiaId: 1
+ *         estadoDiaNombre: "Pendiente"
+ *         orden: 1
+ *         activo: 1
+ *
+ *     ProyectoDiaEstadoUpdate:
+ *       type: object
+ *       required: [estadoDiaId]
+ *       properties:
+ *         estadoDiaId: { type: integer }
+ *       example:
+ *         estadoDiaId: 2
+ *
+ *     ProyectoDiaEmpleadoUpsert:
+ *       type: object
+ *       required: [empleadoId]
+ *       properties:
+ *         empleadoId: { type: integer }
+ *         notas: { type: string, nullable: true }
+ *
+ *     ProyectoDiaEquipoUpsert:
+ *       type: object
+ *       required: [equipoId]
+ *       properties:
+ *         equipoId: { type: integer }
+ *         responsableId:
+ *           type: integer
+ *           nullable: true
+ *           description: Debe existir en la lista de empleados del mismo dia. Si no, se guarda null (reserva).
+ *         notas: { type: string, nullable: true }
+ *
+ *     ProyectoDiaAsignacionesUpsert:
+ *       type: object
+ *       required: [empleados, equipos]
+ *       properties:
+ *         empleados:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaEmpleadoUpsert' }
+ *         equipos:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaEquipoUpsert' }
+ *       example:
+ *         empleados:
+ *           - empleadoId: 12
+ *             notas: "Equipo A"
+ *           - empleadoId: 15
+ *         equipos:
+ *           - equipoId: 101
+ *             responsableId: 12
+ *             notas: "Camara principal"
+ *           - equipoId: 102
+ *             responsableId: 15
+ *
+ *     ProyectoAsignacionesDiaUpsert:
+ *       type: object
+ *       required: [diaId, empleados, equipos]
+ *       properties:
+ *         diaId: { type: integer }
+ *         empleados:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaEmpleadoUpsert' }
+ *         equipos:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaEquipoUpsert' }
+ *       description: Reemplaza asignaciones del dia indicado. Use [] para limpiar.
+ *
+ *     ProyectoAsignacionesUpsert:
+ *       type: object
+ *       required: [proyectoId, dias]
+ *       properties:
+ *         proyectoId: { type: integer }
+ *         dias:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoAsignacionesDiaUpsert' }
+ *       description: |
+ *         Reemplaza asignaciones solo de los dias enviados.
+ *         Los dias no enviados NO se modifican.
+ *         Para limpiar un dia, enviar empleados: [] y equipos: [].
+ *       example:
+ *         proyectoId: 7
+ *         dias:
+ *           - diaId: 31
+ *             empleados:
+ *               - empleadoId: 12
+ *             equipos:
+ *               - equipoId: 101
+ *                 responsableId: 12
+ *           - diaId: 32
+ *             empleados: []
+ *             equipos:
+ *               - equipoId: 102
+ *                 responsableId: null
+ *
+ *     ProyectoDisponibilidadEmpleado:
+ *       type: object
+ *       properties:
+ *         empleadoId: { type: integer }
+ *         usuarioId:  { type: integer }
+ *         nombre:     { type: string }
+ *         apellido:   { type: string }
+ *         cargoId:    { type: integer }
+ *         cargo:      { type: string }
+ *
+ *     ProyectoDisponibilidadEquipo:
+ *       type: object
+ *       properties:
+ *         equipoId:         { type: integer }
+ *         serie:            { type: string, nullable: true }
+ *         idModelo:         { type: integer }
+ *         nombreModelo:     { type: string }
+ *         idTipoEquipo:     { type: integer }
+ *         nombreTipoEquipo: { type: string }
+ *
+ *     ProyectoAsignacionesDisponibles:
+ *       type: object
+ *       properties:
+ *         empleados:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDisponibilidadEmpleado' }
+ *         equipos:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDisponibilidadEquipo' }
+ *       description: Listas filtradas solo con disponibles para la(s) fecha(s) consultada(s).
+ *
  *     ProyectoCreate:
  *       type: object
- *       required: [proyectoNombre, pedidoId, fechaInicioEdicion]
+ *       required: [pedidoId]
  *       properties:
- *         proyectoNombre:     { type: string }
- *         pedidoId:           { type: integer }
- *         fechaInicioEdicion:
- *           type: string
- *           format: date
- *           description: YYYY-MM-DD
- *         fechaFinEdicion:
- *           type: string
- *           format: date
- *           nullable: true
- *           description: YYYY-MM-DD (opcional)
- *         estadoId:
+ *         pedidoId:
  *           type: integer
- *           description: FK a T_Estado_Proyecto (por defecto Planificado)
+ *           description: Pedido origen del proyecto
  *         responsableId:
  *           type: integer
  *           nullable: true
@@ -95,13 +328,9 @@
  *           type: string
  *           nullable: true
  *       example:
- *         proyectoNombre: "Evento corporativo"
  *         pedidoId: 2
- *         fechaInicioEdicion: "2025-09-09"
- *         fechaFinEdicion: "2025-09-10"
- *         estadoId: 1
  *         responsableId: 3
- *         notas: "Reunirse 30 min antes"
+ *         notas: "Crear proyecto desde pedido"
  *         enlace: "https://drive.com/entrega"
  *
  *     ProyectoUpdate:

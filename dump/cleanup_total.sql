@@ -6,9 +6,11 @@ SET FOREIGN_KEY_CHECKS=0;
 
 -- Transaccionales (hijos -> padres)
 DELETE FROM `T_Voucher`;
-DELETE FROM `T_Proyecto_Recurso`;
-DELETE FROM `T_Equipo_Asignacion`;
-DELETE FROM `T_Empleado_Asignacion`;
+DELETE FROM `T_ProyectoDiaServicio`;
+DELETE FROM `T_ProyectoDiaEmpleado`;
+DELETE FROM `T_ProyectoDiaEquipo`;
+DELETE FROM `T_ProyectoDiaBloque`;
+DELETE FROM `T_ProyectoDia`;
 DELETE FROM `T_PedidoServicioFecha`;
 DELETE FROM `T_PedidoServicio`;
 DELETE FROM `T_PedidoEvento`;
@@ -39,6 +41,7 @@ DELETE FROM `T_Eventos`;
 DELETE FROM `T_Servicios`;
 DELETE FROM `T_Metodo_Pago`;
 DELETE FROM `T_Estado_voucher`;
+DELETE FROM `T_Estado_Proyecto_Dia`;
 DELETE FROM `T_Estado_Proyecto`;
 DELETE FROM `T_Estado_Pedido`;
 DELETE FROM `T_Estado_Cotizacion`;
@@ -67,6 +70,13 @@ INSERT INTO `T_Estado_Pedido` (`PK_EP_Cod`, `EP_Nombre`) VALUES(1, 'Cotizado'),(
 INSERT INTO `T_Estado_Cotizacion` (`PK_ECot_Cod`, `ECot_Nombre`) VALUES(1, 'Borrador'),(2, 'Enviada'),(3, 'Aceptada'),(4, 'Rechazada'),(5, 'Expirada');
 -- T_Estado_Proyecto
 INSERT INTO `T_Estado_Proyecto` (`PK_EPro_Cod`, `EPro_Nombre`, `EPro_Orden`, `Activo`) VALUES(1, 'Planificado', 1, 1),(2, 'En ejecucion', 2, 1),(3, 'Entregado', 3, 1),(4, 'Cerrado', 4, 1);
+-- T_Estado_Proyecto_Dia
+INSERT INTO `T_Estado_Proyecto_Dia` (`PK_EPD_Cod`, `EPD_Nombre`, `EPD_Orden`, `Activo`) VALUES
+(1, 'Pendiente', 1, 1),
+(2, 'En curso', 2, 1),
+(3, 'Terminado', 3, 1),
+(4, 'Suspendido', 4, 1),
+(5, 'Cancelado', 5, 1);
 -- T_Estado_voucher
 INSERT INTO `T_Estado_voucher` (`PK_EV_Cod`, `EV_Nombre`) VALUES(1, 'Pendiente'),(2, 'Aprobado'),(3, 'Rechazado');
 -- T_Metodo_Pago
@@ -739,6 +749,7 @@ ALTER TABLE `T_Estado_Pago` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Pedido` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Cotizacion` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Proyecto` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Estado_Proyecto_Dia` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_voucher` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Metodo_Pago` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Servicios` AUTO_INCREMENT = 1;
@@ -766,9 +777,11 @@ ALTER TABLE `T_PedidoServicio` AUTO_INCREMENT = 1;
 ALTER TABLE `T_PedidoEvento` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Voucher` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Proyecto` AUTO_INCREMENT = 1;
-ALTER TABLE `T_Proyecto_Recurso` AUTO_INCREMENT = 1;
-ALTER TABLE `T_Equipo_Asignacion` AUTO_INCREMENT = 1;
-ALTER TABLE `T_Empleado_Asignacion` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDia` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaBloque` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaServicio` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaEmpleado` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaEquipo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicio` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicioEquipo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicioStaff` AUTO_INCREMENT = 1;

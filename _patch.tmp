@@ -1,0 +1,44 @@
+*** Begin Patch
+*** Update File: src/modules/proyecto/proyecto.repository.js
+@@
+-async function postProyecto(payload) {
+-  const {
+-    proyectoNombre,
+-    pedidoId,
+-    fechaInicioEdicion,
+-    fechaFinEdicion,
+-    estadoId,
+-    responsableId,
+-    notas,
+-    enlace,
+-    multimedia,
+-    edicion,
+-  } = payload;
+-  const estadoDefaultId =
+-    estadoId == null ? await getEstadoProyectoIdByNombre("Planificado") : estadoId;
+-  const fechaCreacion = getLimaDateTimeString();
+-  return runCall("CALL sp_proyecto_crear(?,?,?,?,?,?,?,?,?,?,?,?)", [
+-    proyectoNombre ?? null,
+-    Number(pedidoId),
+-    estadoDefaultId,
+-    responsableId ?? null,
+-    fechaInicioEdicion ?? null,
+-    fechaFinEdicion ?? null,
+-    enlace ?? null,
+-    notas ?? null,
+-    multimedia ?? null,
+-    edicion ?? null,
+-    fechaCreacion,
+-    fechaCreacion,
+-  ]);
+-}
++async function postProyecto(payload) {
++  const { pedidoId, responsableId = null, notas = null, enlace = null } = payload;
++  return runCall("CALL sp_proyecto_crear_desde_pedido(?,?,?,?)", [
++    Number(pedidoId),
++    responsableId == null ? null : Number(responsableId),
++    notas ?? null,
++    enlace ?? null,
++  ]);
++}
+*** End Patch
