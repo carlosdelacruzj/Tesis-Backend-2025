@@ -122,6 +122,29 @@ router.post("/asignaciones", ctrl.postProyectoAsignacionesUpsert);
 
 /**
  * @swagger
+ * /proyecto/dias/{diaId}/incidencias:
+ *   post:
+ *     tags: [proyecto]
+ *     summary: Registrar incidencia por dia (con reemplazo automatico)
+ *     parameters:
+ *       - in: path
+ *         name: diaId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ProyectoDiaIncidenciaCreate' }
+ *     responses:
+ *       '201': { description: Creado }
+ *       '400': { description: Datos invalidos }
+ *       '404': { description: Dia no encontrado }
+ */
+router.post("/dias/:diaId(\\d+)/incidencias", ctrl.postProyectoDiaIncidencia);
+
+/**
+ * @swagger
  * /proyecto/dias/{diaId}/estado:
  *   patch:
  *     tags: [proyecto]

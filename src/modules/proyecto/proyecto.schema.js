@@ -79,6 +79,9 @@
  *         requerimientosEquipoDia:
  *           type: array
  *           items: { $ref: '#/components/schemas/RequerimientoEquipoDia' }
+ *         incidenciasDia:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaIncidencia' }
  *
  *     ProyectoDia:
  *       type: object
@@ -164,6 +167,21 @@
  *         tipoEquipoId:    { type: integer }
  *         tipoEquipoNombre: { type: string }
  *         cantidad:        { type: integer }
+ *
+ *     ProyectoDiaIncidencia:
+ *       type: object
+ *       properties:
+ *         incidenciaId:        { type: integer }
+ *         diaId:               { type: integer }
+ *         fecha:               { type: string, format: date }
+ *         tipo:                { type: string }
+ *         descripcion:         { type: string }
+ *         empleadoId:          { type: integer, nullable: true }
+ *         empleadoReemplazoId: { type: integer, nullable: true }
+ *         equipoId:            { type: integer, nullable: true }
+ *         equipoReemplazoId:   { type: integer, nullable: true }
+ *         usuarioId:           { type: integer, nullable: true }
+ *         createdAt:           { type: string, format: date-time }
  *
  *     EstadoProyecto:
  *       type: object
@@ -309,6 +327,36 @@
  *           type: array
  *           items: { $ref: '#/components/schemas/ProyectoDisponibilidadEquipo' }
  *       description: Listas filtradas solo con disponibles para la(s) fecha(s) consultada(s).
+ *
+ *     ProyectoDiaIncidenciaCreate:
+ *       type: object
+ *       required: [tipo, descripcion]
+ *       properties:
+ *         tipo:
+ *           type: string
+ *           description: PERSONAL_NO_ASISTE | EQUIPO_FALLA_EN_EVENTO | OTROS
+ *         descripcion:
+ *           type: string
+ *         empleadoId:
+ *           type: integer
+ *           nullable: true
+ *         empleadoReemplazoId:
+ *           type: integer
+ *           nullable: true
+ *         equipoId:
+ *           type: integer
+ *           nullable: true
+ *         equipoReemplazoId:
+ *           type: integer
+ *           nullable: true
+ *         usuarioId:
+ *           type: integer
+ *           nullable: true
+ *       example:
+ *         tipo: "PERSONAL_NO_ASISTE"
+ *         descripcion: "No asistio por enfermedad. Se reemplazo."
+ *         empleadoId: 45
+ *         empleadoReemplazoId: 98
  *
  *     ProyectoCreate:
  *       type: object

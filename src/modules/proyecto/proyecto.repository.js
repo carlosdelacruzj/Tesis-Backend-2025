@@ -76,6 +76,7 @@ async function getByIdProyecto(id) {
   //   5: equipos por dia
   //   6: requerimientos personal por dia
   //   7: requerimientos equipo por dia
+  //   8: incidencias por dia
   const sets = await runCallMulti("CALL sp_proyecto_obtener(?)", [Number(id)]);
   const proyectoRaw = sets[0]?.[0] || null;
   const pedidoId =
@@ -96,6 +97,7 @@ async function getByIdProyecto(id) {
     equiposDia: sets[5] || [],
     requerimientosPersonalDia: sets[6] || [],
     requerimientosEquipoDia: sets[7] || [],
+    incidenciasDia: sets[8] || [],
   };
 }
 
@@ -348,6 +350,106 @@ async function upsertProyectoAsignaciones(proyectoId, dias = []) {
   }
 }
 
+async function createProyectoDiaIncidencia(diaId, payload = {}) {
+  const {
+    tipo,
+    descripcion,
+    empleadoId = null,
+    empleadoReemplazoId = null,
+    equipoId = null,
+    equipoReemplazoId = null,
+    usuarioId = null,
+  } = payload;
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rowsDia] = await conn.query(
+      `SELECT 1
+       FROM T_ProyectoDia
+       WHERE PK_PD_Cod = ?
+       LIMIT 1`,
+      [Number(diaId)]
+    );
+    if (!rowsDia.length) {
+      const err = new Error("Dia no encontrado");
+      err.status = 404;
+      throw err;
+    }
+
+    const [incResult] = await conn.query(
+      `INSERT INTO T_ProyectoDiaIncidencia
+         (FK_PD_Cod, PDI_Tipo, PDI_Descripcion, FK_Em_Cod, FK_Em_Reemplazo_Cod, FK_Eq_Cod, FK_Eq_Reemplazo_Cod, FK_U_Cod)
+       VALUES (?,?,?,?,?,?,?,?)`,
+      [
+        Number(diaId),
+        tipo,
+        descripcion,
+        empleadoId == null ? null : Number(empleadoId),
+        empleadoReemplazoId == null ? null : Number(empleadoReemplazoId),
+        equipoId == null ? null : Number(equipoId),
+        equipoReemplazoId == null ? null : Number(equipoReemplazoId),
+        usuarioId == null ? null : Number(usuarioId),
+      ]
+    );
+
+    if (empleadoId != null && empleadoReemplazoId != null) {
+      await conn.query(
+        `DELETE FROM T_ProyectoDiaEmpleado
+         WHERE FK_PD_Cod = ? AND FK_Em_Cod = ?`,
+        [Number(diaId), Number(empleadoId)]
+      );
+      const [rowsExists] = await conn.query(
+        `SELECT 1
+         FROM T_ProyectoDiaEmpleado
+         WHERE FK_PD_Cod = ? AND FK_Em_Cod = ?
+         LIMIT 1`,
+        [Number(diaId), Number(empleadoReemplazoId)]
+      );
+      if (!rowsExists.length) {
+        await conn.query(
+          `INSERT INTO T_ProyectoDiaEmpleado
+             (FK_PD_Cod, FK_Em_Cod, PDE_Notas)
+           VALUES (?,?,NULL)`,
+          [Number(diaId), Number(empleadoReemplazoId)]
+        );
+      }
+    }
+
+    if (equipoId != null && equipoReemplazoId != null) {
+      await conn.query(
+        `DELETE FROM T_ProyectoDiaEquipo
+         WHERE FK_PD_Cod = ? AND FK_Eq_Cod = ?`,
+        [Number(diaId), Number(equipoId)]
+      );
+      const [rowsExists] = await conn.query(
+        `SELECT 1
+         FROM T_ProyectoDiaEquipo
+         WHERE FK_PD_Cod = ? AND FK_Eq_Cod = ?
+         LIMIT 1`,
+        [Number(diaId), Number(equipoReemplazoId)]
+      );
+      if (!rowsExists.length) {
+        await conn.query(
+          `INSERT INTO T_ProyectoDiaEquipo
+             (FK_PD_Cod, FK_Eq_Cod, FK_Em_Cod, PDQ_Notas)
+           VALUES (?,?,NULL,NULL)`,
+          [Number(diaId), Number(equipoReemplazoId)]
+        );
+      }
+    }
+
+    await conn.commit();
+    return { incidenciaId: incResult.insertId ?? null };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
 module.exports = {
   getAllProyecto,
   getByIdProyecto,
@@ -363,4 +465,5 @@ module.exports = {
   listEstadoProyectoDia,
   updateProyectoDiaEstado,
   upsertProyectoAsignaciones,
+  createProyectoDiaIncidencia,
 };

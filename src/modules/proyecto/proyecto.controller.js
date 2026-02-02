@@ -96,6 +96,16 @@ async function postProyectoAsignacionesUpsert(req, res, next) {
   }
 }
 
+async function postProyectoDiaIncidencia(req, res, next) {
+  try {
+    const { diaId } = req.params;
+    const r = await service.createProyectoDiaIncidencia(diaId, req.body);
+    res.status(201).json(r);
+  } catch (e) {
+    next(e);
+  }
+}
+
 module.exports = {
   getAllProyecto,
   getByIdProyecto,
@@ -108,4 +118,5 @@ module.exports = {
   patchProyectoDiaEstado,
   getDisponibilidadAsignaciones,
   postProyectoAsignacionesUpsert,
+  postProyectoDiaIncidencia,
 };

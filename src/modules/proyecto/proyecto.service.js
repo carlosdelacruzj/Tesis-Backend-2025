@@ -31,6 +31,10 @@ function toCleanText(value, maxLen = 255) {
   return text.length > maxLen ? text.slice(0, maxLen) : text;
 }
 
+function normalizeTipoIncidencia(value) {
+  const tipo = String(value || "").trim().toUpperCase();
+  return tipo || null;
+}
 
 /* Proyecto */
 async function listProyecto() {
@@ -53,6 +57,7 @@ async function findProyectoById(id) {
     equiposDia: data?.equiposDia || [],
     requerimientosPersonalDia: data?.requerimientosPersonalDia || [],
     requerimientosEquipoDia: data?.requerimientosEquipoDia || [],
+    incidenciasDia: data?.incidenciasDia || [],
   };
 }
 async function createProyecto(payload) {
@@ -225,6 +230,74 @@ async function upsertProyectoAsignaciones(payload = {}) {
   };
 }
 
+async function createProyectoDiaIncidencia(diaId, payload = {}) {
+  const did = ensurePositiveInt(diaId, "diaId");
+  const tipo = normalizeTipoIncidencia(payload?.tipo);
+  const descripcion = toCleanText(payload?.descripcion, 500);
+
+  if (!tipo) {
+    const err = new Error("tipo es requerido");
+    err.status = 400;
+    throw err;
+  }
+  if (!descripcion) {
+    const err = new Error("descripcion es requerida");
+    err.status = 400;
+    throw err;
+  }
+
+  const empleadoId =
+    payload?.empleadoId == null ? null : ensurePositiveInt(payload.empleadoId, "empleadoId");
+  const empleadoReemplazoId =
+    payload?.empleadoReemplazoId == null
+      ? null
+      : ensurePositiveInt(payload.empleadoReemplazoId, "empleadoReemplazoId");
+  const equipoId =
+    payload?.equipoId == null ? null : ensurePositiveInt(payload.equipoId, "equipoId");
+  const equipoReemplazoId =
+    payload?.equipoReemplazoId == null
+      ? null
+      : ensurePositiveInt(payload.equipoReemplazoId, "equipoReemplazoId");
+
+  const tiposValidos = new Set(["PERSONAL_NO_ASISTE", "EQUIPO_FALLA_EN_EVENTO", "OTROS"]);
+  if (!tiposValidos.has(tipo)) {
+    const err = new Error("tipo no valido");
+    err.status = 400;
+    throw err;
+  }
+
+  if (tipo === "PERSONAL_NO_ASISTE") {
+    if (!empleadoId || !empleadoReemplazoId) {
+      const err = new Error("empleadoId y empleadoReemplazoId son requeridos");
+      err.status = 400;
+      throw err;
+    }
+  }
+  if (tipo === "EQUIPO_FALLA_EN_EVENTO") {
+    if (!equipoId || !equipoReemplazoId) {
+      const err = new Error("equipoId y equipoReemplazoId son requeridos");
+      err.status = 400;
+      throw err;
+    }
+  }
+
+  const result = await repo.createProyectoDiaIncidencia(did, {
+    tipo,
+    descripcion,
+    empleadoId,
+    empleadoReemplazoId,
+    equipoId,
+    equipoReemplazoId,
+    usuarioId: payload?.usuarioId ?? null,
+  });
+
+  return {
+    status: "Registro exitoso",
+    incidenciaId: result?.incidenciaId ?? null,
+    diaId: did,
+  };
+}
+
 module.exports = {
   listProyecto,
   findProyectoById,
@@ -237,5 +310,6 @@ module.exports = {
   updateProyectoDiaEstado,
   disponibilidadAsignaciones,
   upsertProyectoAsignaciones,
+  createProyectoDiaIncidencia,
 };
 
