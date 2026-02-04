@@ -311,6 +311,100 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
   };
 }
 
+async function devolverEquiposDia(diaId, payload = {}) {
+  const did = ensurePositiveInt(diaId, "diaId");
+  const equiposInput = ensureArray(payload, "equipos");
+  if (!equiposInput.length) {
+    const err = new Error("equipos no puede estar vacio");
+    err.status = 400;
+    throw err;
+  }
+  const usuarioId =
+    payload?.usuarioId == null ? null : ensurePositiveInt(payload.usuarioId, "usuarioId");
+  const fechaGlobal =
+    payload?.fechaDevolucion && String(payload.fechaDevolucion).toLowerCase() !== "auto"
+      ? payload.fechaDevolucion
+      : null;
+
+  const estadosValidos = new Set(["DEVUELTO", "DANADO", "PERDIDO", "ROBADO"]);
+
+  const equipos = equiposInput.map((e) => {
+    const eqId = ensurePositiveInt(e?.equipoId, "equipoId");
+    if (e?.devuelto === undefined) {
+      const err = new Error("devuelto es requerido (0 o 1)");
+      err.status = 400;
+      throw err;
+    }
+    const devuelto = Number(e.devuelto) ? 1 : 0;
+    const estadoDevRaw = toCleanText(e?.estadoDevolucion, 100);
+    const estadoDev = estadoDevRaw ? estadoDevRaw.toUpperCase() : null;
+    if (estadoDev && !estadosValidos.has(estadoDev)) {
+      const err = new Error("estadoDevolucion no valido");
+      err.status = 400;
+      throw err;
+    }
+    const notasDev = toCleanText(e?.notasDevolucion, 255);
+    const fechaDev =
+      e?.fechaDevolucion && String(e.fechaDevolucion).toLowerCase() !== "auto"
+        ? e.fechaDevolucion
+        : fechaGlobal;
+    return {
+      equipoId: eqId,
+      devuelto,
+      estadoDevolucion: estadoDev,
+      notasDevolucion: notasDev,
+      fechaDevolucion: fechaDev,
+    };
+  });
+
+  const result = await repo.updateDevolucionEquipos(did, equipos, usuarioId);
+  return {
+    status: "Devolucion registrada",
+    diaId: did,
+    equiposActualizados: result?.updated ?? equipos.length,
+  };
+}
+
+async function devolverEquipo(diaId, equipoId, payload = {}) {
+  const did = ensurePositiveInt(diaId, "diaId");
+  const eqId = ensurePositiveInt(equipoId, "equipoId");
+  const devueltoField = payload?.devuelto;
+  if (devueltoField === undefined) {
+    const err = new Error("devuelto es requerido (0 o 1)");
+    err.status = 400;
+    throw err;
+  }
+  const usuarioId =
+    payload?.usuarioId == null ? null : ensurePositiveInt(payload.usuarioId, "usuarioId");
+
+  const estadosValidos = new Set(["DEVUELTO", "DANADO", "PERDIDO", "ROBADO"]);
+  const estadoDevRaw = toCleanText(payload?.estadoDevolucion, 100);
+  const estadoDev = estadoDevRaw ? estadoDevRaw.toUpperCase() : null;
+  if (estadoDev && !estadosValidos.has(estadoDev)) {
+    const err = new Error("estadoDevolucion no valido");
+    err.status = 400;
+    throw err;
+  }
+
+  const item = {
+    equipoId: eqId,
+    devuelto: Number(devueltoField) ? 1 : 0,
+    estadoDevolucion: estadoDev,
+    notasDevolucion: toCleanText(payload?.notasDevolucion, 255),
+    fechaDevolucion:
+      payload?.fechaDevolucion && String(payload.fechaDevolucion).toLowerCase() !== "auto"
+        ? payload.fechaDevolucion
+        : null,
+  };
+
+  const result = await repo.updateDevolucionEquipos(did, [item], usuarioId);
+  return {
+    status: "Devolucion registrada",
+    diaId: did,
+    equiposActualizados: result?.updated ?? 1,
+  };
+}
+
 module.exports = {
   listProyecto,
   findProyectoById,
@@ -324,5 +418,7 @@ module.exports = {
   disponibilidadAsignaciones,
   upsertProyectoAsignaciones,
   createProyectoDiaIncidencia,
+  devolverEquiposDia,
+  devolverEquipo,
 };
 

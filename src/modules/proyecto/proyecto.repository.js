@@ -628,6 +628,70 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
   }
 }
 
+async function updateDevolucionEquipos(diaId, equipos = [], usuarioId = null) {
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rowsDia] = await conn.query(
+      `SELECT FK_Pro_Cod FROM T_ProyectoDia WHERE PK_PD_Cod = ? LIMIT 1`,
+      [Number(diaId)]
+    );
+    if (!rowsDia.length) {
+      const err = new Error("Dia no encontrado");
+      err.status = 404;
+      throw err;
+    }
+
+    let updated = 0;
+    for (const item of equipos) {
+      const eqId = Number(item.equipoId);
+      const [rowsEq] = await conn.query(
+        `SELECT 1 FROM T_ProyectoDiaEquipo WHERE FK_PD_Cod = ? AND FK_Eq_Cod = ? LIMIT 1`,
+        [Number(diaId), eqId]
+      );
+      if (!rowsEq.length) {
+        const err = new Error(`Equipo ${eqId} no encontrado en el dia`);
+        err.status = 404;
+        throw err;
+      }
+
+      const fecha =
+        item.fechaDevolucion && item.fechaDevolucion !== "auto"
+          ? item.fechaDevolucion
+          : null; // null => NOW() en SQL
+
+      await conn.query(
+        `UPDATE T_ProyectoDiaEquipo
+           SET PDQ_Devuelto = ?,
+               PDQ_Fecha_Devolucion = COALESCE(?, NOW()),
+               PDQ_Estado_Devolucion = ?,
+               PDQ_Notas_Devolucion = ?,
+               PDQ_Usuario_Devolucion = ?
+         WHERE FK_PD_Cod = ? AND FK_Eq_Cod = ?`,
+        [
+          Number(item.devuelto) ? 1 : 0,
+          fecha,
+          item.estadoDevolucion ?? null,
+          item.notasDevolucion ?? null,
+          usuarioId == null ? null : Number(usuarioId),
+          Number(diaId),
+          eqId,
+        ]
+      );
+      updated += 1;
+    }
+
+    await conn.commit();
+    return { updated };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
 module.exports = {
   getAllProyecto,
   getByIdProyecto,
@@ -644,4 +708,5 @@ module.exports = {
   updateProyectoDiaEstado,
   upsertProyectoAsignaciones,
   createProyectoDiaIncidencia,
+  updateDevolucionEquipos,
 };

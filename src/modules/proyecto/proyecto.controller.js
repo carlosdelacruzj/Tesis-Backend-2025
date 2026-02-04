@@ -106,6 +106,26 @@ async function postProyectoDiaIncidencia(req, res, next) {
   }
 }
 
+async function postProyectoDiaDevolucion(req, res, next) {
+  try {
+    const { diaId } = req.params;
+    const r = await service.devolverEquiposDia(diaId, req.body);
+    res.status(200).json(r);
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function patchProyectoDiaEquipoDevolucion(req, res, next) {
+  try {
+    const { diaId, equipoId } = req.params;
+    const r = await service.devolverEquipo(diaId, equipoId, req.body);
+    res.status(200).json(r);
+  } catch (e) {
+    next(e);
+  }
+}
+
 module.exports = {
   getAllProyecto,
   getByIdProyecto,
@@ -119,4 +139,6 @@ module.exports = {
   getDisponibilidadAsignaciones,
   postProyectoAsignacionesUpsert,
   postProyectoDiaIncidencia,
+  postProyectoDiaDevolucion,
+  patchProyectoDiaEquipoDevolucion,
 };

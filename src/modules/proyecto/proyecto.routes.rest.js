@@ -145,6 +145,59 @@ router.post("/dias/:diaId(\\d+)/incidencias", ctrl.postProyectoDiaIncidencia);
 
 /**
  * @swagger
+ * /proyecto/dias/{diaId}/equipos/devolucion:
+ *   post:
+ *     tags: [proyecto]
+ *     summary: Registrar devolucion de equipos de un dia (batch)
+ *     parameters:
+ *       - in: path
+ *         name: diaId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ProyectoDiaDevolucion' }
+ *     responses:
+ *       '200': { description: OK }
+ *       '400': { description: Datos invalidos }
+ *       '404': { description: Dia o equipo no encontrado }
+ */
+router.post("/dias/:diaId(\\d+)/equipos/devolucion", ctrl.postProyectoDiaDevolucion);
+
+/**
+ * @swagger
+ * /proyecto/dias/{diaId}/equipos/{equipoId}/devolucion:
+ *   patch:
+ *     tags: [proyecto]
+ *     summary: Registrar devolucion de un equipo puntual de un dia
+ *     parameters:
+ *       - in: path
+ *         name: diaId
+ *         required: true
+ *         schema: { type: integer }
+ *       - in: path
+ *         name: equipoId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ProyectoDiaEquipoDevolucion' }
+ *     responses:
+ *       '200': { description: OK }
+ *       '400': { description: Datos invalidos }
+ *       '404': { description: Dia o equipo no encontrado }
+ */
+router.patch(
+  "/dias/:diaId(\\d+)/equipos/:equipoId(\\d+)/devolucion",
+  ctrl.patchProyectoDiaEquipoDevolucion
+);
+
+/**
+ * @swagger
  * /proyecto/dias/{diaId}/estado:
  *   patch:
  *     tags: [proyecto]

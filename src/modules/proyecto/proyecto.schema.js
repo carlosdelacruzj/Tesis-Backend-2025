@@ -153,6 +153,46 @@
  *         notasDevolucion:   { type: string, nullable: true }
  *         usuarioDevolucion: { type: integer, nullable: true }
  *
+ *     ProyectoDiaEquipoDevolucion:
+ *       type: object
+ *       required: [devuelto]
+ *       properties:
+ *         devuelto:           { type: integer, enum: [0,1] }
+ *         estadoDevolucion:
+ *           type: string
+ *           nullable: true
+ *           enum: [DEVUELTO, DANADO, PERDIDO, ROBADO]
+ *         notasDevolucion:    { type: string, nullable: true }
+ *         fechaDevolucion:    { type: string, format: date-time, nullable: true, description: "Si se omite o 'auto', usa NOW()" }
+ *         usuarioId:          { type: integer, nullable: true }
+ *
+ *     ProyectoDiaEquipoDevolucionItem:
+ *       type: object
+ *       required: [equipoId, devuelto]
+ *       properties:
+ *         equipoId:           { type: integer }
+ *         devuelto:           { type: integer, enum: [0,1] }
+ *         estadoDevolucion:
+ *           type: string
+ *           nullable: true
+ *           enum: [DEVUELTO, DANADO, PERDIDO, ROBADO]
+ *         notasDevolucion:    { type: string, nullable: true }
+ *         fechaDevolucion:    { type: string, format: date-time, nullable: true, description: "Si se omite o 'auto', usa NOW()" }
+ *
+ *     ProyectoDiaDevolucion:
+ *       type: object
+ *       required: [equipos]
+ *       properties:
+ *         equipos:
+ *           type: array
+ *           items: { $ref: '#/components/schemas/ProyectoDiaEquipoDevolucionItem' }
+ *         usuarioId: { type: integer, nullable: true }
+ *         fechaDevolucion:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           description: "Fecha por defecto para los items; cada item puede override con su propia fecha"
+ *
  *     RequerimientoPersonalDia:
  *       type: object
  *       properties:
