@@ -1,4 +1,4 @@
-const pool = require("../../db");
+﻿const pool = require("../../db");
 const { formatCodigo } = require("../../utils/codigo");
 const { getLimaDateTimeString } = require("../../utils/dates");
 
@@ -88,16 +88,172 @@ async function getByIdProyecto(id) {
         pedidoCodigo: pedidoId == null ? null : formatCodigo("PED", pedidoId),
       }
     : null;
+  const empleadosDia = sets[4] || [];
+  const incidenciasDia = sets[8] || [];
+
+  if (empleadosDia.length) {
+    const ids = [...new Set(empleadosDia.map((e) => Number(e.empleadoId)).filter(Boolean))];
+    if (ids.length) {
+      const [rowsCargo] = await pool.query(
+        `SELECT em.PK_Em_Cod AS empleadoId,
+                te.PK_Tipo_Emp_Cod AS cargoId,
+                te.TiEm_Cargo AS cargo
+         FROM T_Empleados em
+         JOIN T_Tipo_Empleado te ON te.PK_Tipo_Emp_Cod = em.FK_Tipo_Emp_Cod
+         WHERE em.PK_Em_Cod IN (?)`,
+        [ids]
+      );
+      const cargoMap = new Map(
+        rowsCargo.map((r) => [Number(r.empleadoId), { cargoId: r.cargoId, cargo: r.cargo }])
+      );
+      for (const emp of empleadosDia) {
+        const extra = cargoMap.get(Number(emp.empleadoId));
+        if (extra) {
+          emp.cargoId = extra.cargoId;
+          emp.cargo = extra.cargo;
+        }
+      }
+    }
+  }
+
+  if (incidenciasDia.length) {
+    const emIds = new Set();
+    const eqIds = new Set();
+    const userIds = new Set();
+    const diaIds = new Set();
+    incidenciasDia.forEach((i) => {
+      if (i.empleadoId) emIds.add(Number(i.empleadoId));
+      if (i.empleadoReemplazoId) emIds.add(Number(i.empleadoReemplazoId));
+      if (i.equipoId) eqIds.add(Number(i.equipoId));
+      if (i.equipoReemplazoId) eqIds.add(Number(i.equipoReemplazoId));
+      if (i.usuarioId) userIds.add(Number(i.usuarioId));
+      if (i.diaId) diaIds.add(Number(i.diaId));
+    });
+
+    const empleadosMap = new Map();
+    if (emIds.size) {
+      const [rowsEm] = await pool.query(
+        `SELECT em.PK_Em_Cod AS empleadoId,
+                te.PK_Tipo_Emp_Cod AS cargoId,
+                te.TiEm_Cargo AS cargo,
+                CONCAT(u.U_Nombre, ' ', u.U_Apellido) AS nombre
+         FROM T_Empleados em
+         JOIN T_Tipo_Empleado te ON te.PK_Tipo_Emp_Cod = em.FK_Tipo_Emp_Cod
+         JOIN T_Usuario u ON u.PK_U_Cod = em.FK_U_Cod
+         WHERE em.PK_Em_Cod IN (?)`,
+        [[...emIds]]
+      );
+      rowsEm.forEach((r) => {
+        empleadosMap.set(Number(r.empleadoId), {
+          empleadoNombre: r.nombre,
+          empleadoCargoId: r.cargoId,
+          empleadoCargo: r.cargo,
+        });
+      });
+    }
+
+    const equiposMap = new Map();
+    if (eqIds.size) {
+      const [rowsEq] = await pool.query(
+        `SELECT eq.PK_Eq_Cod AS equipoId,
+                eq.Eq_Serie AS equipoSerie,
+                mo.NMo_Nombre AS equipoModelo,
+                te.TE_Nombre AS equipoTipo
+         FROM T_Equipo eq
+         JOIN T_Modelo mo ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
+         JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
+         WHERE eq.PK_Eq_Cod IN (?)`,
+        [[...eqIds]]
+      );
+      rowsEq.forEach((r) => {
+        equiposMap.set(Number(r.equipoId), {
+          equipoSerie: r.equipoSerie,
+          equipoModelo: r.equipoModelo,
+          equipoTipo: r.equipoTipo,
+        });
+      });
+    }
+
+    const usuariosMap = new Map();
+    if (userIds.size) {
+      const [rowsU] = await pool.query(
+        `SELECT PK_U_Cod AS usuarioId,
+                CONCAT(U_Nombre, ' ', U_Apellido) AS usuarioNombre
+         FROM T_Usuario
+         WHERE PK_U_Cod IN (?)`,
+        [[...userIds]]
+      );
+      rowsU.forEach((r) => {
+        usuariosMap.set(Number(r.usuarioId), { usuarioNombre: r.usuarioNombre });
+      });
+    }
+
+    const proyectoDiaMap = new Map();
+    if (diaIds.size) {
+      const [rowsPd] = await pool.query(
+        `SELECT PK_PD_Cod AS diaId, FK_Pro_Cod AS proyectoId
+         FROM T_ProyectoDia
+         WHERE PK_PD_Cod IN (?)`,
+        [[...diaIds]]
+      );
+      rowsPd.forEach((r) => proyectoDiaMap.set(Number(r.diaId), { proyectoId: r.proyectoId }));
+    }
+
+    incidenciasDia.forEach((i) => {
+      const em = i.empleadoId ? empleadosMap.get(Number(i.empleadoId)) : null;
+      const emR = i.empleadoReemplazoId
+        ? empleadosMap.get(Number(i.empleadoReemplazoId))
+        : null;
+      const eq = i.equipoId ? equiposMap.get(Number(i.equipoId)) : null;
+      const eqR = i.equipoReemplazoId ? equiposMap.get(Number(i.equipoReemplazoId)) : null;
+      const us = i.usuarioId ? usuariosMap.get(Number(i.usuarioId)) : null;
+      const pd = i.diaId ? proyectoDiaMap.get(Number(i.diaId)) : null;
+      Object.assign(
+        i,
+        em
+          ? {
+              empleadoNombre: em.empleadoNombre,
+              empleadoCargoId: em.empleadoCargoId,
+              empleadoCargo: em.empleadoCargo,
+            }
+          : {},
+        emR
+          ? {
+              empleadoReemplazoNombre: emR.empleadoNombre,
+              empleadoReemplazoCargoId: emR.empleadoCargoId,
+              empleadoReemplazoCargo: emR.empleadoCargo,
+            }
+          : {},
+        eq
+          ? {
+              equipoSerie: eq.equipoSerie,
+              equipoModelo: eq.equipoModelo,
+              equipoTipo: eq.equipoTipo,
+            }
+          : {},
+        eqR
+          ? {
+              equipoReemplazoSerie: eqR.equipoSerie,
+              equipoReemplazoModelo: eqR.equipoModelo,
+              equipoReemplazoTipo: eqR.equipoTipo,
+            }
+          : {},
+        us ? { usuarioNombre: us.usuarioNombre } : {},
+        pd ? { proyectoId: pd.proyectoId } : {}
+      );
+    });
+  }
+
   return {
     proyecto,
     dias: sets[1] || [],
     bloquesDia: sets[2] || [],
     serviciosDia: sets[3] || [],
-    empleadosDia: sets[4] || [],
+    empleadosDia,
     equiposDia: sets[5] || [],
     requerimientosPersonalDia: sets[6] || [],
     requerimientosEquipoDia: sets[7] || [],
-    incidenciasDia: sets[8] || [],
+    incidenciasDia,
   };
 }
 
@@ -338,6 +494,18 @@ async function upsertProyectoAsignaciones(proyectoId, dias = []) {
         );
         totalEquipos += dia.equipos.length;
       }
+
+      // Salvaguarda: si quedaron responsables que ya no están asignados ese día, ponerlos en NULL
+      await conn.query(
+        `UPDATE T_ProyectoDiaEquipo
+           SET FK_Em_Cod = NULL
+         WHERE FK_PD_Cod = ?
+           AND FK_Em_Cod IS NOT NULL
+           AND FK_Em_Cod NOT IN (
+             SELECT FK_Em_Cod FROM T_ProyectoDiaEmpleado WHERE FK_PD_Cod = ?
+           )`,
+        [diaId, diaId]
+      );
     }
 
     await conn.commit();
@@ -418,8 +586,10 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
     }
 
     if (equipoId != null && equipoReemplazoId != null) {
+      // Marcar el equipo averiado, pero mantener la asignación original
       await conn.query(
-        `DELETE FROM T_ProyectoDiaEquipo
+        `UPDATE T_ProyectoDiaEquipo
+           SET PDQ_Notas = CONCAT('INCIDENCIA: equipo averiado', CASE WHEN PDQ_Notas IS NULL OR PDQ_Notas = '' THEN '' ELSE CONCAT(' - ', PDQ_Notas) END)
          WHERE FK_PD_Cod = ? AND FK_Eq_Cod = ?`,
         [Number(diaId), Number(equipoId)]
       );
@@ -434,10 +604,18 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
         await conn.query(
           `INSERT INTO T_ProyectoDiaEquipo
              (FK_PD_Cod, FK_Eq_Cod, FK_Em_Cod, PDQ_Notas)
-           VALUES (?,?,NULL,NULL)`,
+           VALUES (?,?,NULL,'INCIDENCIA: equipo de reemplazo')`,
           [Number(diaId), Number(equipoReemplazoId)]
         );
       }
+
+      // Reasignar equipos donde el empleado era responsable en ese día
+      await conn.query(
+        `UPDATE T_ProyectoDiaEquipo
+           SET FK_Em_Cod = ?, PDQ_Notas = CONCAT('INCIDENCIA: responsable reemplazado', CASE WHEN PDQ_Notas IS NULL OR PDQ_Notas = '' THEN '' ELSE CONCAT(' - ', PDQ_Notas) END)
+         WHERE FK_PD_Cod = ? AND FK_Em_Cod = ?`,
+        [Number(empleadoReemplazoId), Number(diaId), Number(empleadoId)]
+      );
     }
 
     await conn.commit();

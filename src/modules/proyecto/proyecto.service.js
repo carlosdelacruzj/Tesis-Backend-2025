@@ -259,7 +259,12 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
       ? null
       : ensurePositiveInt(payload.equipoReemplazoId, "equipoReemplazoId");
 
-  const tiposValidos = new Set(["PERSONAL_NO_ASISTE", "EQUIPO_FALLA_EN_EVENTO", "OTROS"]);
+  const tiposValidos = new Set([
+    "PERSONAL_NO_ASISTE",
+    "EQUIPO_FALLA_EN_EVENTO",
+    "EQUIPO_ROBO_PERDIDA",
+    "OTROS",
+  ]);
   if (!tiposValidos.has(tipo)) {
     const err = new Error("tipo no valido");
     err.status = 400;
@@ -279,6 +284,14 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
       err.status = 400;
       throw err;
     }
+  }
+  if (tipo === "EQUIPO_ROBO_PERDIDA") {
+    if (!equipoId) {
+      const err = new Error("equipoId es requerido para robo/perdida");
+      err.status = 400;
+      throw err;
+    }
+    // el reemplazo es opcional (puede que no haya uno disponible)
   }
 
   const result = await repo.createProyectoDiaIncidencia(did, {

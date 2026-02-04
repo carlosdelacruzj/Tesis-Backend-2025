@@ -1,4 +1,4 @@
-/**
+﻿/**
  * @swagger
  * components:
  *   schemas:
@@ -129,6 +129,8 @@
  *         fecha:          { type: string, format: date }
  *         empleadoId:     { type: integer }
  *         empleadoNombre: { type: string }
+ *         cargoId:        { type: integer, nullable: true }
+ *         cargo:          { type: string, nullable: true }
  *         notas:          { type: string, nullable: true }
  *
  *     ProyectoDiaEquipo:
@@ -177,10 +179,24 @@
  *         tipo:                { type: string }
  *         descripcion:         { type: string }
  *         empleadoId:          { type: integer, nullable: true }
+ *         empleadoNombre:      { type: string, nullable: true }
+ *         empleadoCargoId:     { type: integer, nullable: true }
+ *         empleadoCargo:       { type: string, nullable: true }
  *         empleadoReemplazoId: { type: integer, nullable: true }
+ *         empleadoReemplazoNombre: { type: string, nullable: true }
+ *         empleadoReemplazoCargoId: { type: integer, nullable: true }
+ *         empleadoReemplazoCargo: { type: string, nullable: true }
  *         equipoId:            { type: integer, nullable: true }
+ *         equipoSerie:         { type: string, nullable: true }
+ *         equipoModelo:        { type: string, nullable: true }
+ *         equipoTipo:          { type: string, nullable: true }
  *         equipoReemplazoId:   { type: integer, nullable: true }
+ *         equipoReemplazoSerie:   { type: string, nullable: true }
+ *         equipoReemplazoModelo:  { type: string, nullable: true }
+ *         equipoReemplazoTipo:    { type: string, nullable: true }
  *         usuarioId:           { type: integer, nullable: true }
+ *         usuarioNombre:       { type: string, nullable: true }
+ *         proyectoId:          { type: integer, nullable: true }
  *         createdAt:           { type: string, format: date-time }
  *
  *     EstadoProyecto:
@@ -334,7 +350,7 @@
  *       properties:
  *         tipo:
  *           type: string
- *           description: PERSONAL_NO_ASISTE | EQUIPO_FALLA_EN_EVENTO | OTROS
+ *           description: PERSONAL_NO_ASISTE | EQUIPO_FALLA_EN_EVENTO | EQUIPO_ROBO_PERDIDA | OTROS
  *         descripcion:
  *           type: string
  *         empleadoId:

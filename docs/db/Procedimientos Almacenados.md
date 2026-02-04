@@ -2,6 +2,7 @@
 
 ## Indice
 
+- [SP_get_comprobante_pdf_by_voucher](#sp_get_comprobante_pdf_by_voucher)
 - [sp_cliente_actualizar](#sp_cliente_actualizar)
 - [sp_cliente_autocompletar](#sp_cliente_autocompletar)
 - [sp_cliente_buscar_por_documento](#sp_cliente_buscar_por_documento)
@@ -51,10 +52,122 @@
 - [sp_voucher_listar_ultimos_por_estado](#sp_voucher_listar_ultimos_por_estado)
 - [sp_voucher_obtener_por_pedido](#sp_voucher_obtener_por_pedido)
 
+## SP_get_comprobante_pdf_by_voucher
+
+```sql
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "SP_get_comprobante_pdf_by_voucher"(IN p_PK_Pa_Cod INT)
+BEGIN
+  -- =========================
+  -- Constantes / config
+  -- =========================
+  DECLARE v_total DECIMAL(18,2) DEFAULT 0.00;
+  DECLARE v_opGravada DECIMAL(18,2) DEFAULT 0.00;
+  DECLARE v_igv DECIMAL(18,2) DEFAULT 0.00;
+
+  -- ✅ RUC según tu tabla
+  DECLARE v_TD_RUC_ID INT DEFAULT 3;
+
+  DECLARE v_tipo VARCHAR(20) DEFAULT 'BOLETA';
+  DECLARE v_serie VARCHAR(10) DEFAULT 'B001';
+  DECLARE v_numero VARCHAR(20) DEFAULT '00000000';
+
+  -- total del voucher
+  SELECT CAST(IFNULL(v.Pa_Monto_Depositado, 0) AS DECIMAL(18,2))
+    INTO v_total
+  FROM vouchers v
+  WHERE v.PK_Pa_Cod = p_PK_Pa_Cod
+  LIMIT 1;
+
+  SET v_opGravada = ROUND(v_total / 1.18, 2);
+  SET v_igv = ROUND(v_total - v_opGravada, 2);
+
+  -- determinar tipo por doc del usuario
+  SELECT
+    CASE WHEN IFNULL(u.FK_TD_Cod, 0) = v_TD_RUC_ID THEN 'FACTURA' ELSE 'BOLETA' END,
+    CASE WHEN IFNULL(u.FK_TD_Cod, 0) = v_TD_RUC_ID THEN 'F001' ELSE 'B001' END
+  INTO v_tipo, v_serie
+  FROM vouchers v
+  INNER JOIN T_Pedido p   ON p.PK_P_Cod = v.FK_P_Cod
+  INNER JOIN T_Cliente c  ON c.PK_Cli_Cod = p.FK_Cli_Cod
+  INNER JOIN T_Usuario u  ON u.PK_U_Cod = c.FK_U_Cod
+  WHERE v.PK_Pa_Cod = p_PK_Pa_Cod
+  LIMIT 1;
+
+  -- correlativo MVP: voucherId padded (8)
+  SET v_numero = LPAD(CAST(p_PK_Pa_Cod AS CHAR), 8, '0');
+
+  -- =========================
+  -- RESULTSET #1: CABECERA
+  -- =========================
+  SELECT
+    -- Empresa fija
+    'D’la Cruz Video y Fotografia' AS empresaRazonSocial,
+    'RUC_PLACE_HOLDER' AS empresaRuc,
+    'Cal. Piura MZ B4 Lt-10 S. J. de Miraflores' AS empresaDireccion,
+
+    -- Comprobante
+    v_tipo AS tipo,
+    v_serie AS serie,
+    v_numero AS numero,
+    DATE_FORMAT(NOW(), '%Y-%m-%d') AS fechaEmision,
+    DATE_FORMAT(NOW(), '%H:%i') AS horaEmision,
+    'USD' AS moneda,
+
+    -- Cliente (desde usuario)
+    -- ✅ tipo doc en texto (de tu tabla)
+    td.TD_Codigo AS clienteTipoDoc,
+    IFNULL(u.U_Numero_Documento,'') AS clienteNumDoc,
+    TRIM(CONCAT(IFNULL(u.U_Nombre,''), ' ', IFNULL(u.U_Apellido,''))) AS clienteNombre,
+    IFNULL(u.U_Direccion,'') AS clienteDireccion,
+    IFNULL(u.U_Correo,'') AS clienteCorreo,
+    IFNULL(u.U_Celular,'') AS clienteCelular,
+
+    -- Pedido
+    p.PK_P_Cod AS pedidoId,
+    IFNULL(p.P_Nombre_Pedido,'') AS pedidoNombre,
+    IFNULL(p.P_FechaEvento,'') AS pedidoFechaEvento,
+    IFNULL(p.P_Lugar,'') AS pedidoLugar,
+
+    -- Totales (derivados del voucher)
+    v_opGravada AS opGravada,
+    v_igv AS igv,
+    v_total AS total,
+    CAST(0.00 AS DECIMAL(18,2)) AS anticipos
+
+  FROM vouchers v
+  INNER JOIN T_Pedido p   ON p.PK_P_Cod = v.FK_P_Cod
+  INNER JOIN T_Cliente c  ON c.PK_Cli_Cod = p.FK_Cli_Cod
+  INNER JOIN T_Usuario u  ON u.PK_U_Cod = c.FK_U_Cod
+  INNER JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
+  WHERE v.PK_Pa_Cod = p_PK_Pa_Cod;
+
+  -- =========================
+  -- RESULTSET #2: DETALLE (loop)
+  -- =========================
+  SELECT
+    1 AS cantidad,
+    'SERV' AS unidad,
+    CONCAT(
+      'Servicio por pago de pedido #', p.PK_P_Cod,
+      CASE
+        WHEN p.P_Nombre_Pedido IS NOT NULL AND p.P_Nombre_Pedido <> ''
+        THEN CONCAT(' (', p.P_Nombre_Pedido, ')')
+        ELSE ''
+      END
+    ) AS descripcion,
+    v_opGravada AS valorUnit,
+    v_opGravada AS importe
+
+  FROM vouchers v
+  INNER JOIN T_Pedido p ON p.PK_P_Cod = v.FK_P_Cod
+  WHERE v.PK_Pa_Cod = p_PK_Pa_Cod;
+
+END
+```
+
 ## sp_cliente_actualizar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_actualizar"(
   IN pIdCliente INT,
   IN pNombre    VARCHAR(100),
@@ -118,14 +231,11 @@ BEGIN
   JOIN T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   WHERE c.PK_Cli_Cod = pIdCliente;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cliente_autocompletar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_autocompletar"(
   IN p_query VARCHAR(120),
   IN p_limit INT
@@ -244,14 +354,11 @@ BEGIN
     LIMIT v_limit;
   END IF;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cliente_buscar_por_documento
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_buscar_por_documento"(
   IN p_doc VARCHAR(50)  -- número de documento (DNI/RUC)
 )
@@ -276,14 +383,11 @@ BEGIN
          ON c.FK_U_Cod = u.PK_U_Cod
   WHERE (p_doc IS NULL OR u.U_Numero_Documento = p_doc);
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cliente_crear
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_crear"(
   IN p_nombre        VARCHAR(100),
   IN p_apellido      VARCHAR(100),
@@ -331,14 +435,11 @@ BEGIN
     CASE WHEN v_td_codigo = 'RUC' THEN TRIM(p_razon_social) ELSE NULL END
   );
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cliente_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_listar"()
 BEGIN
   SELECT
@@ -363,14 +464,11 @@ BEGIN
   JOIN T_Estado_Cliente ec ON ec.PK_ECli_Cod = c.FK_ECli_Cod
   ORDER BY c.PK_Cli_Cod;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cliente_obtener
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_obtener"(IN pId INT)
 BEGIN
   SELECT
@@ -396,14 +494,11 @@ BEGIN
   JOIN T_Estado_Cliente ec ON ec.PK_ECli_Cod = c.FK_ECli_Cod
   WHERE c.PK_Cli_Cod = pId;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cotizacion_admin_actualizar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_actualizar"(
   IN p_cot_id          INT,
   IN p_tipo_evento     VARCHAR(40),
@@ -551,14 +646,11 @@ BEGIN
 
   COMMIT;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cotizacion_admin_crear_v3
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_admin_crear_v3"(
   IN p_cliente_id      INT,            -- si viene (>0), NO se crea lead
   IN p_lead_nombre     VARCHAR(80),    -- usados SOLO si no viene cliente
@@ -748,14 +840,11 @@ BEGIN
     v_lead_id AS leadId,
     CASE WHEN v_cli_id IS NOT NULL THEN 'CLIENTE' ELSE 'LEAD' END AS origen;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cotizacion_convertir_a_pedido
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_convertir_a_pedido"(
   IN  p_cot_id        INT,
   IN  p_empleado_id   INT,
@@ -885,14 +974,11 @@ BEGIN
 
   COMMIT;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cotizacion_estado_actualizar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_estado_actualizar"(
   IN p_cot_id           INT,
   IN p_estado_nuevo     VARCHAR(20),   -- Borrador|Enviada|Aceptada|Rechazada
@@ -1012,14 +1098,11 @@ BEGIN
 
   COMMIT;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cotizacion_listar_general
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_listar_general"()
 BEGIN
   SELECT
@@ -1080,14 +1163,11 @@ BEGIN
   LEFT JOIN defaultdb.T_TipoDocumento td ON td.PK_TD_Cod = u.FK_TD_Cod
   ORDER BY c.PK_Cot_Cod DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cotizacion_obtener_json
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_obtener_json"(
   IN p_cot_id INT
 )
@@ -1293,14 +1373,11 @@ BEGIN
   WHERE c.PK_Cot_Cod = p_cot_id;
 
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_cotizacion_publica_crear
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cotizacion_publica_crear"(
   IN p_lead_nombre    VARCHAR(80),
   IN p_lead_celular   VARCHAR(30),
@@ -1379,14 +1456,11 @@ BEGIN
 
   SELECT v_lead_id AS lead_id, v_cot_id AS cotizacion_id;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_empleado_actualizar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_empleado_actualizar"(
   IN p_id       INT,          -- PK_Em_Cod
   IN p_celular  VARCHAR(32),
@@ -1422,14 +1496,11 @@ BEGIN
   -- opcional: devolver filas afectadas
   SELECT ROW_COUNT() AS rowsAffected;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_empleado_cargo_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_empleado_cargo_listar"()
 BEGIN
   SELECT
@@ -1439,14 +1510,11 @@ BEGIN
   FROM T_Tipo_Empleado te
   ORDER BY te.TiEm_Cargo;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_empleado_crear
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_empleado_crear"(
   IN p_nombre     VARCHAR(100),
   IN p_apellido   VARCHAR(100),
@@ -1471,14 +1539,11 @@ BEGIN
 
   SELECT @v_user_id AS userId, LAST_INSERT_ID() AS empleadoId;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_empleado_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_empleado_listar"()
 BEGIN
   SELECT
@@ -1503,14 +1568,11 @@ BEGIN
   JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = e.FK_Estado_Emp_Cod
   ORDER BY e.PK_Em_Cod;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_empleado_obtener
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_empleado_obtener"(IN p_id INT)
 BEGIN
   SELECT
@@ -1536,14 +1598,11 @@ BEGIN
   WHERE e.PK_Em_Cod = p_id
   LIMIT 1;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_evento_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_evento_listar"()
 BEGIN
   DECLARE v_table_name VARCHAR(64);
@@ -1569,14 +1628,11 @@ BEGIN
     DEALLOCATE PREPARE stmt;
   END IF;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_evento_servicio_actualizar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_evento_servicio_actualizar"(
     IN p_id             INT,            -- PK_ExS_Cod
     IN p_servicio       INT,            -- Nuevo FK servicio (nullable)
@@ -1685,14 +1741,11 @@ BEGIN
         END IF;
     END IF;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_evento_servicio_crear
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_evento_servicio_crear"(
     IN p_servicio      INT,             -- T_Servicios.PK_S_Cod
     IN p_evento        INT,             -- T_Eventos.PK_E_Cod
@@ -1808,14 +1861,11 @@ BEGIN
 
     SELECT v_id AS PK_ExS_Cod;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_evento_servicio_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_evento_servicio_listar"(
     IN p_evento INT,
     IN p_serv   INT
@@ -1877,14 +1927,11 @@ BEGIN
       AND (p_serv   IS NULL OR es.PK_S_Cod = p_serv)
     ORDER BY es.PK_ExS_Cod DESC;
   END
-;;
-DELIMITER ;
 ```
 
 ## sp_evento_servicio_obtener
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_evento_servicio_obtener"(
     IN p_id INT
   )
@@ -1943,14 +1990,11 @@ BEGIN
     LEFT JOIN T_EventoServicioEstado est    ON est.PK_ESE_Cod = es.FK_ESE_Cod
     WHERE es.PK_ExS_Cod = p_id;
   END
-;;
-DELIMITER ;
 ```
 
 ## sp_lead_convertir_cliente
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_lead_convertir_cliente"(
   IN  p_lead_id        INT,
   IN  p_correo         VARCHAR(250),   -- obligatorio
@@ -2102,14 +2146,11 @@ BEGIN
 
   COMMIT;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_metodo_pago_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_metodo_pago_listar"()
 BEGIN
   SELECT
@@ -2118,14 +2159,11 @@ BEGIN
   FROM T_Metodo_Pago mp
   ORDER BY mp.PK_MP_Cod;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_actualizar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_actualizar"(
   IN p_id          INT,          -- PK del pedido (PK_P_Cod)
   IN p_fk_ep       INT,          -- FK_EP_Cod (estado del pedido)
@@ -2148,14 +2186,11 @@ BEGIN
 
   SELECT ROW_COUNT() AS rowsAffected;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_estado_obtener_ultimo
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_estado_obtener_ultimo"()
 BEGIN
   SELECT 
@@ -2165,14 +2200,11 @@ BEGIN
   ORDER BY PK_EP_Cod DESC
   LIMIT 1;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_listar"()
 BEGIN
   SELECT
@@ -2269,14 +2301,11 @@ BEGIN
     )
   ORDER BY p.PK_P_Cod DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_listar_por_cliente_detalle
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_listar_por_cliente_detalle"(
   IN p_cliente_id INT
 )
@@ -2362,14 +2391,11 @@ BEGIN
     it.totalCalculado
   ORDER BY p.P_Fecha_Creacion DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_obtener
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_obtener"(IN p_pedido_id INT)
 BEGIN
   DECLARE v_exists INT DEFAULT 0;
@@ -2464,14 +2490,11 @@ BEGIN
   WHERE psf.FK_P_Cod = p_pedido_id
   ORDER BY psf.FK_PedServ_Cod, psf.PSF_Fecha;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_obtener_siguiente_id
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_obtener_siguiente_id"()
 BEGIN
   DECLARE v_next BIGINT;
@@ -2493,14 +2516,11 @@ BEGIN
 
   SELECT v_next AS nextIndex;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_pago_resumen
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_pago_resumen"(IN pPedidoId INT)
 BEGIN
   SELECT
@@ -2510,14 +2530,11 @@ BEGIN
   FROM V_Pedido_Saldos
   WHERE PedidoId = pPedidoId;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_saldo_listar_pagados
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_saldo_listar_pagados"()
 BEGIN
   SELECT
@@ -2529,14 +2546,11 @@ BEGIN
   WHERE s.EstadoPagoId = 3
   ORDER BY s.PedidoId DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_saldo_listar_parciales
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_saldo_listar_parciales"()
 BEGIN
   SELECT
@@ -2549,14 +2563,11 @@ BEGIN
     AND s.EstadoPedidoId <> 6
   ORDER BY s.PedidoId DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_pedido_saldo_listar_pendientes
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_pedido_saldo_listar_pendientes"()
 BEGIN
   SELECT
@@ -2569,14 +2580,11 @@ BEGIN
     AND s.EstadoPedidoId <> 6
   ORDER BY s.PedidoId DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_proyecto_actualizar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_actualizar"(
   IN p_id INT,
   IN p_nombre VARCHAR(50),
@@ -2606,14 +2614,11 @@ BEGIN
 
   SELECT ROW_COUNT() AS rowsAffected;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_proyecto_crear_desde_pedido
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_crear_desde_pedido"(
   IN p_pedido_id INT,
   IN p_responsable_id INT,
@@ -2733,14 +2738,11 @@ BEGIN
 
   SELECT v_proyecto_id AS proyectoId;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_proyecto_disponibilidad
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_disponibilidad"(
   IN p_fecha_inicio DATE,
   IN p_fecha_fin    DATE,
@@ -2775,20 +2777,29 @@ BEGIN
   LEFT JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = em.FK_Estado_Emp_Cod
   LEFT JOIN (
     SELECT
-      pde.FK_Em_Cod AS empleadoId,
-      JSON_ARRAYAGG(
-        JSON_OBJECT(
-          'proyectoId',  pd.FK_Pro_Cod,
-          'fecha',       pd.PD_Fecha,
-          'estado',      pde.PDE_Estado
-        )
-      ) AS conflictos
-    FROM T_ProyectoDiaEmpleado pde
-    JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pde.FK_PD_Cod
-    WHERE (pde.PDE_Estado IS NULL OR pde.PDE_Estado NOT IN ('Cancelado', 'Anulado'))
-      AND pd.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
-      AND (p_proyecto_id IS NULL OR pd.FK_Pro_Cod <> p_proyecto_id)
-    GROUP BY pde.FK_Em_Cod
+      emp_conf.empleadoId,
+      JSON_ARRAYAGG(emp_conf.conflicto) AS conflictos
+    FROM (
+      SELECT
+        pde.FK_Em_Cod AS empleadoId,
+        JSON_OBJECT('proyectoId', pd.FK_Pro_Cod, 'fecha', pd.PD_Fecha) AS conflicto
+      FROM T_ProyectoDiaEmpleado pde
+      JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pde.FK_PD_Cod
+      WHERE pd.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
+        AND (p_proyecto_id IS NULL OR pd.FK_Pro_Cod <> p_proyecto_id)
+
+      UNION ALL
+
+      SELECT
+        pdi.FK_Em_Cod AS empleadoId,
+        JSON_OBJECT('proyectoId', pd2.FK_Pro_Cod, 'fecha', pd2.PD_Fecha) AS conflicto
+      FROM T_ProyectoDiaIncidencia pdi
+      JOIN T_ProyectoDia pd2 ON pd2.PK_PD_Cod = pdi.FK_PD_Cod
+      WHERE pdi.FK_Em_Cod IS NOT NULL
+        AND pd2.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
+        AND (p_proyecto_id IS NULL OR pd2.FK_Pro_Cod <> p_proyecto_id)
+    ) emp_conf
+    GROUP BY emp_conf.empleadoId
   ) conf ON conf.empleadoId = em.PK_Em_Cod
   WHERE te.TiEm_OperativoCampo = 1
     AND em.FK_Estado_Emp_Cod = 1
@@ -2817,46 +2828,49 @@ BEGIN
   JOIN T_Estado_Equipo eeq ON eeq.PK_EE_Cod = eq.FK_EE_Cod
   LEFT JOIN (
     SELECT
-      pdq.FK_Eq_Cod AS equipoId,
-      JSON_ARRAYAGG(
-        JSON_OBJECT(
-          'proyectoId',  pd.FK_Pro_Cod,
-          'fecha',       pd.PD_Fecha,
-          'estado',      pdq.PDQ_Estado
-        )
-      ) AS conflictos
-    FROM T_ProyectoDiaEquipo pdq
-    JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdq.FK_PD_Cod
-    WHERE (pdq.PDQ_Estado IS NULL OR pdq.PDQ_Estado NOT IN ('Cancelado', 'Anulado'))
-      AND pd.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
-      AND (p_proyecto_id IS NULL OR pd.FK_Pro_Cod <> p_proyecto_id)
-    GROUP BY pdq.FK_Eq_Cod
+      eq_conf.equipoId,
+      JSON_ARRAYAGG(eq_conf.conflicto) AS conflictos
+    FROM (
+      SELECT
+        pdq.FK_Eq_Cod AS equipoId,
+        JSON_OBJECT('proyectoId', pd.FK_Pro_Cod, 'fecha', pd.PD_Fecha) AS conflicto
+      FROM T_ProyectoDiaEquipo pdq
+      JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdq.FK_PD_Cod
+      WHERE pd.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
+        AND (p_proyecto_id IS NULL OR pd.FK_Pro_Cod <> p_proyecto_id)
+
+      UNION ALL
+
+      SELECT
+        pdi.FK_Eq_Cod AS equipoId,
+        JSON_OBJECT('proyectoId', pd2.FK_Pro_Cod, 'fecha', pd2.PD_Fecha) AS conflicto
+      FROM T_ProyectoDiaIncidencia pdi
+      JOIN T_ProyectoDia pd2 ON pd2.PK_PD_Cod = pdi.FK_PD_Cod
+      WHERE pdi.FK_Eq_Cod IS NOT NULL
+        AND pd2.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
+        AND (p_proyecto_id IS NULL OR pd2.FK_Pro_Cod <> p_proyecto_id)
+    ) eq_conf
+    GROUP BY eq_conf.equipoId
   ) confEq ON confEq.equipoId = eq.PK_Eq_Cod
   WHERE eeq.EE_Nombre = 'Disponible'
     AND (p_tipo_equipo IS NULL OR teq.PK_TE_Cod = p_tipo_equipo)
   ORDER BY disponible DESC, teq.TE_Nombre, mo.NMo_Nombre, eq.PK_Eq_Cod;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_proyecto_eliminar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_eliminar"(IN p_id INT)
 BEGIN
   DELETE FROM T_Proyecto WHERE PK_Pro_Cod = p_id;
   SELECT ROW_COUNT() AS rowsAffected;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_proyecto_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_listar"()
 BEGIN
   SELECT
@@ -2878,14 +2892,11 @@ BEGIN
   LEFT JOIN T_Estado_Proyecto ep ON ep.PK_EPro_Cod = pr.Pro_Estado
   ORDER BY pr.PK_Pro_Cod DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_proyecto_obtener
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_obtener"(IN p_id INT)
 BEGIN
   -- 1) Proyecto (cabecera)
@@ -2966,7 +2977,6 @@ BEGIN
     pd.PD_Fecha AS fecha,
     pde.FK_Em_Cod AS empleadoId,
     CONCAT(u2.U_Nombre, ' ', u2.U_Apellido) AS empleadoNombre,
-    pde.PDE_Estado AS estado,
     pde.PDE_Notas AS notas
   FROM T_ProyectoDiaEmpleado pde
   JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pde.FK_PD_Cod
@@ -2987,7 +2997,6 @@ BEGIN
     eq.FK_EE_Cod AS estadoEquipoId,
     pdq.FK_Em_Cod AS responsableId,
     CONCAT(u3.U_Nombre, ' ', u3.U_Apellido) AS responsableNombre,
-    pdq.PDQ_Estado AS estado,
     pdq.PDQ_Notas AS notas,
     pdq.PDQ_Devuelto AS devuelto,
     pdq.PDQ_Fecha_Devolucion AS fechaDevolucion,
@@ -3035,15 +3044,30 @@ BEGIN
   WHERE pd.FK_Pro_Cod = p_id
   GROUP BY pd.PK_PD_Cod, pd.PD_Fecha, te.PK_TE_Cod, te.TE_Nombre
   ORDER BY pd.PD_Fecha, te.TE_Nombre;
+
+  -- 9) Incidencias por dia
+  SELECT
+    pdi.PK_PDI_Cod AS incidenciaId,
+    pdi.FK_PD_Cod AS diaId,
+    pd.PD_Fecha AS fecha,
+    pdi.PDI_Tipo AS tipo,
+    pdi.PDI_Descripcion AS descripcion,
+    pdi.FK_Em_Cod AS empleadoId,
+    pdi.FK_Em_Reemplazo_Cod AS empleadoReemplazoId,
+    pdi.FK_Eq_Cod AS equipoId,
+    pdi.FK_Eq_Reemplazo_Cod AS equipoReemplazoId,
+    pdi.FK_U_Cod AS usuarioId,
+    pdi.created_at AS createdAt
+  FROM T_ProyectoDiaIncidencia pdi
+  JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdi.FK_PD_Cod
+  WHERE pd.FK_Pro_Cod = p_id
+  ORDER BY pd.PD_Fecha, pdi.PK_PDI_Cod;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_servicio_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_servicio_listar"()
 BEGIN
   /* Ajusta los nombres de columnas si difieren en tu DB */
@@ -3053,14 +3077,11 @@ BEGIN
   FROM T_Servicios s
   ORDER BY s.S_Nombre;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_voucher_crear
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_voucher_crear"(
   IN p_monto         DECIMAL(10,2),
   IN p_metodoPago    INT,
@@ -3098,14 +3119,11 @@ BEGIN
 
   SELECT LAST_INSERT_ID() AS idVoucher;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_voucher_estado_listar
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_voucher_estado_listar"()
 BEGIN
   SELECT
@@ -3117,14 +3135,11 @@ BEGIN
           ON ev.PK_EV_Cod = v.FK_EV_Cod
   ORDER BY v.PK_Pa_Cod ASC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_voucher_listar_por_pedido
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_voucher_listar_por_pedido"(IN p_idPedido INT)
 BEGIN
   SELECT
@@ -3142,14 +3157,11 @@ BEGIN
   WHERE v.FK_P_Cod = p_idPedido
   ORDER BY v.PK_Pa_Cod DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_voucher_listar_por_pedido_detalle
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_voucher_listar_por_pedido_detalle"(
   IN pPedidoId INT,
   IN p_fecha_hora DATETIME
@@ -3167,14 +3179,11 @@ BEGIN
   WHERE v.FK_P_Cod = pPedidoId
   ORDER BY v.PK_Pa_Cod DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_voucher_listar_ultimos_por_estado
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_voucher_listar_ultimos_por_estado"(IN p_idEstado INT)
 BEGIN
   /* último voucher por pedido */
@@ -3201,14 +3210,11 @@ BEGIN
   WHERE v.FK_EV_Cod = p_idEstado
   ORDER BY p.PK_P_Cod DESC;
 END
-;;
-DELIMITER ;
 ```
 
 ## sp_voucher_obtener_por_pedido
 
 ```sql
-DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_voucher_obtener_por_pedido"(IN p_idPedido INT)
 BEGIN
   SELECT
@@ -3228,7 +3234,4 @@ BEGIN
       SELECT MAX(v2.PK_Pa_Cod) FROM T_Voucher v2 WHERE v2.FK_P_Cod = p_idPedido
     );
 END
-;;
-DELIMITER ;
 ```
-

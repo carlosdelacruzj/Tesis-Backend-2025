@@ -39,6 +39,7 @@
 - [T_ProyectoDiaBloque](#t_proyectodiabloque)
 - [T_ProyectoDiaEmpleado](#t_proyectodiaempleado)
 - [T_ProyectoDiaEquipo](#t_proyectodiaequipo)
+- [T_ProyectoDiaIncidencia](#t_proyectodiaincidencia)
 - [T_ProyectoDiaServicio](#t_proyectodiaservicio)
 - [T_Servicios](#t_servicios)
 - [T_TipoDocumento](#t_tipodocumento)
@@ -648,7 +649,6 @@ CREATE TABLE "T_ProyectoDiaEmpleado" (
   "PK_PDE_Cod" int NOT NULL AUTO_INCREMENT,
   "FK_PD_Cod" int NOT NULL,
   "FK_Em_Cod" int NOT NULL,
-  "PDE_Estado" varchar(20) NOT NULL DEFAULT 'Confirmado',
   "PDE_Notas" varchar(255) DEFAULT NULL,
   "created_at" datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY ("PK_PDE_Cod"),
@@ -667,7 +667,6 @@ CREATE TABLE "T_ProyectoDiaEquipo" (
   "FK_PD_Cod" int NOT NULL,
   "FK_Eq_Cod" int NOT NULL,
   "FK_Em_Cod" int DEFAULT NULL,
-  "PDQ_Estado" varchar(20) NOT NULL DEFAULT 'Confirmado',
   "PDQ_Notas" varchar(255) DEFAULT NULL,
   "PDQ_Devuelto" tinyint(1) NOT NULL DEFAULT '0',
   "PDQ_Fecha_Devolucion" datetime DEFAULT NULL,
@@ -685,6 +684,36 @@ CREATE TABLE "T_ProyectoDiaEquipo" (
   CONSTRAINT "fk_pdq_pd" FOREIGN KEY ("FK_PD_Cod") REFERENCES "T_ProyectoDia" ("PK_PD_Cod") ON DELETE CASCADE,
   CONSTRAINT "fk_pdq_responsable" FOREIGN KEY ("FK_Em_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
   CONSTRAINT "fk_pdq_usuario_devolucion" FOREIGN KEY ("PDQ_Usuario_Devolucion") REFERENCES "T_Usuario" ("PK_U_Cod")
+);
+```
+
+## T_ProyectoDiaIncidencia
+
+```sql
+CREATE TABLE "T_ProyectoDiaIncidencia" (
+  "PK_PDI_Cod" int NOT NULL AUTO_INCREMENT,
+  "FK_PD_Cod" int NOT NULL,
+  "PDI_Tipo" varchar(50) NOT NULL,
+  "PDI_Descripcion" varchar(500) NOT NULL,
+  "FK_Em_Cod" int DEFAULT NULL,
+  "FK_Em_Reemplazo_Cod" int DEFAULT NULL,
+  "FK_Eq_Cod" int DEFAULT NULL,
+  "FK_Eq_Reemplazo_Cod" int DEFAULT NULL,
+  "FK_U_Cod" int DEFAULT NULL,
+  "created_at" timestamp NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY ("PK_PDI_Cod"),
+  KEY "ix_pdi_dia" ("FK_PD_Cod"),
+  KEY "ix_pdi_empleado" ("FK_Em_Cod"),
+  KEY "ix_pdi_empleado_reemplazo" ("FK_Em_Reemplazo_Cod"),
+  KEY "ix_pdi_equipo" ("FK_Eq_Cod"),
+  KEY "ix_pdi_equipo_reemplazo" ("FK_Eq_Reemplazo_Cod"),
+  KEY "ix_pdi_usuario" ("FK_U_Cod"),
+  CONSTRAINT "fk_pdi_dia" FOREIGN KEY ("FK_PD_Cod") REFERENCES "T_ProyectoDia" ("PK_PD_Cod"),
+  CONSTRAINT "fk_pdi_empleado" FOREIGN KEY ("FK_Em_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
+  CONSTRAINT "fk_pdi_empleado_reemplazo" FOREIGN KEY ("FK_Em_Reemplazo_Cod") REFERENCES "T_Empleados" ("PK_Em_Cod"),
+  CONSTRAINT "fk_pdi_equipo" FOREIGN KEY ("FK_Eq_Cod") REFERENCES "T_Equipo" ("PK_Eq_Cod"),
+  CONSTRAINT "fk_pdi_equipo_reemplazo" FOREIGN KEY ("FK_Eq_Reemplazo_Cod") REFERENCES "T_Equipo" ("PK_Eq_Cod"),
+  CONSTRAINT "fk_pdi_usuario" FOREIGN KEY ("FK_U_Cod") REFERENCES "T_Usuario" ("PK_U_Cod")
 );
 ```
 
@@ -802,4 +831,3 @@ CREATE TABLE "T_Voucher" (
   CONSTRAINT "FK_T_Voucher_T_Pedido" FOREIGN KEY ("FK_P_Cod") REFERENCES "T_Pedido" ("PK_P_Cod")
 );
 ```
-
