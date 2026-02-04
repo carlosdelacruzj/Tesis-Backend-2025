@@ -522,6 +522,7 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
   const {
     tipo,
     descripcion,
+    fechaHoraEvento = null,
     empleadoId = null,
     empleadoReemplazoId = null,
     equipoId = null,
@@ -548,12 +549,13 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
 
     const [incResult] = await conn.query(
       `INSERT INTO T_ProyectoDiaIncidencia
-         (FK_PD_Cod, PDI_Tipo, PDI_Descripcion, FK_Em_Cod, FK_Em_Reemplazo_Cod, FK_Eq_Cod, FK_Eq_Reemplazo_Cod, FK_U_Cod)
-       VALUES (?,?,?,?,?,?,?,?)`,
+         (FK_PD_Cod, PDI_Tipo, PDI_Descripcion, PDI_FechaHora_Evento, FK_Em_Cod, FK_Em_Reemplazo_Cod, FK_Eq_Cod, FK_Eq_Reemplazo_Cod, FK_U_Cod)
+       VALUES (?,?,?,?,?,?,?,?,?)`,
       [
         Number(diaId),
         tipo,
         descripcion,
+        fechaHoraEvento,
         empleadoId == null ? null : Number(empleadoId),
         empleadoReemplazoId == null ? null : Number(empleadoReemplazoId),
         equipoId == null ? null : Number(equipoId),

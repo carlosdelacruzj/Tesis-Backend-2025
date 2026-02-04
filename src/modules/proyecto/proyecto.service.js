@@ -36,6 +36,40 @@ function normalizeTipoIncidencia(value) {
   return tipo || null;
 }
 
+function normalizeFechaHoraEvento(value) {
+  if (value == null || value === "") return null;
+  const raw = String(value).trim();
+  // Soporta: YYYY-MM-DD HH:mm, YYYY-MM-DD HH:mm:ss, YYYY-MM-DDTHH:mm, YYYY-MM-DDTHH:mm:ss
+  const m = raw.match(/^(\d{4}-\d{2}-\d{2})[ T](\d{2}):(\d{2})(?::(\d{2}))?$/);
+  if (!m) {
+    const err = new Error(
+      "fechaHoraEvento debe tener formato YYYY-MM-DD HH:mm[:ss] o YYYY-MM-DDTHH:mm[:ss]"
+    );
+    err.status = 400;
+    throw err;
+  }
+  const [, fecha, hh, mm, ss = "00"] = m;
+  const [y, mo, da] = fecha.split("-").map(Number);
+  const h = Number(hh);
+  const mi = Number(mm);
+  const se = Number(ss);
+  const d = new Date(y, mo - 1, da, h, mi, se);
+  if (
+    Number.isNaN(d.getTime()) ||
+    d.getFullYear() !== y ||
+    d.getMonth() !== mo - 1 ||
+    d.getDate() !== da ||
+    d.getHours() !== h ||
+    d.getMinutes() !== mi ||
+    d.getSeconds() !== se
+  ) {
+    const err = new Error("fechaHoraEvento invalida");
+    err.status = 400;
+    throw err;
+  }
+  return `${fecha} ${hh}:${mm}:${ss}`;
+}
+
 /* Proyecto */
 async function listProyecto() {
   return repo.getAllProyecto();
@@ -258,6 +292,7 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
     payload?.equipoReemplazoId == null
       ? null
       : ensurePositiveInt(payload.equipoReemplazoId, "equipoReemplazoId");
+  const fechaHoraEvento = normalizeFechaHoraEvento(payload?.fechaHoraEvento);
 
   const tiposValidos = new Set([
     "PERSONAL_NO_ASISTE",
@@ -301,6 +336,7 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
     empleadoReemplazoId,
     equipoId,
     equipoReemplazoId,
+    fechaHoraEvento,
     usuarioId: payload?.usuarioId ?? null,
   });
 
@@ -308,6 +344,7 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
     status: "Registro exitoso",
     incidenciaId: result?.incidenciaId ?? null,
     diaId: did,
+    fechaHoraEvento,
   };
 }
 

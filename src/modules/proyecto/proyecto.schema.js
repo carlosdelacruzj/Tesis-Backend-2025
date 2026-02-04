@@ -218,6 +218,7 @@
  *         fecha:               { type: string, format: date }
  *         tipo:                { type: string }
  *         descripcion:         { type: string }
+ *         fechaHoraEvento:     { type: string, format: date-time, nullable: true, description: "Fecha/hora real de ocurrencia (YYYY-MM-DD HH:mm:ss)" }
  *         empleadoId:          { type: integer, nullable: true }
  *         empleadoNombre:      { type: string, nullable: true }
  *         empleadoCargoId:     { type: integer, nullable: true }
@@ -405,12 +406,18 @@
  *         equipoReemplazoId:
  *           type: integer
  *           nullable: true
+ *         fechaHoraEvento:
+ *           type: string
+ *           format: date-time
+ *           nullable: true
+ *           description: "Fecha/hora real de ocurrencia. Formato aceptado: YYYY-MM-DD HH:mm[:ss] o YYYY-MM-DDTHH:mm[:ss]"
  *         usuarioId:
  *           type: integer
  *           nullable: true
  *       example:
  *         tipo: "PERSONAL_NO_ASISTE"
  *         descripcion: "No asistio por enfermedad. Se reemplazo."
+ *         fechaHoraEvento: "2026-02-04 09:30:00"
  *         empleadoId: 45
  *         empleadoReemplazoId: 98
  *
