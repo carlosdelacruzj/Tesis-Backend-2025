@@ -1,3 +1,7 @@
+// src/pdf/wordToPdf.js (o como lo tengas)
+// ✅ Centraliza ruta de LibreOffice (Windows/Mac/Linux) en 1 solo lugar
+// ✅ Mantiene tus logs + fallback + espera de archivo
+
 const fs = require("fs");
 const path = require("path");
 const os = require("os");
@@ -5,10 +9,7 @@ const { execFile } = require("child_process");
 const PizZip = require("pizzip");
 const Docxtemplater = require("docxtemplater");
 
-// ✅ TU RUTA REAL (confirmada)
-const SOFFICE_MAIN = "C:\\Program Files\\LibreOffice\\program\\soffice.com";
-const SOFFICE_MAIN_EXE = "C:\\Program Files\\LibreOffice\\program\\soffice.exe";
-
+// --- Helpers ---
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
@@ -22,6 +23,44 @@ async function waitForFile(filePath, timeoutMs = 8000, intervalMs = 200) {
   return false;
 }
 
+function isWindowsAbs(p) {
+  return /^[A-Za-z]:\\/.test(p);
+}
+
+function getSofficeCandidates() {
+  // 1) Si lo setea el usuario por .env (recomendado)
+  // Ej: LIBREOFFICE_PATH=/Applications/LibreOffice.app/Contents/MacOS/soffice
+  // Ej: LIBREOFFICE_PATH=C:\Program Files\LibreOffice\program\soffice.com
+  const envPath = process.env.LIBREOFFICE_PATH?.trim();
+  if (envPath) return [envPath];
+
+  // 2) Por plataforma
+  if (process.platform === "darwin") {
+    return [
+      "/Applications/LibreOffice.app/Contents/MacOS/soffice",
+      // fallback si el usuario lo tiene en PATH
+      "soffice",
+    ];
+  }
+
+  if (process.platform === "win32") {
+    return [
+      // tu ruta típica (64-bit)
+      "C:\\Program Files\\LibreOffice\\program\\soffice.com",
+      "C:\\Program Files\\LibreOffice\\program\\soffice.exe",
+      // fallback 32-bit
+      "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.com",
+      "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
+      // si lo agregan al PATH
+      "soffice",
+    ];
+  }
+
+  // Linux (normalmente en PATH)
+  return ["soffice"];
+}
+
+// --- DOCX render ---
 function renderDocxFromTemplate(templatePath, data) {
   if (!fs.existsSync(templatePath)) {
     const err = new Error(`Template DOCX no encontrado: ${templatePath}`);
@@ -53,7 +92,7 @@ function renderDocxFromTemplate(templatePath, data) {
 
     const err = new Error(
       `Plantilla DOCX con tags inválidos/missing. ` +
-      (details.length ? details.join(" | ") : e.message)
+        (details.length ? details.join(" | ") : e.message)
     );
     err.status = 500;
     throw err;
@@ -62,11 +101,11 @@ function renderDocxFromTemplate(templatePath, data) {
   return doc.getZip().generate({ type: "nodebuffer" });
 }
 
+// --- LibreOffice exec ---
 function execSoffice(cmd, args) {
   return new Promise((resolve, reject) => {
     execFile(cmd, args, { windowsHide: true }, (err, stdout, stderr) => {
       if (err) {
-        // guardamos info útil
         err._stdout = stdout;
         err._stderr = stderr;
         return reject(err);
@@ -79,16 +118,7 @@ function execSoffice(cmd, args) {
 async function convertDocxToPdf(docxPath, outDir) {
   const args = ["--headless", "--convert-to", "pdf", "--outdir", outDir, docxPath];
 
-  // ✅ Primero la ruta real que tienes instalada (soffice.com)
-  const candidates = [
-    SOFFICE_MAIN,
-    SOFFICE_MAIN_EXE,
-    // fallback por si lo ponen en PATH luego
-    "soffice",
-    // otros típicos
-    "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.com",
-    "C:\\Program Files (x86)\\LibreOffice\\program\\soffice.exe",
-  ];
+  const candidates = getSofficeCandidates();
 
   const pdfPath = path.join(
     outDir,
@@ -99,9 +129,9 @@ async function convertDocxToPdf(docxPath, outDir) {
 
   for (const cmd of candidates) {
     try {
-      if (cmd.includes(":\\") && !fs.existsSync(cmd)) {
-        continue;
-      }
+      // si es ruta absoluta en Windows o Unix, valida existencia
+      const isAbs = path.isAbsolute(cmd) || isWindowsAbs(cmd);
+      if (isAbs && !fs.existsSync(cmd)) continue;
 
       console.log("[pdf] intentando convertir con:", cmd);
       await execSoffice(cmd, args);
@@ -121,20 +151,28 @@ async function convertDocxToPdf(docxPath, outDir) {
         cmd,
         "|",
         err?.message,
-        err?._stderr ? `| stderr: ${String(err._stderr).slice(0, 200)}` : ""
+        err?._stderr ? `| stderr: ${String(err._stderr).slice(0, 300)}` : ""
       );
     }
   }
 
+  const platformHint =
+    process.platform === "darwin"
+      ? "En Mac suele ser: /Applications/LibreOffice.app/Contents/MacOS/soffice"
+      : process.platform === "win32"
+      ? "En Windows suele ser: C:\\Program Files\\LibreOffice\\program\\soffice.com"
+      : "En Linux suele estar en PATH: soffice";
+
   const hint =
     "No se pudo ejecutar LibreOffice (soffice). " +
-    "Verifica instalación y ruta: C:\\Program Files\\LibreOffice\\program\\soffice.com";
+    `Verifica instalación o define LIBREOFFICE_PATH en .env. ${platformHint}`;
 
   const e = new Error(`${lastErr?.message || "spawn soffice ENOENT"} | ${hint}`);
   e.status = 500;
   throw e;
 }
 
+// --- Public API ---
 async function generatePdfBufferFromDocxTemplate({ templatePath, data }) {
   const tmpDir = path.join(os.tmpdir(), "tesis-docs");
   fs.mkdirSync(tmpDir, { recursive: true });
@@ -152,8 +190,12 @@ async function generatePdfBufferFromDocxTemplate({ templatePath, data }) {
     return pdfBuffer;
   } finally {
     // limpieza segura
-    try { if (fs.existsSync(docxPath)) fs.unlinkSync(docxPath); } catch {}
-    try { if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath); } catch {}
+    try {
+      if (fs.existsSync(docxPath)) fs.unlinkSync(docxPath);
+    } catch {}
+    try {
+      if (pdfPath && fs.existsSync(pdfPath)) fs.unlinkSync(pdfPath);
+    } catch {}
   }
 }
 

@@ -34,9 +34,11 @@ router.use("/pedido", require("../modules/pedido/pedido.routes.rest"));
 router.use("/proyecto", require("../modules/proyecto/proyecto.routes.rest"));
 router.use("/voucher", require("../modules/voucher/voucher.routes.rest"));
 router.use("/pagos", require("../modules/pagos/pagos.routes.rest"));
+router.use("/comprobantes", require("../modules/comprobantes/comprobantes.routes.rest"));
 router.use(
   "/tipos-documento",
   require("../modules/tipo_documento/tipo_documento.routes.rest")
 );
+
 
 module.exports = router;
