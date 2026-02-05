@@ -86,91 +86,113 @@ function money2(v) {
   }
   
   function mapComprobanteToTemplateData(header, items) {
-    const h = header || {};
-    const arr = Array.isArray(items) ? items : [];
-  
-    const tipo = safeStr(h.tipo).toUpperCase();
-    const tituloComprobante =
-      tipo.includes("CRED") || tipo === "NC"
-        ? "NOTA DE CRÉDITO"
-        : tipo === "FACTURA"
-        ? "FACTURA ELECTRÓNICA"
-        : "BOLETA DE VENTA ELECTRÓNICA";
-  
-    return {
-      // ===== header empresa =====
-      tituloComprobante,
-      empresaRazonSocial: safeStr(h.empresaRazonSocial),
-      empresaRuc: safeStr(h.empresaRuc),
-      empresaDireccion: safeStr(h.empresaDireccion),
-      empresaCiudad: safeStr(h.empresaCiudad || ""), // opcional
-  
-      // ===== comprobante =====
-      tipo: safeStr(h.tipo),
-      serie: safeStr(h.serie),
-      numero: safeStr(h.numero),
-      fechaEmision: safeStr(h.fechaEmision),
-      horaEmision: safeStr(h.horaEmision),
-      fechaVencimiento: safeStr(h.fechaVencimiento || ""), // opcional
-      moneda: safeStr(h.moneda || "USD"),
-  
-      // ===== cliente =====
-      clienteTipoDoc: safeStr(h.clienteTipoDoc),
-      clienteNumDoc: safeStr(h.clienteNumDoc),
-      clienteNombre: safeStr(h.clienteNombre),
-      clienteDireccion: safeStr(h.clienteDireccion),
-      clienteCorreo: safeStr(h.clienteCorreo),
-      clienteCelular: safeStr(h.clienteCelular),
-  
-      // ===== extras visuales =====
-      medioPago: safeStr(h.medioPago || ""),
-      observacion: safeStr(h.observacion || ""),
-  
-      // ===== totales =====
-      opGravada: money2(h.opGravada),
-      igv: money2(h.igv),
-      total: money2(h.total),
-      anticipos: money2(h.anticipos),
-      otrosCargos: money2(h.otrosCargos ?? 0),
-      otrosTributos: money2(h.otrosTributos ?? 0),
-  
-      // cuadro tributos (para que se vea realista)
-      opExonerada: money2(h.opExonerada ?? 0),
-      opInafecta: money2(h.opInafecta ?? 0),
-      isc: money2(h.isc ?? 0),
-      redondeo: money2(h.redondeo ?? 0),
-  
-      // total en letras (lo dejamos vacío por ahora; si quieres lo calculamos)
-      totalEnLetras: numberToWordsUSD(h.total),
-  
-      // ===== pedido/evento (no todos se usan en v2, pero los dejamos) =====
-      pedidoId: safeStr(h.pedidoId),
-      pedidoNombre: safeStr(h.pedidoNombre),
-      pedidoFechaEvento: safeStr(h.pedidoFechaEvento),
-      pedidoLugar: safeStr(h.pedidoLugar),
-  
-      // ===== detalle =====
-      detalleItems: arr.map((it) => ({
-        cantidad: safeStr(it.cantidad),
-        unidad: safeStr(it.unidad),
-        descripcion: safeStr(it.descripcion),
-        valorUnit: money2(it.valorUnit),
-        descuento: money2(it.descuento ?? 0),
-        importe: money2(it.importe),
-      })),
-  
-      // ===== leyenda/footer =====
-      leyendaSunat: safeStr(
-        h.leyendaSunat ||
-          "Esta es una representación impresa del comprobante. (Demo / uso interno)"
-      ),
-  
-      // ===== NC referencias (si no aplica, vacío) =====
-      docAfectadoTipo: safeStr(h.docAfectadoTipo || ""),
-      docAfectadoSerieNumero: safeStr(h.docAfectadoSerieNumero || ""),
-      motivoNc: safeStr(h.motivoNc || ""),
-    };
-  }
+  const h = header || {};
+  const arr = Array.isArray(items) ? items : [];
+
+  // ===== pago parcial (para {#mostrarPagoParcial}{observacionPago}{/mostrarPagoParcial}) =====
+  // totalPedido: ideal que venga del SP (total del pedido CON IGV).
+  // Si no viene, intentamos derivarlo de sumPedido * 1.18 si existiera.
+  const totalPedidoConIgv =
+    Number(h.totalPedido ?? 0) ||
+    (Number(h.sumPedido ?? 0) > 0 ? Number(h.sumPedido) * 1.18 : 0);
+
+  const totalPago = Number(h.total ?? 0); // total del voucher (incluye IGV)
+  const factorPago =
+    totalPedidoConIgv > 0 ? totalPago / totalPedidoConIgv : 1;
+
+  // tolerancia por decimales
+  const mostrarPagoParcial = factorPago < 0.999;
+
+  const observacionPago = mostrarPagoParcial
+    ? `Pago parcial (${Math.round(factorPago * 100)}%)`
+    : "";
+
+  const tipo = safeStr(h.tipo).toUpperCase();
+  const tituloComprobante =
+    tipo.includes("CRED") || tipo === "NC"
+      ? "NOTA DE CRÉDITO"
+      : tipo === "FACTURA"
+      ? "FACTURA ELECTRÓNICA"
+      : "BOLETA DE VENTA ELECTRÓNICA";
+
+  return {
+    // ===== header empresa =====
+    tituloComprobante,
+    empresaRazonSocial: safeStr(h.empresaRazonSocial),
+    empresaRuc: safeStr(h.empresaRuc),
+    empresaDireccion: safeStr(h.empresaDireccion),
+    empresaCiudad: safeStr(h.empresaCiudad || ""), // opcional
+
+    // ===== comprobante =====
+    tipo: safeStr(h.tipo),
+    serie: safeStr(h.serie),
+    numero: safeStr(h.numero),
+    fechaEmision: safeStr(h.fechaEmision),
+    horaEmision: safeStr(h.horaEmision),
+    fechaVencimiento: safeStr(h.fechaVencimiento || ""), // opcional
+    moneda: safeStr(h.moneda || "USD"),
+
+    // ===== cliente =====
+    clienteTipoDoc: safeStr(h.clienteTipoDoc),
+    clienteNumDoc: safeStr(h.clienteNumDoc),
+    clienteNombre: safeStr(h.clienteNombre),
+    clienteDireccion: safeStr(h.clienteDireccion),
+    clienteCorreo: safeStr(h.clienteCorreo),
+    clienteCelular: safeStr(h.clienteCelular),
+
+    // ===== extras visuales =====
+    medioPago: safeStr(h.medioPago || ""),
+    observacion: safeStr(h.observacion || ""),
+
+    // ✅ pago parcial (para tu bloque en Word)
+    mostrarPagoParcial,      // boolean true/false
+    observacionPago,         // string
+
+    // ===== totales =====
+    opGravada: money2(h.opGravada),
+    igv: money2(h.igv),
+    total: money2(h.total),
+    anticipos: money2(h.anticipos),
+    otrosCargos: money2(h.otrosCargos ?? 0),
+    otrosTributos: money2(h.otrosTributos ?? 0),
+
+    // cuadro tributos (para que se vea realista)
+    opExonerada: money2(h.opExonerada ?? 0),
+    opInafecta: money2(h.opInafecta ?? 0),
+    isc: money2(h.isc ?? 0),
+    redondeo: money2(h.redondeo ?? 0),
+
+    // total en letras
+    totalEnLetras: numberToWordsUSD(h.total),
+
+    // ===== pedido/evento =====
+    pedidoId: safeStr(h.pedidoId),
+    pedidoNombre: safeStr(h.pedidoNombre),
+    pedidoFechaEvento: safeStr(h.pedidoFechaEvento),
+    pedidoLugar: safeStr(h.pedidoLugar),
+
+    // ===== detalle =====
+    detalleItems: arr.map((it) => ({
+      cantidad: safeStr(it.cantidad),
+      unidad: safeStr(it.unidad),
+      descripcion: safeStr(it.descripcion),
+      valorUnitario: money2(it.valorUnitario),
+      descuento: money2(it.descuento ?? 0),
+      importe: money2(it.importe),
+    })),
+
+    // ===== leyenda/footer =====
+    leyendaSunat: safeStr(
+      h.leyendaSunat ||
+        "Esta es una representación impresa del comprobante. (Demo / uso interno)"
+    ),
+
+    // ===== NC referencias =====
+    docAfectadoTipo: safeStr(h.docAfectadoTipo || ""),
+    docAfectadoSerieNumero: safeStr(h.docAfectadoSerieNumero || ""),
+    motivoNc: safeStr(h.motivoNc || ""),
+  };
+}
 
   function pickTemplate(tipoRaw) {
     const tipo = String(tipoRaw || "").trim().toUpperCase();
