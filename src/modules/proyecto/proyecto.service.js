@@ -154,9 +154,10 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
   const eid = ensurePositiveInt(estadoDiaId, "estadoDiaId");
 
   const estados = await repo.listEstadoProyectoDia();
-  const existe = Array.isArray(estados)
-    ? estados.some((e) => Number(e.estadoDiaId) === eid)
-    : false;
+  const estadoActual = Array.isArray(estados)
+    ? estados.find((e) => Number(e.estadoDiaId) === eid)
+    : null;
+  const existe = !!estadoActual;
   if (!existe) {
     const err = new Error("estadoDiaId no valido");
     err.status = 400;
@@ -169,6 +170,45 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
     err.status = 404;
     throw err;
   }
+
+  // Regla: cuando el primer dia pasa a "En curso", mover proyecto y pedido a "En ejecucion"
+  if (String(estadoActual?.estadoDiaNombre || "").trim().toLowerCase() === "en curso") {
+    const info = await repo.getProyectoInfoByDiaId(did);
+    if (info?.proyectoId) {
+      const [
+        estadoProyEnEjecId,
+        estadoProyEntregadoId,
+        estadoProyCerradoId,
+        estadoPedEnEjecId,
+        estadoPedCotizadoId,
+        estadoPedContratadoId,
+      ] = await Promise.all([
+        repo.getEstadoProyectoIdByNombre("En ejecucion"),
+        repo.getEstadoProyectoIdByNombre("Entregado"),
+        repo.getEstadoProyectoIdByNombre("Cerrado"),
+        repo.getEstadoPedidoIdByNombre("En ejecución"),
+        repo.getEstadoPedidoIdByNombre("Cotizado"),
+        repo.getEstadoPedidoIdByNombre("Contratado"),
+      ]);
+
+      const proyEstadoId = Number(info.proyectoEstadoId);
+      if (
+        proyEstadoId !== estadoProyEnEjecId &&
+        proyEstadoId !== estadoProyEntregadoId &&
+        proyEstadoId !== estadoProyCerradoId
+      ) {
+        await repo.patchProyectoById(info.proyectoId, { estadoId: estadoProyEnEjecId });
+      }
+
+      if (info.pedidoId) {
+        const pedEstadoId = Number(info.pedidoEstadoId);
+        if (pedEstadoId === estadoPedCotizadoId || pedEstadoId === estadoPedContratadoId) {
+          await repo.updatePedidoEstadoById(info.pedidoId, estadoPedEnEjecId);
+        }
+      }
+    }
+  }
+
   return { status: "Actualizacion exitosa", diaId: did, estadoDiaId: eid };
 }
 

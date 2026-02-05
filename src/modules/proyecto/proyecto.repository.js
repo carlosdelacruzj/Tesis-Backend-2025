@@ -16,6 +16,7 @@ async function runCallMulti(sql, params = []) {
 const nombreCache = {
   estadoProyecto: new Map(),
   estadoProyectoDia: new Map(),
+  estadoPedido: new Map(),
 };
 
 async function getIdByNombre({ table, idCol, nameCol, nombre, cache }) {
@@ -52,6 +53,41 @@ async function getEstadoProyectoDiaIdByNombre(nombre) {
     nombre,
     cache: nombreCache.estadoProyectoDia,
   });
+}
+
+async function getEstadoPedidoIdByNombre(nombre) {
+  return getIdByNombre({
+    table: "T_Estado_Pedido",
+    idCol: "PK_EP_Cod",
+    nameCol: "EP_Nombre",
+    nombre,
+    cache: nombreCache.estadoPedido,
+  });
+}
+
+async function getProyectoInfoByDiaId(diaId) {
+  const [rows] = await pool.query(
+    `SELECT
+       pr.PK_Pro_Cod AS proyectoId,
+       pr.Pro_Estado AS proyectoEstadoId,
+       pr.FK_P_Cod AS pedidoId,
+       p.FK_EP_Cod AS pedidoEstadoId
+     FROM T_ProyectoDia pd
+     JOIN T_Proyecto pr ON pr.PK_Pro_Cod = pd.FK_Pro_Cod
+     LEFT JOIN T_Pedido p ON p.PK_P_Cod = pr.FK_P_Cod
+     WHERE pd.PK_PD_Cod = ?
+     LIMIT 1`,
+    [Number(diaId)]
+  );
+  return rows?.[0] || null;
+}
+
+async function updatePedidoEstadoById(pedidoId, estadoPedidoId) {
+  const [result] = await pool.query(
+    "UPDATE T_Pedido SET FK_EP_Cod = ? WHERE PK_P_Cod = ?",
+    [Number(estadoPedidoId), Number(pedidoId)]
+  );
+  return { affectedRows: result.affectedRows };
 }
 
 /* Proyecto */
@@ -706,9 +742,12 @@ module.exports = {
   patchProyectoById,
   getEstadoProyectoIdByNombre,
   getEstadoProyectoDiaIdByNombre,
+  getEstadoPedidoIdByNombre,
   listEstadoProyectoDia,
   updateProyectoDiaEstado,
+  getProyectoInfoByDiaId,
   upsertProyectoAsignaciones,
   createProyectoDiaIncidencia,
+  updatePedidoEstadoById,
   updateDevolucionEquipos,
 };
