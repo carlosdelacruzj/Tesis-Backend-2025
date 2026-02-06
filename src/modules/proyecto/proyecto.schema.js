@@ -11,6 +11,14 @@
  *         pedidoCodigo:        { type: string, nullable: true }
  *         fechaInicioEdicion:  { type: string, format: date }
  *         fechaFinEdicion:     { type: string, format: date, nullable: true }
+ *         preEntregaEnlace:    { type: string, nullable: true }
+ *         preEntregaTipo:      { type: string, nullable: true }
+ *         preEntregaFeedback:  { type: string, nullable: true }
+ *         preEntregaFecha:     { type: string, format: date, nullable: true }
+ *         respaldoUbicacion:   { type: string, nullable: true }
+ *         respaldoNotas:       { type: string, nullable: true }
+ *         entregaFinalEnlace:  { type: string, nullable: true }
+ *         entregaFinalFecha:   { type: string, format: date, nullable: true }
  *         estadoId:            { type: integer }
  *         estadoNombre:        { type: string, nullable: true }
  *         estadoPedidoId:      { type: integer, nullable: true }
@@ -53,11 +61,30 @@
  *         notas:               { type: string, nullable: true }
  *         enlace:              { type: string, nullable: true }
  *
+ *     ProyectoListadoItem:
+ *       type: object
+ *       properties:
+ *         proyectoId:     { type: integer }
+ *         proyectoNombre: { type: string }
+ *         pedidoId:       { type: integer }
+ *         pedidoCodigo:   { type: string, nullable: true }
+ *         estadoId:       { type: integer }
+ *         estadoNombre:   { type: string, nullable: true }
+ *         responsableId:  { type: integer, nullable: true }
+ *         notas:          { type: string, nullable: true }
+ *         enlace:         { type: string, nullable: true }
+ *         createdAt:      { type: string, format: date-time, nullable: true }
+ *         updatedAt:      { type: string, format: date-time, nullable: true }
+ *         postproduccion:
+ *           $ref: '#/components/schemas/ProyectoPostproduccion'
+ *
  *     ProyectoEdicion:
  *       type: object
  *       properties:
  *         proyecto:
  *           $ref: '#/components/schemas/Proyecto'
+ *         postproduccion:
+ *           $ref: '#/components/schemas/ProyectoPostproduccion'
  *         dias:
  *           type: array
  *           items: { $ref: '#/components/schemas/ProyectoDia' }
@@ -82,6 +109,20 @@
  *         incidenciasDia:
  *           type: array
  *           items: { $ref: '#/components/schemas/ProyectoDiaIncidencia' }
+ *
+ *     ProyectoPostproduccion:
+ *       type: object
+ *       properties:
+ *         fechaInicioEdicion:  { type: string, format: date, nullable: true }
+ *         fechaFinEdicion:     { type: string, format: date, nullable: true }
+ *         preEntregaEnlace:    { type: string, nullable: true }
+ *         preEntregaTipo:      { type: string, nullable: true }
+ *         preEntregaFeedback:  { type: string, nullable: true }
+ *         preEntregaFecha:     { type: string, format: date, nullable: true }
+ *         respaldoUbicacion:   { type: string, nullable: true }
+ *         respaldoNotas:       { type: string, nullable: true }
+ *         entregaFinalEnlace:  { type: string, nullable: true }
+ *         entregaFinalFecha:   { type: string, format: date, nullable: true }
  *
  *     ProyectoDia:
  *       type: object
@@ -450,23 +491,50 @@
  *         proyectoNombre:       { type: string }
  *         fechaInicioEdicion:   { type: string, format: date }
  *         fechaFinEdicion:      { type: string, format: date }
+ *         preEntregaEnlace:     { type: string }
+ *         preEntregaTipo:       { type: string }
+ *         preEntregaFeedback:   { type: string }
+ *         preEntregaFecha:      { type: string, format: date }
+ *         respaldoUbicacion:    { type: string }
+ *         respaldoNotas:        { type: string }
+ *         entregaFinalEnlace:   { type: string }
+ *         entregaFinalFecha:    { type: string, format: date }
  *         estadoId:             { type: integer }
  *         responsableId:        { type: integer }
  *         notas:                { type: string }
  *         enlace:               { type: string }
- *         multimedia:           { type: integer }
- *         edicion:              { type: integer }
  *       required: []
  *       example:
  *         proyectoNombre: "Evento corporativo"
  *         fechaInicioEdicion: "2025-09-09"
  *         fechaFinEdicion: "2025-10-01"
+ *         preEntregaEnlace: "https://drive.com/preentrega"
+ *         preEntregaTipo: "Selección"
+ *         preEntregaFeedback: "OK, avanzar edición"
+ *         preEntregaFecha: "2025-09-20"
+ *         respaldoUbicacion: "NAS-01 / Volumen A"
+ *         respaldoNotas: "Copia completa con verificación"
+ *         entregaFinalEnlace: "https://drive.com/final"
+ *         entregaFinalFecha: "2025-10-05"
  *         estadoId: 2
  *         responsableId: 4
  *         notas: "Cambiar locación a parque"
  *         enlace: "https://link.com/drive"
- *         multimedia: 1
- *         edicion: 1
+ *
+ *     ProyectoPostproduccionUpdate:
+ *       type: object
+ *       properties:
+ *         fechaInicioEdicion:  { type: string, format: date }
+ *         fechaFinEdicion:     { type: string, format: date }
+ *         preEntregaEnlace:    { type: string }
+ *         preEntregaTipo:      { type: string }
+ *         preEntregaFeedback:  { type: string }
+ *         preEntregaFecha:     { type: string, format: date }
+ *         respaldoUbicacion:   { type: string }
+ *         respaldoNotas:       { type: string }
+ *         entregaFinalEnlace:  { type: string }
+ *         entregaFinalFecha:   { type: string, format: date }
+ *       required: []
  */
 
 module.exports = {};

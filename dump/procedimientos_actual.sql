@@ -2551,12 +2551,18 @@ CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_proyecto_actualizar"(
   IN p_nombre VARCHAR(50),
   IN p_fecha_inicio DATE,
   IN p_fecha_fin DATE,
+  IN p_pre_entrega_enlace VARCHAR(255),
+  IN p_pre_entrega_tipo VARCHAR(60),
+  IN p_pre_entrega_feedback VARCHAR(255),
+  IN p_pre_entrega_fecha DATE,
+  IN p_respaldo_ubicacion VARCHAR(255),
+  IN p_respaldo_notas VARCHAR(255),
+  IN p_entrega_final_enlace VARCHAR(255),
+  IN p_entrega_final_fecha DATE,
   IN p_estado TINYINT,
   IN p_responsable INT,
   IN p_notas VARCHAR(255),
   IN p_enlace VARCHAR(255),
-  IN p_multimedia INT,
-  IN p_edicion INT,
   IN p_updated_at DATETIME
 )
 BEGIN
@@ -2566,10 +2572,16 @@ BEGIN
       FK_Em_Cod = COALESCE(p_responsable, FK_Em_Cod),
       EPro_Fecha_Inicio_Edicion = COALESCE(p_fecha_inicio, EPro_Fecha_Inicio_Edicion),
       Pro_Fecha_Fin_Edicion = COALESCE(p_fecha_fin, Pro_Fecha_Fin_Edicion),
+      Pro_Pre_Entrega_Enlace = COALESCE(NULLIF(TRIM(p_pre_entrega_enlace), ''), Pro_Pre_Entrega_Enlace),
+      Pro_Pre_Entrega_Tipo = COALESCE(NULLIF(TRIM(p_pre_entrega_tipo), ''), Pro_Pre_Entrega_Tipo),
+      Pro_Pre_Entrega_Feedback = COALESCE(NULLIF(TRIM(p_pre_entrega_feedback), ''), Pro_Pre_Entrega_Feedback),
+      Pro_Pre_Entrega_Fecha = COALESCE(p_pre_entrega_fecha, Pro_Pre_Entrega_Fecha),
+      Pro_Respaldo_Ubicacion = COALESCE(NULLIF(TRIM(p_respaldo_ubicacion), ''), Pro_Respaldo_Ubicacion),
+      Pro_Respaldo_Notas = COALESCE(NULLIF(TRIM(p_respaldo_notas), ''), Pro_Respaldo_Notas),
+      Pro_Entrega_Final_Enlace = COALESCE(NULLIF(TRIM(p_entrega_final_enlace), ''), Pro_Entrega_Final_Enlace),
+      Pro_Entrega_Final_Fecha = COALESCE(p_entrega_final_fecha, Pro_Entrega_Final_Fecha),
       Pro_Enlace = COALESCE(NULLIF(TRIM(p_enlace), ''), Pro_Enlace),
       Pro_Notas = COALESCE(NULLIF(TRIM(p_notas), ''), Pro_Notas),
-      Pro_Revision_Multimedia = COALESCE(p_multimedia, Pro_Revision_Multimedia),
-      Pro_Revision_Edicion = COALESCE(p_edicion, Pro_Revision_Edicion),
       updated_at = COALESCE(p_updated_at, updated_at)
   WHERE PK_Pro_Cod = p_id;
 
@@ -2832,13 +2844,19 @@ BEGIN
     pr.FK_P_Cod                AS pedidoId,
     pr.EPro_Fecha_Inicio_Edicion AS fechaInicioEdicion,
     pr.Pro_Fecha_Fin_Edicion   AS fechaFinEdicion,
+    pr.Pro_Pre_Entrega_Enlace  AS preEntregaEnlace,
+    pr.Pro_Pre_Entrega_Tipo    AS preEntregaTipo,
+    pr.Pro_Pre_Entrega_Feedback AS preEntregaFeedback,
+    pr.Pro_Pre_Entrega_Fecha   AS preEntregaFecha,
+    pr.Pro_Respaldo_Ubicacion  AS respaldoUbicacion,
+    pr.Pro_Respaldo_Notas      AS respaldoNotas,
+    pr.Pro_Entrega_Final_Enlace AS entregaFinalEnlace,
+    pr.Pro_Entrega_Final_Fecha AS entregaFinalFecha,
     pr.Pro_Estado              AS estadoId,
     ep.EPro_Nombre             AS estadoNombre,
     pr.FK_Em_Cod               AS responsableId,
     pr.Pro_Notas               AS notas,
     pr.Pro_Enlace              AS enlace,
-    pr.Pro_Revision_Multimedia AS multimedia,
-    pr.Pro_Revision_Edicion    AS edicion,
     pr.created_at              AS createdAt,
     pr.updated_at              AS updatedAt
   FROM T_Proyecto pr
@@ -2861,8 +2879,14 @@ BEGIN
     CONCAT(u.U_Nombre, ' ', u.U_Apellido) AS responsableNombre,
     pr.EPro_Fecha_Inicio_Edicion AS fechaInicioEdicion,
     pr.Pro_Fecha_Fin_Edicion   AS fechaFinEdicion,
-    pr.Pro_Revision_Edicion    AS edicion,
-    pr.Pro_Revision_Multimedia AS multimedia,
+    pr.Pro_Pre_Entrega_Enlace  AS preEntregaEnlace,
+    pr.Pro_Pre_Entrega_Tipo    AS preEntregaTipo,
+    pr.Pro_Pre_Entrega_Feedback AS preEntregaFeedback,
+    pr.Pro_Pre_Entrega_Fecha   AS preEntregaFecha,
+    pr.Pro_Respaldo_Ubicacion  AS respaldoUbicacion,
+    pr.Pro_Respaldo_Notas      AS respaldoNotas,
+    pr.Pro_Entrega_Final_Enlace AS entregaFinalEnlace,
+    pr.Pro_Entrega_Final_Fecha AS entregaFinalFecha,
     pr.Pro_Enlace              AS enlace,
     pr.Pro_Notas               AS notas,
     pr.created_at              AS createdAt,
@@ -3173,4 +3197,3 @@ BEGIN
     );
 END;;
 DELIMITER ;
-

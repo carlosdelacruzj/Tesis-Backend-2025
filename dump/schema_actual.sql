@@ -442,6 +442,14 @@ CREATE TABLE "T_Proyecto" (
   "FK_Em_Cod" int DEFAULT NULL,
   "EPro_Fecha_Inicio_Edicion" date DEFAULT NULL,
   "Pro_Fecha_Fin_Edicion" date DEFAULT NULL,
+  "Pro_Pre_Entrega_Enlace" varchar(255) DEFAULT NULL,
+  "Pro_Pre_Entrega_Tipo" varchar(60) DEFAULT NULL,
+  "Pro_Pre_Entrega_Feedback" varchar(255) DEFAULT NULL,
+  "Pro_Pre_Entrega_Fecha" date DEFAULT NULL,
+  "Pro_Respaldo_Ubicacion" varchar(255) DEFAULT NULL,
+  "Pro_Respaldo_Notas" varchar(255) DEFAULT NULL,
+  "Pro_Entrega_Final_Enlace" varchar(255) DEFAULT NULL,
+  "Pro_Entrega_Final_Fecha" date DEFAULT NULL,
   "Pro_Revision_Edicion" int DEFAULT NULL,
   "Pro_Revision_Multimedia" int DEFAULT NULL,
   "Pro_Enlace" varchar(255) DEFAULT NULL,
@@ -653,4 +661,3 @@ CREATE TABLE "T_Voucher" (
 
 -- View: V_Pedido_Saldos
 CREATE VIEW "V_Pedido_Saldos" AS select "p"."PK_P_Cod" AS "PedidoId",coalesce("ev"."PrimerFecha","p"."P_Fecha_Creacion") AS "Fecha","p"."P_Fecha_Creacion" AS "FechaCreacion","pr"."Proyecto" AS "Proyecto",(coalesce("sv"."CostoTotal",0) + coalesce("p"."P_ViaticosMonto",0)) AS "CostoTotal",coalesce("ab"."MontoAbonado",0) AS "MontoAbonado",((coalesce("sv"."CostoTotal",0) + coalesce("p"."P_ViaticosMonto",0)) - coalesce("ab"."MontoAbonado",0)) AS "SaldoPendiente","p"."FK_ESP_Cod" AS "EstadoPagoId","p"."FK_EP_Cod" AS "EstadoPedidoId" from (((("T_Pedido" "p" left join (select "T_PedidoServicio"."FK_P_Cod" AS "PedidoId",sum("T_PedidoServicio"."PS_Subtotal") AS "CostoTotal" from "T_PedidoServicio" group by "T_PedidoServicio"."FK_P_Cod") "sv" on(("sv"."PedidoId" = "p"."PK_P_Cod"))) left join (select "T_PedidoEvento"."FK_P_Cod" AS "PedidoId",min("T_PedidoEvento"."PE_Fecha") AS "PrimerFecha" from "T_PedidoEvento" group by "T_PedidoEvento"."FK_P_Cod") "ev" on(("ev"."PedidoId" = "p"."PK_P_Cod"))) left join (select "v"."FK_P_Cod" AS "PedidoId",sum("v"."Pa_Monto_Depositado") AS "MontoAbonado" from ("T_Voucher" "v" join "T_Estado_voucher" "ev" on(("ev"."PK_EV_Cod" = "v"."FK_EV_Cod"))) where ("ev"."EV_Nombre" = 'Aprobado') group by "v"."FK_P_Cod") "ab" on(("ab"."PedidoId" = "p"."PK_P_Cod"))) left join (select "T_Proyecto"."FK_P_Cod" AS "PedidoId",max("T_Proyecto"."Pro_Nombre") AS "Proyecto" from "T_Proyecto" group by "T_Proyecto"."FK_P_Cod") "pr" on(("pr"."PedidoId" = "p"."PK_P_Cod")));
-

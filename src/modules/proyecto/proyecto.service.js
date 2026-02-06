@@ -72,7 +72,34 @@ function normalizeFechaHoraEvento(value) {
 
 /* Proyecto */
 async function listProyecto() {
-  return repo.getAllProyecto();
+  const rows = await repo.getAllProyecto();
+  if (!Array.isArray(rows)) return rows;
+  return rows.map((row) => {
+    const postproduccion = {
+      fechaInicioEdicion: row.fechaInicioEdicion ?? null,
+      fechaFinEdicion: row.fechaFinEdicion ?? null,
+      preEntregaEnlace: row.preEntregaEnlace ?? null,
+      preEntregaTipo: row.preEntregaTipo ?? null,
+      preEntregaFeedback: row.preEntregaFeedback ?? null,
+      preEntregaFecha: row.preEntregaFecha ?? null,
+      respaldoUbicacion: row.respaldoUbicacion ?? null,
+      respaldoNotas: row.respaldoNotas ?? null,
+      entregaFinalEnlace: row.entregaFinalEnlace ?? null,
+      entregaFinalFecha: row.entregaFinalFecha ?? null,
+    };
+    const proyecto = { ...row };
+    delete proyecto.fechaInicioEdicion;
+    delete proyecto.fechaFinEdicion;
+    delete proyecto.preEntregaEnlace;
+    delete proyecto.preEntregaTipo;
+    delete proyecto.preEntregaFeedback;
+    delete proyecto.preEntregaFecha;
+    delete proyecto.respaldoUbicacion;
+    delete proyecto.respaldoNotas;
+    delete proyecto.entregaFinalEnlace;
+    delete proyecto.entregaFinalFecha;
+    return { ...proyecto, postproduccion };
+  });
 }
 async function findProyectoById(id) {
   const data = await repo.getByIdProyecto(id);
@@ -82,8 +109,32 @@ async function findProyectoById(id) {
     err.status = 404;
     throw err;
   }
+  const postproduccion = {
+    fechaInicioEdicion: row.fechaInicioEdicion ?? null,
+    fechaFinEdicion: row.fechaFinEdicion ?? null,
+    preEntregaEnlace: row.preEntregaEnlace ?? null,
+    preEntregaTipo: row.preEntregaTipo ?? null,
+    preEntregaFeedback: row.preEntregaFeedback ?? null,
+    preEntregaFecha: row.preEntregaFecha ?? null,
+    respaldoUbicacion: row.respaldoUbicacion ?? null,
+    respaldoNotas: row.respaldoNotas ?? null,
+    entregaFinalEnlace: row.entregaFinalEnlace ?? null,
+    entregaFinalFecha: row.entregaFinalFecha ?? null,
+  };
+  const proyecto = { ...row };
+  delete proyecto.fechaInicioEdicion;
+  delete proyecto.fechaFinEdicion;
+  delete proyecto.preEntregaEnlace;
+  delete proyecto.preEntregaTipo;
+  delete proyecto.preEntregaFeedback;
+  delete proyecto.preEntregaFecha;
+  delete proyecto.respaldoUbicacion;
+  delete proyecto.respaldoNotas;
+  delete proyecto.entregaFinalEnlace;
+  delete proyecto.entregaFinalFecha;
   return {
-    proyecto: row,
+    proyecto,
+    postproduccion,
     dias: data?.dias || [],
     bloquesDia: data?.bloquesDia || [],
     serviciosDia: data?.serviciosDia || [],
@@ -139,6 +190,30 @@ async function patchProyecto(id, payload = {}) {
     throw err;
   }
   return { status: "Actualización parcial exitosa", proyectoId: pid };
+}
+
+async function patchProyectoPostproduccion(id, payload = {}) {
+  const pid = ensurePositiveInt(id, "id");
+  const clean = {
+    fechaInicioEdicion: payload?.fechaInicioEdicion ?? undefined,
+    fechaFinEdicion: payload?.fechaFinEdicion ?? undefined,
+    preEntregaEnlace: toCleanText(payload?.preEntregaEnlace, 255),
+    preEntregaTipo: toCleanText(payload?.preEntregaTipo, 60),
+    preEntregaFeedback: toCleanText(payload?.preEntregaFeedback, 255),
+    preEntregaFecha: payload?.preEntregaFecha ?? undefined,
+    respaldoUbicacion: toCleanText(payload?.respaldoUbicacion, 255),
+    respaldoNotas: toCleanText(payload?.respaldoNotas, 255),
+    entregaFinalEnlace: toCleanText(payload?.entregaFinalEnlace, 255),
+    entregaFinalFecha: payload?.entregaFinalFecha ?? undefined,
+  };
+
+  const result = await repo.patchProyectoById(pid, clean);
+  if (!result || result.affectedRows === 0) {
+    const err = new Error("Proyecto no encontrado o sin cambios");
+    err.status = 404;
+    throw err;
+  }
+  return { status: "Actualizacion postproduccion exitosa", proyectoId: pid };
 }
 
 async function listEstadosProyecto() {
@@ -209,7 +284,35 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
     }
   }
 
+  if (String(estadoActual?.estadoDiaNombre || "").trim().toLowerCase() === "terminado") {
+    await tryAutoPostproduccionByDiaId(did);
+  }
+
   return { status: "Actualizacion exitosa", diaId: did, estadoDiaId: eid };
+}
+
+async function tryAutoPostproduccionByDiaId(diaId) {
+  const info = await repo.getProyectoInfoByDiaId(diaId);
+  if (!info?.proyectoId) return;
+
+  const [estadoDiaTerminadoId, estadoProyPostId] = await Promise.all([
+    repo.getEstadoProyectoDiaIdByNombre("Terminado"),
+    repo.getEstadoProyectoIdByNombre("En postproduccion"),
+  ]);
+
+  const diasNoTerminados = await repo.countDiasNoTerminados(
+    info.proyectoId,
+    estadoDiaTerminadoId
+  );
+  if (diasNoTerminados > 0) return;
+
+  const equiposNoDevueltos = await repo.countEquiposNoDevueltos(info.proyectoId);
+  if (equiposNoDevueltos > 0) return;
+
+  const estadoActual = Number(info.proyectoEstadoId);
+  if (estadoActual === estadoProyPostId) return;
+
+  await repo.patchProyectoById(info.proyectoId, { estadoId: estadoProyPostId });
 }
 
 async function disponibilidadAsignaciones(query = {}) {
@@ -435,6 +538,7 @@ async function devolverEquiposDia(diaId, payload = {}) {
   });
 
   const result = await repo.updateDevolucionEquipos(did, equipos, usuarioId);
+  await tryAutoPostproduccionByDiaId(did);
   return {
     status: "Devolucion registrada",
     diaId: did,
@@ -475,6 +579,7 @@ async function devolverEquipo(diaId, equipoId, payload = {}) {
   };
 
   const result = await repo.updateDevolucionEquipos(did, [item], usuarioId);
+  await tryAutoPostproduccionByDiaId(did);
   return {
     status: "Devolucion registrada",
     diaId: did,
@@ -489,6 +594,7 @@ module.exports = {
   updateProyecto,
   deleteProyecto,
   patchProyecto,
+  patchProyectoPostproduccion,
   listEstadosProyecto,
   listEstadosProyectoDia,
   updateProyectoDiaEstado,

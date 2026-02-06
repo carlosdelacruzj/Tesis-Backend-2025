@@ -9,7 +9,14 @@ const router = Router();
  *   get:
  *     tags: [proyecto]
  *     summary: Listar proyectos
- *     responses: { '200': { description: OK } }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/ProyectoListadoItem' }
  */
 router.get("/", ctrl.getAllProyecto);
 
@@ -218,6 +225,26 @@ router.patch("/dias/:diaId(\\d+)/estado", ctrl.patchProyectoDiaEstado);
 
 /**
  * @swagger
+ * /proyecto/{id}/postproduccion:
+ *   patch:
+ *     tags: [proyecto]
+ *     summary: Actualizar postproduccion de un proyecto
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ProyectoPostproduccionUpdate' }
+ *     responses: { '200': { description: OK } }
+ */
+router.patch("/:id(\\d+)/postproduccion", ctrl.patchProyectoPostproduccion);
+
+/**
+ * @swagger
  * /proyecto/{id}:
  *   put:
  *     tags: [proyecto]
@@ -272,12 +299,18 @@ router.delete("/:id(\\d+)", ctrl.deleteProyecto);
  *               proyectoNombre: { type: string }
  *               fechaInicioEdicion: { type: string, format: date }
  *               fechaFinEdicion: { type: string, format: date }
+ *               preEntregaEnlace: { type: string }
+ *               preEntregaTipo: { type: string }
+ *               preEntregaFeedback: { type: string }
+ *               preEntregaFecha: { type: string, format: date }
+ *               respaldoUbicacion: { type: string }
+ *               respaldoNotas: { type: string }
+ *               entregaFinalEnlace: { type: string }
+ *               entregaFinalFecha: { type: string, format: date }
  *               estadoId: { type: integer }
  *               responsableId: { type: integer, nullable: true }
  *               notas: { type: string }
  *               enlace: { type: string }
- *               multimedia: { type: integer }
- *               edicion: { type: integer }
  *             example:
  *               estadoId: 2
  *               notas: "Actualizando estado a En ejecucion"
@@ -290,7 +323,7 @@ router.patch("/:id(\\d+)", ctrl.patchProyecto);
  * /proyecto/{id}:
  *   get:
  *     tags: [proyecto]
- *     summary: Obtener proyecto por ID (edicion)
+ *     summary: Obtener proyecto por ID (edicion + postproduccion)
  *     parameters:
  *       - in: path
  *         name: id
