@@ -69,7 +69,7 @@ INSERT INTO `T_Estado_Pedido` (`PK_EP_Cod`, `EP_Nombre`) VALUES(1, 'Cotizado'),(
 -- T_Estado_Cotizacion
 INSERT INTO `T_Estado_Cotizacion` (`PK_ECot_Cod`, `ECot_Nombre`) VALUES(1, 'Borrador'),(2, 'Enviada'),(3, 'Aceptada'),(4, 'Rechazada'),(5, 'Expirada');
 -- T_Estado_Proyecto
-INSERT INTO `T_Estado_Proyecto` (`PK_EPro_Cod`, `EPro_Nombre`, `EPro_Orden`, `Activo`) VALUES(1, 'Planificado', 1, 1),(2, 'En ejecucion', 2, 1),(3, 'Entregado', 3, 1),(4, 'Cerrado', 4, 1);
+INSERT INTO `T_Estado_Proyecto` (`PK_EPro_Cod`, `EPro_Nombre`, `EPro_Orden`, `Activo`) VALUES(1, 'Planificado', 1, 1),(2, 'En ejecucion', 2, 1),(3, 'En postproduccion', 3, 1),(4, 'Cerrado', 4, 1);
 -- T_Estado_Proyecto_Dia
 INSERT INTO `T_Estado_Proyecto_Dia` (`PK_EPD_Cod`, `EPD_Nombre`, `EPD_Orden`, `Activo`) VALUES
 (1, 'Pendiente', 1, 1),
