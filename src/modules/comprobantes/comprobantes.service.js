@@ -68,15 +68,41 @@ function numberToWordsUSD(amount) {
   return `${letras} Y ${decimal}/100 DÓLARES`;
 }
 
-function mapComprobanteToTemplateData(header, items, { factorPago = 1 } = {}) {
+function mapComprobanteToTemplateData(header, items) {
   const h = header || {};
   const arr = Array.isArray(items) ? items : [];
 
-  const mostrarPagoParcial = Number(factorPago) < 0.999;
-  const pct = Math.round(Number(factorPago) * 100);
-  const pctLabel = `${pct}%`;
+  // ====== helpers numéricos ======
+  const n = (v) => {
+    const x = Number(v);
+    return Number.isFinite(x) ? x : 0;
+  };
+  const round2 = (v) => Math.round(n(v) * 100) / 100;
 
-  const observacionPago = mostrarPagoParcial ? `Pago parcial (${pctLabel})` : "";
+  // ====== BASE (SIN IGV) ======
+  const opGravadaNum = round2(n(h.opGravada));
+
+  const igvNum =
+    h.igv != null && h.igv !== ""
+      ? round2(n(h.igv))
+      : round2(opGravadaNum * 0.18);
+
+  const totalSinIgvNum =
+    h.total != null && h.total !== ""
+      ? round2(n(h.total))
+      : opGravadaNum;
+
+  const totalConIgvNum =
+    h.totalConIgv != null && h.totalConIgv !== ""
+      ? round2(n(h.totalConIgv))
+      : round2(totalSinIgvNum + igvNum);
+
+  // ====== % pago (factorPago del SP: 0.60, 0.70, etc.) ======
+  const factorPagoNum =
+    h.factorPago != null && h.factorPago !== "" ? round2(n(h.factorPago)) : 1;
+
+  const porcentajePagoNum = round2(factorPagoNum * 100);
+  const porcentajePagoTxt = `${porcentajePagoNum}%`;
 
   const tipo = safeStr(h.tipo).toUpperCase();
   const tituloComprobante =
@@ -86,14 +112,36 @@ function mapComprobanteToTemplateData(header, items, { factorPago = 1 } = {}) {
       ? "FACTURA ELECTRÓNICA"
       : "BOLETA DE VENTA ELECTRÓNICA";
 
-  return {
-    tituloComprobante,
+  // ====== pago parcial (condicional) ======
+  // ✅ Regla simple: si factorPago < 100% entonces es parcial
+  const esPagoParcial =
+    Boolean(h.esPagoParcial) ||
+    Boolean(h.mostrarPagoParcial) ||
+    factorPagoNum < 0.999;
 
+  // ✅ SOLO porcentaje, sin montos
+  const observacionPago =
+    safeStr(h.observacionPago) ||
+    (esPagoParcial ? `Se ha pagado ${porcentajePagoTxt} del servicio.` : "");
+
+  // ====== helper: quitar descripción larga después del " — " ======
+  const stripLongDesc = (s) => {
+    const txt = safeStr(s);
+    return txt.includes(" — ") ? txt.split(" — ")[0].trim() : txt.trim();
+  };
+
+  // ✅ si NO es parcial, no agregamos porcentaje en la descripción
+  const pctSuffix = esPagoParcial ? ` (${porcentajePagoTxt})` : "";
+
+  return {
+    // ===== header empresa =====
+    tituloComprobante,
     empresaRazonSocial: safeStr(h.empresaRazonSocial),
-    empresaRuc: safeStr(h.empresaRuc),
+    empresaRuc: "10078799884",
     empresaDireccion: safeStr(h.empresaDireccion),
     empresaCiudad: safeStr(h.empresaCiudad || ""),
 
+    // ===== comprobante =====
     tipo: safeStr(h.tipo),
     serie: safeStr(h.serie),
     numero: safeStr(h.numero),
@@ -102,6 +150,7 @@ function mapComprobanteToTemplateData(header, items, { factorPago = 1 } = {}) {
     fechaVencimiento: safeStr(h.fechaVencimiento || ""),
     moneda: safeStr(h.moneda || "USD"),
 
+    // ===== cliente =====
     clienteTipoDoc: safeStr(h.clienteTipoDoc),
     clienteNumDoc: safeStr(h.clienteNumDoc),
     clienteNombre: safeStr(h.clienteNombre),
@@ -109,51 +158,62 @@ function mapComprobanteToTemplateData(header, items, { factorPago = 1 } = {}) {
     clienteCorreo: safeStr(h.clienteCorreo),
     clienteCelular: safeStr(h.clienteCelular),
 
-    medioPago: safeStr(h.medioPago || ""),
-    observacion: safeStr(h.observacion || ""),
-
-    mostrarPagoParcial,
+    // ===== observación (bloque condicional del DOCX) =====
+    // En el DOCX: {#mostrarPagoParcial} Observación: {observacionPago}{/mostrarPagoParcial}
+    mostrarPagoParcial: esPagoParcial,
     observacionPago,
 
-    // totals (aunque no muestres IGV, no molesta tenerlos)
-    opGravada: money2(h.opGravada),
-    igv: money2(h.igv),
-    total: money2(h.total),
-    anticipos: money2(h.anticipos),
+    // ===== totales =====
+    opGravada: money2(opGravadaNum),
+    igv: money2(igvNum),
+    total: money2(totalSinIgvNum),          // SIN IGV (primer total)
+    totalConIgv: money2(totalConIgvNum),    // CON IGV (segundo total)
+
+    anticipos: money2(h.anticipos ?? 0),
     otrosCargos: money2(h.otrosCargos ?? 0),
     otrosTributos: money2(h.otrosTributos ?? 0),
 
-    totalEnLetras: numberToWordsUSD(h.total),
+    opExonerada: money2(h.opExonerada ?? 0),
+    opInafecta: money2(h.opInafecta ?? 0),
+    isc: money2(h.isc ?? 0),
+    redondeo: money2(h.redondeo ?? 0),
 
+    totalEnLetras: numberToWordsUSD(totalSinIgvNum),
+
+    // ===== pedido/evento =====
     pedidoId: safeStr(h.pedidoId),
     pedidoNombre: safeStr(h.pedidoNombre),
     pedidoFechaEvento: safeStr(h.pedidoFechaEvento),
     pedidoLugar: safeStr(h.pedidoLugar),
 
-    detalleItems: arr.map((it) => {
-      const cant = Number(it.cantidad ?? 0) || 0;
-      const importeParcial = Number(it.importe ?? 0) || 0;
-      const valorUnitarioParcial = cant > 0 ? importeParcial / cant : 0;
-
-      return {
-        cantidad: safeStr(it.cantidad),
-        unidad: safeStr(it.unidad),
-        descripcion: `${safeStr(it.descripcion)} (Pago ${pctLabel})`,
-        valorUnitario: money2(valorUnitarioParcial),
-        descuento: money2(it.descuento ?? 0),
-        importe: money2(importeParcial),
-      };
-    }),
+    // ===== detalle =====
+    detalleItems: arr.map((it) => ({
+      cantidad: safeStr(it.cantidad),
+      unidad: safeStr(it.unidad || "UNIDAD"),
+      // ✅ SOLO título, y solo agrega (xx%) si es pago parcial
+      descripcion: `${stripLongDesc(it.descripcion)}${pctSuffix}`,
+      valorUnitario: money2(it.valorUnitario),
+      descuento: money2(it.descuento ?? 0),
+      importe: money2(it.importe),
+    })),
 
     leyendaSunat: safeStr(
-      h.leyendaSunat || "Los precios indicados NO incluyen IGV. Documento de uso interno."
+      h.leyendaSunat ||
+        "Esta es una representación impresa del comprobante. (Demo / uso interno)"
     ),
 
+    // ===== NC referencias =====
     docAfectadoTipo: safeStr(h.docAfectadoTipo || ""),
     docAfectadoSerieNumero: safeStr(h.docAfectadoSerieNumero || ""),
     motivoNc: safeStr(h.motivoNc || ""),
+
+    // extras
+    factorPago: factorPagoNum,
+    porcentajePago: porcentajePagoTxt,
   };
 }
+
+
 
 function pickTemplate(tipoRaw) {
   const tipo = String(tipoRaw || "").trim().toUpperCase();
