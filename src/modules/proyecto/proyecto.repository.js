@@ -308,24 +308,36 @@ async function putProyectoById(id, payload) {
     proyectoNombre,
     fechaInicioEdicion,
     fechaFinEdicion,
+    preEntregaEnlace,
+    preEntregaTipo,
+    preEntregaFeedback,
+    preEntregaFecha,
+    respaldoUbicacion,
+    respaldoNotas,
+    entregaFinalEnlace,
+    entregaFinalFecha,
     estadoId,
     responsableId,
     notas,
     enlace,
-    multimedia,
-    edicion,
   } = payload;
-  return runCall("CALL sp_proyecto_actualizar(?,?,?,?,?,?,?,?,?,?,?)", [
+  return runCall("CALL sp_proyecto_actualizar(?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)", [
     Number(id),
     proyectoNombre ?? null,
     fechaInicioEdicion ?? null,
     fechaFinEdicion ?? null,
+    preEntregaEnlace ?? null,
+    preEntregaTipo ?? null,
+    preEntregaFeedback ?? null,
+    preEntregaFecha ?? null,
+    respaldoUbicacion ?? null,
+    respaldoNotas ?? null,
+    entregaFinalEnlace ?? null,
+    entregaFinalFecha ?? null,
     estadoId ?? null,
     responsableId ?? null,
     notas ?? null,
     enlace ?? null,
-    multimedia ?? null,
-    edicion ?? null,
     getLimaDateTimeString(),
   ]);
 }
@@ -335,12 +347,18 @@ async function patchProyectoById(id, payload = {}) {
     proyectoNombre,
     fechaInicioEdicion,
     fechaFinEdicion,
+    preEntregaEnlace,
+    preEntregaTipo,
+    preEntregaFeedback,
+    preEntregaFecha,
+    respaldoUbicacion,
+    respaldoNotas,
+    entregaFinalEnlace,
+    entregaFinalFecha,
     estadoId,
     responsableId,
     notas,
     enlace,
-    multimedia,
-    edicion,
   } = payload;
 
   // Sólo actualiza columnas si se envían; evita sobreescribir con NULL no enviado.
@@ -360,6 +378,38 @@ async function patchProyectoById(id, payload = {}) {
     fields.push("Pro_Fecha_Fin_Edicion = ?");
     params.push(fechaFinEdicion ?? null);
   }
+  if (preEntregaEnlace !== undefined) {
+    fields.push("Pro_Pre_Entrega_Enlace = ?");
+    params.push(preEntregaEnlace ?? null);
+  }
+  if (preEntregaTipo !== undefined) {
+    fields.push("Pro_Pre_Entrega_Tipo = ?");
+    params.push(preEntregaTipo ?? null);
+  }
+  if (preEntregaFeedback !== undefined) {
+    fields.push("Pro_Pre_Entrega_Feedback = ?");
+    params.push(preEntregaFeedback ?? null);
+  }
+  if (preEntregaFecha !== undefined) {
+    fields.push("Pro_Pre_Entrega_Fecha = ?");
+    params.push(preEntregaFecha ?? null);
+  }
+  if (respaldoUbicacion !== undefined) {
+    fields.push("Pro_Respaldo_Ubicacion = ?");
+    params.push(respaldoUbicacion ?? null);
+  }
+  if (respaldoNotas !== undefined) {
+    fields.push("Pro_Respaldo_Notas = ?");
+    params.push(respaldoNotas ?? null);
+  }
+  if (entregaFinalEnlace !== undefined) {
+    fields.push("Pro_Entrega_Final_Enlace = ?");
+    params.push(entregaFinalEnlace ?? null);
+  }
+  if (entregaFinalFecha !== undefined) {
+    fields.push("Pro_Entrega_Final_Fecha = ?");
+    params.push(entregaFinalFecha ?? null);
+  }
   if (estadoId !== undefined) {
     fields.push("Pro_Estado = ?");
     params.push(estadoId ?? null);
@@ -375,14 +425,6 @@ async function patchProyectoById(id, payload = {}) {
   if (enlace !== undefined) {
     fields.push("Pro_Enlace = ?");
     params.push(enlace ?? null);
-  }
-  if (multimedia !== undefined) {
-    fields.push("Pro_Revision_Multimedia = ?");
-    params.push(multimedia ?? null);
-  }
-  if (edicion !== undefined) {
-    fields.push("Pro_Revision_Edicion = ?");
-    params.push(edicion ?? null);
   }
 
   if (!fields.length) {
