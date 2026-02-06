@@ -1,3 +1,6 @@
+-- Dump routines for defaultdb
+-- Generated at 2026-02-05T16:12:22.925Z
+
 DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_cliente_actualizar"(
   IN pIdCliente INT,
@@ -852,7 +855,7 @@ BEGIN
   SET FK_ECot_Cod = v_estado_nuevo_id
   WHERE PK_Cot_Cod = p_cot_id;
 
-  -- devolver JSON de detalle (lead o cliente)
+  -- devolver JSON de detalle (incluye viaticos)
   SELECT JSON_OBJECT(
     'id',              c.PK_Cot_Cod,
     'estado',          ec.ECot_Nombre,
@@ -863,11 +866,17 @@ BEGIN
     'lugar',           c.Cot_Lugar,
     'horasEstimadas',  c.Cot_HorasEst,
     'mensaje',         c.Cot_Mensaje,
-    'total',           COALESCE((
+    'viaticosMonto',   COALESCE(c.Cot_ViaticosMonto, 0),
+    'totalServicios',  COALESCE((
                         SELECT SUM(s.CS_Subtotal)
                         FROM defaultdb.T_CotizacionServicio s
                         WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
                       ),0),
+    'total',           COALESCE((
+                        SELECT SUM(s.CS_Subtotal)
+                        FROM defaultdb.T_CotizacionServicio s
+                        WHERE s.FK_Cot_Cod = c.PK_Cot_Cod
+                      ),0) + COALESCE(c.Cot_ViaticosMonto, 0),
     'contacto',
       CASE
         WHEN l.PK_Lead_Cod IS NOT NULL THEN
@@ -1774,6 +1783,203 @@ BEGIN
 DELIMITER ;
 
 DELIMITER ;;
+CREATE DEFINER="avnadmin"@"%" PROCEDURE "SP_get_comprobante_pdf_by_voucher"(IN p_PK_Pa_Cod INT)
+BEGIN
+  DECLARE v_total DECIMAL(10,2) DEFAULT 0;          -- total pagado (incluye IGV)
+  DECLARE v_opGravada DECIMAL(10,2) DEFAULT 0;      -- base del pago (sin IGV)
+  DECLARE v_igv DECIMAL(10,2) DEFAULT 0;
+
+  DECLARE v_pedidoId INT DEFAULT NULL;
+  DECLARE v_clienteId INT DEFAULT NULL;
+  DECLARE v_userId INT DEFAULT NULL;
+
+  DECLARE v_clienteTipoDoc VARCHAR(10) DEFAULT '';
+  DECLARE v_clienteNumDoc VARCHAR(20) DEFAULT '';
+  DECLARE v_clienteNombre VARCHAR(200) DEFAULT '';
+  DECLARE v_clienteDireccion VARCHAR(255) DEFAULT '';
+  DECLARE v_clienteCorreo VARCHAR(120) DEFAULT '';
+  DECLARE v_clienteCelular VARCHAR(30) DEFAULT '';
+
+  DECLARE v_tipo VARCHAR(20) DEFAULT 'BOLETA';
+  DECLARE v_serie VARCHAR(10) DEFAULT 'B001';
+  DECLARE v_numero VARCHAR(20) DEFAULT '';
+
+  DECLARE v_sumPedido DECIMAL(18,6) DEFAULT 0;      -- SUM(PS_Subtotal) (total del pedido según tus servicios)
+  DECLARE v_factorPago DECIMAL(18,8) DEFAULT 1;
+
+  DECLARE v_cnt INT DEFAULT 0;
+
+  DECLARE v_sumPrelim DECIMAL(18,2) DEFAULT 0;
+  DECLARE v_diff DECIMAL(18,2) DEFAULT 0;
+  DECLARE v_lastPk INT DEFAULT NULL;
+
+  /* 1) Voucher + Pedido */
+  SELECT v.Pa_Monto_Depositado, v.FK_P_Cod
+    INTO v_total, v_pedidoId
+  FROM T_Voucher v
+  WHERE v.PK_Pa_Cod = p_PK_Pa_Cod
+  LIMIT 1;
+
+  IF v_pedidoId IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Voucher no encontrado o sin pedido asociado';
+  END IF;
+
+  /* 2) Cliente -> Usuario */
+  SELECT p.FK_Cli_Cod
+    INTO v_clienteId
+  FROM T_Pedido p
+  WHERE p.PK_P_Cod = v_pedidoId
+  LIMIT 1;
+
+  IF v_clienteId IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Pedido sin cliente asociado';
+  END IF;
+
+  SELECT c.FK_U_Cod
+    INTO v_userId
+  FROM T_Cliente c
+  WHERE c.PK_Cli_Cod = v_clienteId
+  LIMIT 1;
+
+  IF v_userId IS NULL THEN
+    SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Cliente sin usuario asociado';
+  END IF;
+
+  SELECT
+    CASE u.FK_TD_Cod
+      WHEN 1 THEN 'DNI'
+      WHEN 2 THEN 'CE'
+      WHEN 3 THEN 'RUC'
+      WHEN 4 THEN 'PAS'
+      ELSE 'DNI'
+    END,
+    IFNULL(u.U_Numero_Documento,''),
+    TRIM(CONCAT(IFNULL(u.U_Nombre,''), ' ', IFNULL(u.U_Apellido,''))),
+    IFNULL(u.U_Direccion,''),
+    IFNULL(u.U_Correo,''),
+    IFNULL(u.U_Celular,'')
+  INTO
+    v_clienteTipoDoc,
+    v_clienteNumDoc,
+    v_clienteNombre,
+    v_clienteDireccion,
+    v_clienteCorreo,
+    v_clienteCelular
+  FROM T_Usuario u
+  WHERE u.PK_U_Cod = v_userId
+  LIMIT 1;
+
+  /* 3) Tipo comprobante */
+  IF v_clienteTipoDoc = 'RUC' THEN
+    SET v_tipo = 'FACTURA';
+    SET v_serie = 'F001';
+  ELSE
+    SET v_tipo = 'BOLETA';
+    SET v_serie = 'B001';
+  END IF;
+
+  SET v_numero = LPAD(p_PK_Pa_Cod, 8, '0');
+
+  /* 4) IGV del PAGO (esto queda igual) */
+  SET v_opGravada = ROUND(v_total / 1.18, 2);
+  SET v_igv = ROUND(v_total - v_opGravada, 2);
+
+  /* ===== RESULTSET 1: CABECERA ===== */
+  SELECT
+    'D’la Cruz Video y Fotografia' AS empresaRazonSocial,
+    'RUC_PLACE_HOLDER'             AS empresaRuc,
+    'Cal. Piura MZ B4 Lt-10 S. J. de Miraflores' AS empresaDireccion,
+
+    v_tipo   AS tipo,
+    v_serie  AS serie,
+    v_numero AS numero,
+
+    DATE_FORMAT(NOW(), '%Y-%m-%d') AS fechaEmision,
+    DATE_FORMAT(NOW(), '%H:%i')    AS horaEmision,
+    'USD' AS moneda,
+
+    v_clienteTipoDoc AS clienteTipoDoc,
+    v_clienteNumDoc  AS clienteNumDoc,
+    v_clienteNombre  AS clienteNombre,
+    v_clienteDireccion AS clienteDireccion,
+    v_clienteCorreo  AS clienteCorreo,
+    v_clienteCelular AS clienteCelular,
+
+    v_pedidoId AS pedidoId,
+    (SELECT IFNULL(p.P_Nombre_Pedido,'') FROM T_Pedido p WHERE p.PK_P_Cod=v_pedidoId LIMIT 1) AS pedidoNombre,
+    (SELECT p.P_FechaEvento FROM T_Pedido p WHERE p.PK_P_Cod=v_pedidoId LIMIT 1) AS pedidoFechaEvento,
+    (SELECT IFNULL(p.P_Lugar,'') FROM T_Pedido p WHERE p.PK_P_Cod=v_pedidoId LIMIT 1) AS pedidoLugar,
+
+    v_opGravada AS opGravada,
+    v_igv       AS igv,
+    v_total     AS total,
+    0.00        AS anticipos;
+
+  /* ===== RESULTSET 2: DETALLE ===== */
+
+  SELECT COUNT(*), SUM(IFNULL(ps.PS_Subtotal,0))
+    INTO v_cnt, v_sumPedido
+  FROM T_PedidoServicio ps
+  WHERE ps.FK_P_Cod = v_pedidoId;
+
+  IF v_cnt = 0 OR v_sumPedido <= 0 THEN
+    SELECT
+      1.00 AS cantidad,
+      'UNIDAD' AS unidad,
+      CONCAT(
+        'Servicio por pago de pedido #', v_pedidoId,
+        ' - ',
+        (SELECT IFNULL(p.P_Nombre_Pedido,'') FROM T_Pedido p WHERE p.PK_P_Cod=v_pedidoId LIMIT 1)
+      ) AS descripcion,
+      v_total AS valorUnitario,
+      0.00 AS descuento,
+      v_total AS importe;
+  ELSE
+    /* ✅ FACTOR CORRECTO: pago / total del pedido (según PS_Subtotal) */
+    SET v_factorPago = v_total / v_sumPedido;
+    IF v_factorPago > 1 THEN SET v_factorPago = 1; END IF;
+
+    /* ajuste de centavos para cuadrar contra v_total */
+    SELECT MAX(ps.PK_PS_Cod)
+      INTO v_lastPk
+    FROM T_PedidoServicio ps
+    WHERE ps.FK_P_Cod = v_pedidoId;
+
+    SELECT SUM(ROUND(IFNULL(ps.PS_Subtotal,0) * v_factorPago, 2))
+      INTO v_sumPrelim
+    FROM T_PedidoServicio ps
+    WHERE ps.FK_P_Cod = v_pedidoId;
+
+    SET v_diff = ROUND(v_total - IFNULL(v_sumPrelim,0), 2);
+
+    SELECT
+      CAST(IFNULL(ps.PS_Cantidad,1) AS DECIMAL(10,2)) AS cantidad,
+      'UNIDAD' AS unidad,
+      CONCAT(
+        IFNULL(ps.PS_Nombre,'Servicio'),
+        IF(ps.PS_Descripcion IS NOT NULL AND ps.PS_Descripcion <> '', CONCAT(' — ', ps.PS_Descripcion), '')
+      ) AS descripcion,
+
+      /* ✅ valor unitario REAL (no cambia por pago parcial) */
+      ROUND(IFNULL(ps.PS_Subtotal,0) / NULLIF(IFNULL(ps.PS_Cantidad,1),0), 2) AS valorUnitario,
+
+      0.00 AS descuento,
+
+      /* ✅ importe parcial: subtotal * factor, + ajuste en el último */
+      ROUND(
+        ROUND(IFNULL(ps.PS_Subtotal,0) * v_factorPago, 2)
+        + CASE WHEN ps.PK_PS_Cod = v_lastPk THEN v_diff ELSE 0 END
+      , 2) AS importe
+
+    FROM T_PedidoServicio ps
+    WHERE ps.FK_P_Cod = v_pedidoId
+    ORDER BY ps.PK_PS_Cod;
+  END IF;
+
+END;;
+DELIMITER ;
+
+DELIMITER ;;
 CREATE DEFINER="avnadmin"@"%" PROCEDURE "sp_lead_convertir_cliente"(
   IN  p_lead_id        INT,
   IN  p_correo         VARCHAR(250),   -- obligatorio
@@ -2385,18 +2591,15 @@ BEGIN
   DECLARE v_fecha_inicio DATE;
   DECLARE v_fecha_fin DATE;
 
-  -- Validar pedido
   IF p_pedido_id IS NULL THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'pedidoId es requerido';
   END IF;
 
-  -- Evitar duplicados (1 proyecto por pedido)
   IF (SELECT COUNT(*) FROM T_Proyecto WHERE FK_P_Cod = p_pedido_id) > 0 THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'El pedido ya tiene proyecto';
   END IF;
 
-  SELECT
-    COALESCE(NULLIF(TRIM(P_Nombre_Pedido), ''), CONCAT('Pedido ', p_pedido_id))
+  SELECT COALESCE(NULLIF(TRIM(P_Nombre_Pedido), ''), CONCAT('Pedido ', p_pedido_id))
   INTO v_nombre
   FROM T_Pedido
   WHERE PK_P_Cod = p_pedido_id;
@@ -2447,20 +2650,40 @@ BEGIN
 
     SET v_proyecto_id = LAST_INSERT_ID();
 
-    -- Crear dias del proyecto desde pedido (fechas unicas)
-    INSERT INTO T_ProyectoDia (FK_Pro_Cod, PD_Fecha, PD_Hora, PD_Ubicacion, PD_Direccion, PD_Notas)
-    SELECT
-      v_proyecto_id,
-      pe.PE_Fecha,
-      pe.PE_Hora,
-      pe.PE_Ubicacion,
-      pe.PE_Direccion,
-      pe.PE_Notas
+    INSERT INTO T_ProyectoDia (FK_Pro_Cod, PD_Fecha)
+    SELECT v_proyecto_id, pe.PE_Fecha
     FROM T_PedidoEvento pe
     WHERE pe.FK_P_Cod = p_pedido_id
-    GROUP BY pe.PE_Fecha, pe.PE_Hora, pe.PE_Ubicacion, pe.PE_Direccion, pe.PE_Notas;
+    GROUP BY pe.PE_Fecha;
 
-    -- Asignar servicios por dia en el proyecto
+    SET @pdb_orden := 0;
+    SET @pdb_fecha := NULL;
+
+    INSERT INTO T_ProyectoDiaBloque (FK_PD_Cod, PDB_Hora, PDB_Ubicacion, PDB_Direccion, PDB_Notas, PDB_Orden)
+    SELECT
+      x.FK_PD_Cod,
+      x.PE_Hora,
+      x.PE_Ubicacion,
+      x.PE_Direccion,
+      x.PE_Notas,
+      x.PDB_Orden
+    FROM (
+      SELECT
+        pd.PK_PD_Cod AS FK_PD_Cod,
+        pe.PE_Fecha,
+        pe.PE_Hora,
+        pe.PE_Ubicacion,
+        pe.PE_Direccion,
+        pe.PE_Notas,
+        (@pdb_orden := IF(@pdb_fecha = pe.PE_Fecha, @pdb_orden + 1, 1)) AS PDB_Orden,
+        (@pdb_fecha := pe.PE_Fecha) AS _set_fecha
+      FROM T_PedidoEvento pe
+      JOIN T_ProyectoDia pd
+        ON pd.FK_Pro_Cod = v_proyecto_id AND pd.PD_Fecha = pe.PE_Fecha
+      WHERE pe.FK_P_Cod = p_pedido_id
+      ORDER BY pe.PE_Fecha, pe.PE_Hora, pe.PK_PE_Cod
+    ) x;
+
     INSERT IGNORE INTO T_ProyectoDiaServicio (FK_PD_Cod, FK_PS_Cod)
     SELECT
       pd.PK_PD_Cod,
@@ -2511,20 +2734,29 @@ BEGIN
   LEFT JOIN T_Estado_Empleado ee ON ee.PK_Estado_Emp_Cod = em.FK_Estado_Emp_Cod
   LEFT JOIN (
     SELECT
-      pde.FK_Em_Cod AS empleadoId,
-      JSON_ARRAYAGG(
-        JSON_OBJECT(
-          'proyectoId',  pd.FK_Pro_Cod,
-          'fecha',       pd.PD_Fecha,
-          'estado',      pde.PDE_Estado
-        )
-      ) AS conflictos
-    FROM T_ProyectoDiaEmpleado pde
-    JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pde.FK_PD_Cod
-    WHERE (pde.PDE_Estado IS NULL OR pde.PDE_Estado NOT IN ('Cancelado', 'Anulado'))
-      AND pd.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
-      AND (p_proyecto_id IS NULL OR pd.FK_Pro_Cod <> p_proyecto_id)
-    GROUP BY pde.FK_Em_Cod
+      emp_conf.empleadoId,
+      JSON_ARRAYAGG(emp_conf.conflicto) AS conflictos
+    FROM (
+      SELECT
+        pde.FK_Em_Cod AS empleadoId,
+        JSON_OBJECT('proyectoId', pd.FK_Pro_Cod, 'fecha', pd.PD_Fecha) AS conflicto
+      FROM T_ProyectoDiaEmpleado pde
+      JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pde.FK_PD_Cod
+      WHERE pd.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
+        AND (p_proyecto_id IS NULL OR pd.FK_Pro_Cod <> p_proyecto_id)
+
+      UNION ALL
+
+      SELECT
+        pdi.FK_Em_Cod AS empleadoId,
+        JSON_OBJECT('proyectoId', pd2.FK_Pro_Cod, 'fecha', pd2.PD_Fecha) AS conflicto
+      FROM T_ProyectoDiaIncidencia pdi
+      JOIN T_ProyectoDia pd2 ON pd2.PK_PD_Cod = pdi.FK_PD_Cod
+      WHERE pdi.FK_Em_Cod IS NOT NULL
+        AND pd2.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
+        AND (p_proyecto_id IS NULL OR pd2.FK_Pro_Cod <> p_proyecto_id)
+    ) emp_conf
+    GROUP BY emp_conf.empleadoId
   ) conf ON conf.empleadoId = em.PK_Em_Cod
   WHERE te.TiEm_OperativoCampo = 1
     AND em.FK_Estado_Emp_Cod = 1
@@ -2553,20 +2785,29 @@ BEGIN
   JOIN T_Estado_Equipo eeq ON eeq.PK_EE_Cod = eq.FK_EE_Cod
   LEFT JOIN (
     SELECT
-      pdq.FK_Eq_Cod AS equipoId,
-      JSON_ARRAYAGG(
-        JSON_OBJECT(
-          'proyectoId',  pd.FK_Pro_Cod,
-          'fecha',       pd.PD_Fecha,
-          'estado',      pdq.PDQ_Estado
-        )
-      ) AS conflictos
-    FROM T_ProyectoDiaEquipo pdq
-    JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdq.FK_PD_Cod
-    WHERE (pdq.PDQ_Estado IS NULL OR pdq.PDQ_Estado NOT IN ('Cancelado', 'Anulado'))
-      AND pd.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
-      AND (p_proyecto_id IS NULL OR pd.FK_Pro_Cod <> p_proyecto_id)
-    GROUP BY pdq.FK_Eq_Cod
+      eq_conf.equipoId,
+      JSON_ARRAYAGG(eq_conf.conflicto) AS conflictos
+    FROM (
+      SELECT
+        pdq.FK_Eq_Cod AS equipoId,
+        JSON_OBJECT('proyectoId', pd.FK_Pro_Cod, 'fecha', pd.PD_Fecha) AS conflicto
+      FROM T_ProyectoDiaEquipo pdq
+      JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdq.FK_PD_Cod
+      WHERE pd.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
+        AND (p_proyecto_id IS NULL OR pd.FK_Pro_Cod <> p_proyecto_id)
+
+      UNION ALL
+
+      SELECT
+        pdi.FK_Eq_Cod AS equipoId,
+        JSON_OBJECT('proyectoId', pd2.FK_Pro_Cod, 'fecha', pd2.PD_Fecha) AS conflicto
+      FROM T_ProyectoDiaIncidencia pdi
+      JOIN T_ProyectoDia pd2 ON pd2.PK_PD_Cod = pdi.FK_PD_Cod
+      WHERE pdi.FK_Eq_Cod IS NOT NULL
+        AND pd2.PD_Fecha BETWEEN p_fecha_inicio AND p_fecha_fin
+        AND (p_proyecto_id IS NULL OR pd2.FK_Pro_Cod <> p_proyecto_id)
+    ) eq_conf
+    GROUP BY eq_conf.equipoId
   ) confEq ON confEq.equipoId = eq.PK_Eq_Cod
   WHERE eeq.EE_Nombre = 'Disponible'
     AND (p_tipo_equipo IS NULL OR teq.PK_TE_Cod = p_tipo_equipo)
@@ -2632,20 +2873,34 @@ BEGIN
   LEFT JOIN T_Usuario u          ON u.PK_U_Cod     = em.FK_U_Cod
   WHERE pr.PK_Pro_Cod = p_id;
 
-  -- 2) Dias del proyecto
+  -- 2) Dias del proyecto (con estado)
   SELECT
     pd.PK_PD_Cod AS diaId,
     pd.FK_Pro_Cod AS proyectoId,
     pd.PD_Fecha AS fecha,
-    pd.PD_Hora AS hora,
-    pd.PD_Ubicacion AS ubicacion,
-    pd.PD_Direccion AS direccion,
-    pd.PD_Notas AS notas
+    pd.FK_EPD_Cod AS estadoDiaId,
+    epd.EPD_Nombre AS estadoDiaNombre
   FROM T_ProyectoDia pd
+  LEFT JOIN T_Estado_Proyecto_Dia epd ON epd.PK_EPD_Cod = pd.FK_EPD_Cod
   WHERE pd.FK_Pro_Cod = p_id
   ORDER BY pd.PD_Fecha, pd.PK_PD_Cod;
 
-  -- 3) Servicios por dia
+  -- 3) Bloques (locaciones/horas) por dia
+  SELECT
+    pdb.PK_PDB_Cod AS bloqueId,
+    pdb.FK_PD_Cod AS diaId,
+    pd.PD_Fecha AS fecha,
+    pdb.PDB_Hora AS hora,
+    pdb.PDB_Ubicacion AS ubicacion,
+    pdb.PDB_Direccion AS direccion,
+    pdb.PDB_Notas AS notas,
+    pdb.PDB_Orden AS orden
+  FROM T_ProyectoDiaBloque pdb
+  JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdb.FK_PD_Cod
+  WHERE pd.FK_Pro_Cod = p_id
+  ORDER BY pd.PD_Fecha, pdb.PDB_Orden, pdb.PK_PDB_Cod;
+
+  -- 4) Servicios por dia
   SELECT
     pds.PK_PDS_Cod AS id,
     pds.FK_PD_Cod AS diaId,
@@ -2666,14 +2921,13 @@ BEGIN
   WHERE pd.FK_Pro_Cod = p_id
   ORDER BY pd.PD_Fecha, ps.PS_Nombre, ps.PK_PS_Cod;
 
-  -- 4) Empleados asignados por dia
+  -- 5) Empleados asignados por dia
   SELECT
     pde.PK_PDE_Cod AS asignacionId,
     pde.FK_PD_Cod AS diaId,
     pd.PD_Fecha AS fecha,
     pde.FK_Em_Cod AS empleadoId,
     CONCAT(u2.U_Nombre, ' ', u2.U_Apellido) AS empleadoNombre,
-    pde.PDE_Estado AS estado,
     pde.PDE_Notas AS notas
   FROM T_ProyectoDiaEmpleado pde
   JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pde.FK_PD_Cod
@@ -2682,7 +2936,7 @@ BEGIN
   WHERE pd.FK_Pro_Cod = p_id
   ORDER BY pd.PD_Fecha, pde.PK_PDE_Cod;
 
-  -- 5) Equipos asignados por dia
+  -- 6) Equipos asignados por dia (con responsable opcional)
   SELECT
     pdq.PK_PDQ_Cod AS asignacionId,
     pdq.FK_PD_Cod AS diaId,
@@ -2692,7 +2946,8 @@ BEGIN
     mo.NMo_Nombre AS modelo,
     te.TE_Nombre AS tipoEquipo,
     eq.FK_EE_Cod AS estadoEquipoId,
-    pdq.PDQ_Estado AS estado,
+    pdq.FK_Em_Cod AS responsableId,
+    CONCAT(u3.U_Nombre, ' ', u3.U_Apellido) AS responsableNombre,
     pdq.PDQ_Notas AS notas,
     pdq.PDQ_Devuelto AS devuelto,
     pdq.PDQ_Fecha_Devolucion AS fechaDevolucion,
@@ -2704,10 +2959,12 @@ BEGIN
   JOIN T_Equipo eq ON eq.PK_Eq_Cod = pdq.FK_Eq_Cod
   JOIN T_Modelo mo ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
   JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
+  LEFT JOIN T_Empleados em3 ON em3.PK_Em_Cod = pdq.FK_Em_Cod
+  LEFT JOIN T_Usuario u3 ON u3.PK_U_Cod = em3.FK_U_Cod
   WHERE pd.FK_Pro_Cod = p_id
   ORDER BY pd.PD_Fecha, pdq.PK_PDQ_Cod;
 
-  -- 6) Requerimientos de personal por dia (segun servicios del dia)
+  -- 7) Requerimientos de personal por dia (segun servicios del dia)
   SELECT
     pd.PK_PD_Cod AS diaId,
     pd.PD_Fecha AS fecha,
@@ -2722,7 +2979,7 @@ BEGIN
   GROUP BY pd.PK_PD_Cod, pd.PD_Fecha, ess.Staff_Rol
   ORDER BY pd.PD_Fecha, ess.Staff_Rol;
 
-  -- 7) Requerimientos de equipo por dia (segun servicios del dia)
+  -- 8) Requerimientos de equipo por dia (segun servicios del dia)
   SELECT
     pd.PK_PD_Cod AS diaId,
     pd.PD_Fecha AS fecha,
@@ -2738,6 +2995,25 @@ BEGIN
   WHERE pd.FK_Pro_Cod = p_id
   GROUP BY pd.PK_PD_Cod, pd.PD_Fecha, te.PK_TE_Cod, te.TE_Nombre
   ORDER BY pd.PD_Fecha, te.TE_Nombre;
+
+  -- 9) Incidencias por dia
+  SELECT
+    pdi.PK_PDI_Cod AS incidenciaId,
+    pdi.FK_PD_Cod AS diaId,
+    pd.PD_Fecha AS fecha,
+    pdi.PDI_Tipo AS tipo,
+    pdi.PDI_Descripcion AS descripcion,
+    pdi.PDI_FechaHora_Evento AS fechaHoraEvento,
+    pdi.FK_Em_Cod AS empleadoId,
+    pdi.FK_Em_Reemplazo_Cod AS empleadoReemplazoId,
+    pdi.FK_Eq_Cod AS equipoId,
+    pdi.FK_Eq_Reemplazo_Cod AS equipoReemplazoId,
+    pdi.FK_U_Cod AS usuarioId,
+    pdi.created_at AS createdAt
+  FROM T_ProyectoDiaIncidencia pdi
+  JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdi.FK_PD_Cod
+  WHERE pd.FK_Pro_Cod = p_id
+  ORDER BY pd.PD_Fecha, pdi.PK_PDI_Cod;
 END;;
 DELIMITER ;
 

@@ -7,6 +7,7 @@ const {
   hashPassword,
 } = require("../../utils/password");
 const { formatCodigo } = require("../../utils/codigo");
+const { calcIgv } = require("../../utils/igv");
 
 // Basic validation helpers
 function assertString(value, field) {
@@ -172,10 +173,43 @@ async function listPedidosByCliente(id) {
     err.status = 400;
     throw err;
   }
-  return pedidoRepo.getByClienteId(num);
-}
+  const rows = await pedidoRepo.getByClienteId(num);
+  if (!Array.isArray(rows)) return rows;
+  return rows.map((r) => {
+      const hasIgv = r?.igv != null || r?.subtotal != null;
+      let subtotal = 0;
+      let igv = 0;
+      let total = 0;
 
-async function listCotizacionesByCliente(id, estado) {
+      if (hasIgv) {
+        subtotal = Number(r?.subtotal ?? 0);
+        igv = Number(r?.igv ?? 0);
+        total = Number(r?.total ?? subtotal + igv);
+      } else {
+        const base = Number(r?.total ?? 0);
+        const calc = calcIgv(base);
+        subtotal = calc.base;
+        igv = calc.igv;
+        total = calc.total;
+      }
+
+      const montoAbonado = Number(r?.montoAbonado ?? 0);
+      const saldoPendiente = Math.max(
+        0,
+        total - (Number.isFinite(montoAbonado) ? montoAbonado : 0)
+      );
+
+      return {
+        ...r,
+        subtotal,
+        igv,
+        total,
+        saldoPendiente,
+      };
+    });
+  }
+
+  async function listCotizacionesByCliente(id, estado) {
   const num = Number(id);
   if (!Number.isFinite(num) || num <= 0) {
     const err = new Error("idCliente invalido");
@@ -225,3 +259,4 @@ module.exports = {
   listEstadosCliente,
   changeEstado,
 };
+

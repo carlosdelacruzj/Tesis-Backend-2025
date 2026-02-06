@@ -460,9 +460,15 @@
  *               type: number
  *               nullable: true
  *               example: 150
+ *             subtotal:
+ *               type: number
+ *               example: 1000
+ *             igv:
+ *               type: number
+ *               example: 180
  *             total:
  *               type: number
- *               example: 1150
+ *               example: 1180
  *         eventos:
  *           type: array
  *           items:

@@ -3,6 +3,7 @@ const repo = require("./pedido.repository");
 const eventoServicioRepo = require("../eventos_servicios/eventos_servicios.repository");
 const path = require("path");
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
+const { calcIgv } = require("../../utils/igv");
 const pagosService = require("../pagos/pagos.service");
 
 
@@ -371,12 +372,15 @@ async function findPedidoById(id) {
   const viaticosMonto = Number.isFinite(vRaw) ? vRaw : 0;
   const viaticosAplicado = !esLima && viaticosMonto > 0 ? viaticosMonto : 0;
 
-  const total = subtotalServicios + viaticosAplicado;
+  const base = subtotalServicios + viaticosAplicado;
+  const { base: subtotal, igv, total } = calcIgv(base);
 
   return {
     ...p,
     pedido: {
       ...p.pedido,
+      subtotal,
+      igv,
       total,
     },
   };
@@ -744,7 +748,8 @@ function mapPedidoToContratoTemplateData(detail, body = {}, extra = {}) {
 
   // ===== Montos =====
   const totalBase = sumTotal(itemsContrato);
-  const total = totalBase + (Number.isFinite(Number(viaticosToAdd)) ? Number(viaticosToAdd) : 0);
+  const base = totalBase + (Number.isFinite(Number(viaticosToAdd)) ? Number(viaticosToAdd) : 0);
+  const { total } = calcIgv(base);
 
   const adelanto = body?.montoAdelanto != null ? Number(body.montoAdelanto) : total * 0.5;
   const saldo = body?.montoSaldo != null ? Number(body.montoSaldo) : total - adelanto;

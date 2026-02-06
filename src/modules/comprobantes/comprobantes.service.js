@@ -6,6 +6,7 @@ const repo = require("./comprobantes.repository");
 // ✅ AJUSTA ESTE PATH a tu archivo real
 // ejemplo: "../../pdf/wordtopdf" o "../../utils/wordtopdf"
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
+const { getIgvRate } = require("../../utils/igv");
 
 function money2(v) {
   const n = Number(v ?? 0);
@@ -94,7 +95,9 @@ function money2(v) {
   // Si no viene, intentamos derivarlo de sumPedido * 1.18 si existiera.
   const totalPedidoConIgv =
     Number(h.totalPedido ?? 0) ||
-    (Number(h.sumPedido ?? 0) > 0 ? Number(h.sumPedido) * 1.18 : 0);
+    (Number(h.sumPedido ?? 0) > 0
+      ? Number(h.sumPedido) * (1 + getIgvRate())
+      : 0);
 
   const totalPago = Number(h.total ?? 0); // total del voucher (incluye IGV)
   const factorPago =

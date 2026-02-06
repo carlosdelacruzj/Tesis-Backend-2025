@@ -1,5 +1,6 @@
 const repo = require("./pagos.repository");
 const { getLimaISODate } = require("../../utils/dates");
+const { calcIgv, round2 } = require("../../utils/igv");
 
 function badRequest(msg) {
   const e = new Error(msg);
@@ -44,20 +45,50 @@ function toNumber(value) {
   return Number.isFinite(n) ? n : 0;
 }
 
+function applyIgvToResumen(resumen) {
+  const hasBase = resumen?.CostoBase != null || resumen?.Igv != null;
+  const montoAbonado = toNumber(resumen?.MontoAbonado);
+
+  if (hasBase) {
+    const base = toNumber(resumen?.CostoBase);
+    const igv = toNumber(resumen?.Igv);
+    const total = toNumber(resumen?.CostoTotal);
+    const saldoPendiente = round2(total - montoAbonado);
+    return {
+      ...resumen,
+      CostoBase: round2(base),
+      Igv: round2(igv),
+      CostoTotal: round2(total),
+      SaldoPendiente: saldoPendiente < 0 ? 0 : saldoPendiente,
+    };
+  }
+
+  const base = toNumber(resumen?.CostoTotal);
+  const { igv, total } = calcIgv(base);
+  const saldoPendiente = round2(total - montoAbonado);
+
+  return {
+    ...resumen,
+    CostoBase: round2(base),
+    Igv: igv,
+    CostoTotal: total,
+    SaldoPendiente: saldoPendiente < 0 ? 0 : saldoPendiente,
+  };
+}
+
 async function syncEstadoPagoPedido(pedidoId) {
   const resumenRows = await repo.getResumenByPedido(pedidoId);
-  const resumen = resumenRows?.[0];
-  if (!resumen) {
-    const e = new Error(`No se encontrÃ³ resumen de pago para pedido ${pedidoId}`);
+  const resumenRaw = resumenRows?.[0];
+  if (!resumenRaw) {
+    const e = new Error(`No se encontró resumen de pago para pedido ${pedidoId}`);
     e.status = 404;
     throw e;
   }
 
+  const resumen = applyIgvToResumen(resumenRaw);
   const costoTotal = toNumber(resumen.CostoTotal);
   const montoAbonado = toNumber(resumen.MontoAbonado);
-  const saldoPendiente = toNumber(
-    resumen.SaldoPendiente ?? costoTotal - montoAbonado
-  );
+  const saldoPendiente = toNumber(resumen.SaldoPendiente ?? costoTotal - montoAbonado);
 
   const [pendienteId, parcialId, pagadoId] = await Promise.all([
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PENDIENTE),
@@ -113,7 +144,8 @@ async function getResumen(pedidoId) {
   const id = assertIdPositivo(pedidoId, "pedidoId");
   const rows = await repo.getResumenByPedido(id);
   // El SP retorna 1 fila; si no, devolvemos ceros para no romper el front
-  return rows?.[0] ?? { CostoTotal: 0, MontoAbonado: 0, SaldoPendiente: 0 };
+  const base = rows?.[0] ?? { CostoTotal: 0, MontoAbonado: 0, SaldoPendiente: 0 };
+  return applyIgvToResumen(base);
 }
 
 async function listVouchers(pedidoId) {
@@ -310,3 +342,5 @@ module.exports = {
   updateVoucher,
   deleteVoucher,
 };
+
+
