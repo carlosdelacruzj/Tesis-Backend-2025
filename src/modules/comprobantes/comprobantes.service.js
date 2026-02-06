@@ -2,9 +2,6 @@
 const path = require("path");
 const fs = require("fs");
 const repo = require("./comprobantes.repository");
-
-// ✅ AJUSTA ESTE PATH a tu archivo real
-// ejemplo: "../../pdf/wordtopdf" o "../../utils/wordtopdf"
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 const { getIgvRate } = require("../../utils/igv");
 
@@ -12,103 +9,74 @@ function money2(v) {
   const n = Number(v ?? 0);
   return Number.isFinite(n) ? n.toFixed(2) : "0.00";
 }
+
 function safeStr(v) {
   return v == null ? "" : String(v);
 }
 
-function money2(v) {
-    const n = Number(v ?? 0);
-    return Number.isFinite(n) ? n.toFixed(2) : "0.00";
-  }
-  function safeStr(v) {
-    return v == null ? "" : String(v);
+function numberToWordsUSD(amount) {
+  const unidades = [
+    "", "UNO", "DOS", "TRES", "CUATRO", "CINCO",
+    "SEIS", "SIETE", "OCHO", "NUEVE", "DIEZ",
+    "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE",
+    "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE", "VEINTE",
+  ];
+
+  const decenas = [
+    "", "", "VEINTE", "TREINTA", "CUARENTA",
+    "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA",
+  ];
+
+  const centenas = [
+    "", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS",
+    "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS",
+    "OCHOCIENTOS", "NOVECIENTOS",
+  ];
+
+  function convertir(n) {
+    if (n === 0) return "CERO";
+    if (n === 100) return "CIEN";
+    let txt = "";
+
+    if (n >= 100) {
+      txt += centenas[Math.floor(n / 100)] + " ";
+      n %= 100;
+    }
+
+    if (n <= 20) {
+      txt += unidades[n];
+    } else {
+      txt += decenas[Math.floor(n / 10)];
+      if (n % 10 !== 0) txt += " Y " + unidades[n % 10];
+    }
+    return txt.trim();
   }
 
-  function numberToWordsUSD(amount) {
-    const unidades = [
-      "", "UNO", "DOS", "TRES", "CUATRO", "CINCO",
-      "SEIS", "SIETE", "OCHO", "NUEVE", "DIEZ",
-      "ONCE", "DOCE", "TRECE", "CATORCE", "QUINCE",
-      "DIECISÉIS", "DIECISIETE", "DIECIOCHO", "DIECINUEVE", "VEINTE",
-    ];
-  
-    const decenas = [
-      "", "", "VEINTE", "TREINTA", "CUARENTA",
-      "CINCUENTA", "SESENTA", "SETENTA", "OCHENTA", "NOVENTA",
-    ];
-  
-    const centenas = [
-      "", "CIENTO", "DOSCIENTOS", "TRESCIENTOS", "CUATROCIENTOS",
-      "QUINIENTOS", "SEISCIENTOS", "SETECIENTOS",
-      "OCHOCIENTOS", "NOVECIENTOS",
-    ];
-  
-    function convertir(n) {
-      if (n === 0) return "CERO";
-      if (n === 100) return "CIEN";
-      let txt = "";
-  
-      if (n >= 100) {
-        txt += centenas[Math.floor(n / 100)] + " ";
-        n %= 100;
-      }
-  
-      if (n <= 20) {
-        txt += unidades[n];
-      } else {
-        txt += decenas[Math.floor(n / 10)];
-        if (n % 10 !== 0) {
-          txt += " Y " + unidades[n % 10];
-        }
-      }
-      return txt.trim();
-    }
-  
-    const total = Number(amount || 0).toFixed(2);
-    const [entero, decimal] = total.split(".");
-    const enteroNum = Number(entero);
-  
-    let letras = "";
-  
-    if (enteroNum === 0) {
-      letras = "CERO";
-    } else if (enteroNum < 1000) {
-      letras = convertir(enteroNum);
-    } else {
-      // miles simples (suficiente para tu caso)
-      const miles = Math.floor(enteroNum / 1000);
-      const resto = enteroNum % 1000;
-      letras =
-        (miles === 1 ? "MIL" : convertir(miles) + " MIL") +
-        (resto ? " " + convertir(resto) : "");
-    }
-  
-    return `${letras} Y ${decimal}/100 DÓLARES`;
+  const total = Number(amount || 0).toFixed(2);
+  const [entero, decimal] = total.split(".");
+  const enteroNum = Number(entero);
+
+  let letras = "";
+  if (enteroNum === 0) letras = "CERO";
+  else if (enteroNum < 1000) letras = convertir(enteroNum);
+  else {
+    const miles = Math.floor(enteroNum / 1000);
+    const resto = enteroNum % 1000;
+    letras = (miles === 1 ? "MIL" : convertir(miles) + " MIL") + (resto ? " " + convertir(resto) : "");
   }
-  
-  function mapComprobanteToTemplateData(header, items) {
+
+  return `${letras} Y ${decimal}/100 DÓLARES`;
+}
+
+function mapComprobanteToTemplateData(header, items, { factorPago = 1 } = {}) {
   const h = header || {};
   const arr = Array.isArray(items) ? items : [];
 
-  // ===== pago parcial (para {#mostrarPagoParcial}{observacionPago}{/mostrarPagoParcial}) =====
-  // totalPedido: ideal que venga del SP (total del pedido CON IGV).
-  // Si no viene, intentamos derivarlo de sumPedido * 1.18 si existiera.
-  const totalPedidoConIgv =
-    Number(h.totalPedido ?? 0) ||
-    (Number(h.sumPedido ?? 0) > 0
-      ? Number(h.sumPedido) * (1 + getIgvRate())
-      : 0);
+  const mostrarPagoParcial = Number(factorPago) < 0.999;
+  const pct = Math.round(Number(factorPago) * 100);
+  const pctLabel = `${pct}%`;
 
-  const totalPago = Number(h.total ?? 0); // total del voucher (incluye IGV)
-  const factorPago =
-    totalPedidoConIgv > 0 ? totalPago / totalPedidoConIgv : 1;
-
-  // tolerancia por decimales
-  const mostrarPagoParcial = factorPago < 0.999;
-
-  const observacionPago = mostrarPagoParcial
-    ? `Pago parcial (${Math.round(factorPago * 100)}%)`
-    : "";
+  const observacionPago = mostrarPagoParcial ? `Pago parcial (${pctLabel})` : "";
 
   const tipo = safeStr(h.tipo).toUpperCase();
   const tituloComprobante =
@@ -119,23 +87,21 @@ function money2(v) {
       : "BOLETA DE VENTA ELECTRÓNICA";
 
   return {
-    // ===== header empresa =====
     tituloComprobante,
+
     empresaRazonSocial: safeStr(h.empresaRazonSocial),
     empresaRuc: safeStr(h.empresaRuc),
     empresaDireccion: safeStr(h.empresaDireccion),
-    empresaCiudad: safeStr(h.empresaCiudad || ""), // opcional
+    empresaCiudad: safeStr(h.empresaCiudad || ""),
 
-    // ===== comprobante =====
     tipo: safeStr(h.tipo),
     serie: safeStr(h.serie),
     numero: safeStr(h.numero),
     fechaEmision: safeStr(h.fechaEmision),
     horaEmision: safeStr(h.horaEmision),
-    fechaVencimiento: safeStr(h.fechaVencimiento || ""), // opcional
+    fechaVencimiento: safeStr(h.fechaVencimiento || ""),
     moneda: safeStr(h.moneda || "USD"),
 
-    // ===== cliente =====
     clienteTipoDoc: safeStr(h.clienteTipoDoc),
     clienteNumDoc: safeStr(h.clienteNumDoc),
     clienteNombre: safeStr(h.clienteNombre),
@@ -143,15 +109,13 @@ function money2(v) {
     clienteCorreo: safeStr(h.clienteCorreo),
     clienteCelular: safeStr(h.clienteCelular),
 
-    // ===== extras visuales =====
     medioPago: safeStr(h.medioPago || ""),
     observacion: safeStr(h.observacion || ""),
 
-    // ✅ pago parcial (para tu bloque en Word)
-    mostrarPagoParcial,      // boolean true/false
-    observacionPago,         // string
+    mostrarPagoParcial,
+    observacionPago,
 
-    // ===== totales =====
+    // totals (aunque no muestres IGV, no molesta tenerlos)
     opGravada: money2(h.opGravada),
     igv: money2(h.igv),
     total: money2(h.total),
@@ -159,51 +123,44 @@ function money2(v) {
     otrosCargos: money2(h.otrosCargos ?? 0),
     otrosTributos: money2(h.otrosTributos ?? 0),
 
-    // cuadro tributos (para que se vea realista)
-    opExonerada: money2(h.opExonerada ?? 0),
-    opInafecta: money2(h.opInafecta ?? 0),
-    isc: money2(h.isc ?? 0),
-    redondeo: money2(h.redondeo ?? 0),
-
-    // total en letras
     totalEnLetras: numberToWordsUSD(h.total),
 
-    // ===== pedido/evento =====
     pedidoId: safeStr(h.pedidoId),
     pedidoNombre: safeStr(h.pedidoNombre),
     pedidoFechaEvento: safeStr(h.pedidoFechaEvento),
     pedidoLugar: safeStr(h.pedidoLugar),
 
-    // ===== detalle =====
-    detalleItems: arr.map((it) => ({
-      cantidad: safeStr(it.cantidad),
-      unidad: safeStr(it.unidad),
-      descripcion: safeStr(it.descripcion),
-      valorUnitario: money2(it.valorUnitario),
-      descuento: money2(it.descuento ?? 0),
-      importe: money2(it.importe),
-    })),
+    detalleItems: arr.map((it) => {
+      const cant = Number(it.cantidad ?? 0) || 0;
+      const importeParcial = Number(it.importe ?? 0) || 0;
+      const valorUnitarioParcial = cant > 0 ? importeParcial / cant : 0;
 
-    // ===== leyenda/footer =====
+      return {
+        cantidad: safeStr(it.cantidad),
+        unidad: safeStr(it.unidad),
+        descripcion: `${safeStr(it.descripcion)} (Pago ${pctLabel})`,
+        valorUnitario: money2(valorUnitarioParcial),
+        descuento: money2(it.descuento ?? 0),
+        importe: money2(importeParcial),
+      };
+    }),
+
     leyendaSunat: safeStr(
-      h.leyendaSunat ||
-        "Esta es una representación impresa del comprobante. (Demo / uso interno)"
+      h.leyendaSunat || "Los precios indicados NO incluyen IGV. Documento de uso interno."
     ),
 
-    // ===== NC referencias =====
     docAfectadoTipo: safeStr(h.docAfectadoTipo || ""),
     docAfectadoSerieNumero: safeStr(h.docAfectadoSerieNumero || ""),
     motivoNc: safeStr(h.motivoNc || ""),
   };
 }
 
-  function pickTemplate(tipoRaw) {
-    const tipo = String(tipoRaw || "").trim().toUpperCase();
-  
-    if (tipo.includes("CRED") || tipo === "NC") return "NotaCredito_v2.docx";
-    if (tipo === "FACTURA") return "Factura_v2.docx";
-    return "Boleta_v2.docx";
-  }
+function pickTemplate(tipoRaw) {
+  const tipo = String(tipoRaw || "").trim().toUpperCase();
+  if (tipo.includes("CRED") || tipo === "NC") return "NotaCredito_v2.docx";
+  if (tipo === "FACTURA") return "Factura_v2.docx";
+  return "Boleta_v2.docx";
+}
 
 async function generateComprobantePdfBufferByVoucherId(voucherId) {
   const { header, items } = await repo.getComprobantePdfByVoucherId(voucherId);
@@ -214,6 +171,16 @@ async function generateComprobantePdfBufferByVoucherId(voucherId) {
     throw e;
   }
 
+  // ✅ base del porcentaje = TOTAL con IGV (como UI)
+  // subtotalPedido sale de SUM(PS_Subtotal) en T_PedidoServicio
+  const subtotalPedido = await repo.getSubtotalPedidoByPedidoId(header.pedidoId);
+  const totalPedidoConIGV = Number(subtotalPedido ?? 0) * 1.18;
+
+  const totalPago = Number(header.total ?? 0);
+
+  const factorPago =
+    totalPedidoConIGV > 0 ? totalPago / totalPedidoConIGV : 1;
+
   const templateName = pickTemplate(header.tipo);
   const templatePath = path.join(process.cwd(), "src", "pdf", "templates", templateName);
 
@@ -223,7 +190,7 @@ async function generateComprobantePdfBufferByVoucherId(voucherId) {
     throw e;
   }
 
-  const data = mapComprobanteToTemplateData(header, items);
+  const data = mapComprobanteToTemplateData(header, items, { factorPago });
 
   const pdfBuffer = await generatePdfBufferFromDocxTemplate({
     templatePath,
