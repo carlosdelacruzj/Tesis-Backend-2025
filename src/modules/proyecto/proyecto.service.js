@@ -284,7 +284,35 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
     }
   }
 
+  if (String(estadoActual?.estadoDiaNombre || "").trim().toLowerCase() === "terminado") {
+    await tryAutoPostproduccionByDiaId(did);
+  }
+
   return { status: "Actualizacion exitosa", diaId: did, estadoDiaId: eid };
+}
+
+async function tryAutoPostproduccionByDiaId(diaId) {
+  const info = await repo.getProyectoInfoByDiaId(diaId);
+  if (!info?.proyectoId) return;
+
+  const [estadoDiaTerminadoId, estadoProyPostId] = await Promise.all([
+    repo.getEstadoProyectoDiaIdByNombre("Terminado"),
+    repo.getEstadoProyectoIdByNombre("En postproduccion"),
+  ]);
+
+  const diasNoTerminados = await repo.countDiasNoTerminados(
+    info.proyectoId,
+    estadoDiaTerminadoId
+  );
+  if (diasNoTerminados > 0) return;
+
+  const equiposNoDevueltos = await repo.countEquiposNoDevueltos(info.proyectoId);
+  if (equiposNoDevueltos > 0) return;
+
+  const estadoActual = Number(info.proyectoEstadoId);
+  if (estadoActual === estadoProyPostId) return;
+
+  await repo.patchProyectoById(info.proyectoId, { estadoId: estadoProyPostId });
 }
 
 async function disponibilidadAsignaciones(query = {}) {
@@ -510,6 +538,7 @@ async function devolverEquiposDia(diaId, payload = {}) {
   });
 
   const result = await repo.updateDevolucionEquipos(did, equipos, usuarioId);
+  await tryAutoPostproduccionByDiaId(did);
   return {
     status: "Devolucion registrada",
     diaId: did,
@@ -550,6 +579,7 @@ async function devolverEquipo(diaId, equipoId, payload = {}) {
   };
 
   const result = await repo.updateDevolucionEquipos(did, [item], usuarioId);
+  await tryAutoPostproduccionByDiaId(did);
   return {
     status: "Devolucion registrada",
     diaId: did,

@@ -82,6 +82,28 @@ async function getProyectoInfoByDiaId(diaId) {
   return rows?.[0] || null;
 }
 
+async function countDiasNoTerminados(proyectoId, estadoTerminadoId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS cnt
+     FROM T_ProyectoDia
+     WHERE FK_Pro_Cod = ?
+       AND (FK_EPD_Cod IS NULL OR FK_EPD_Cod <> ?)`,
+    [Number(proyectoId), Number(estadoTerminadoId)]
+  );
+  return Number(rows?.[0]?.cnt || 0);
+}
+
+async function countEquiposNoDevueltos(proyectoId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS cnt
+     FROM T_ProyectoDiaEquipo pdq
+     JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdq.FK_PD_Cod
+     WHERE pd.FK_Pro_Cod = ?
+       AND (pdq.PDQ_Devuelto IS NULL OR pdq.PDQ_Devuelto = 0)`,
+    [Number(proyectoId)]
+  );
+  return Number(rows?.[0]?.cnt || 0);
+}
 async function updatePedidoEstadoById(pedidoId, estadoPedidoId) {
   const [result] = await pool.query(
     "UPDATE T_Pedido SET FK_EP_Cod = ? WHERE PK_P_Cod = ?",
@@ -788,6 +810,8 @@ module.exports = {
   listEstadoProyectoDia,
   updateProyectoDiaEstado,
   getProyectoInfoByDiaId,
+  countDiasNoTerminados,
+  countEquiposNoDevueltos,
   upsertProyectoAsignaciones,
   createProyectoDiaIncidencia,
   updatePedidoEstadoById,
