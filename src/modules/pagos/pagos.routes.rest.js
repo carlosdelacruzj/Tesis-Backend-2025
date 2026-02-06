@@ -156,7 +156,12 @@ router.get("/estados", ctrl.getEstadosPago);
  *           schema:
  *             $ref: '#/components/schemas/PagoCreate'
  *     responses:
- *       '201': { description: Creado }
+ *       '201':
+ *         description: Creado
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/PagoCreateResponse'
  *       '400': { description: Datos inválidos }
  */
 router.post("/", upload.single("file"), ctrl.postPago);

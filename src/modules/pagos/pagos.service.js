@@ -200,7 +200,7 @@ async function createVoucher({
   const size = file?.size ?? null;
   const fechaNormalizada = parseFecha(fecha);
 
-  await repo.insertVoucher({
+  const insertResult = await repo.insertVoucher({
     monto: Number(monto),
     metodoPagoId: Number(metodoPagoId),
     estadoVoucherId: Number(estadoVoucherIdFinal),
@@ -211,6 +211,12 @@ async function createVoucher({
     nombre, // string o null
     size, // number o null
   });
+  const voucherId =
+    insertResult?.[0]?.idVoucher ??
+    insertResult?.idVoucher ??
+    insertResult?.[0]?.ID ??
+    insertResult?.ID ??
+    null;
 
   // Si es el primer pago, pasamos el pedido a estado "Contratado" solo si estaba en "Cotizado"
   if (esPrimerPago) {
@@ -229,7 +235,7 @@ async function createVoucher({
 
   await syncEstadoPagoPedido(id);
 
-  return { Status: "Voucher registrado" };
+  return { Status: "Voucher registrado", voucherId };
 }
 
 async function getVoucherImage(id) {

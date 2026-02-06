@@ -124,6 +124,18 @@
  *           format: date
  *           description: Fecha del voucher (opcional)
  *
+ *     PagoCreateResponse:
+ *       type: object
+ *       properties:
+ *         Status:
+ *           type: string
+ *         voucherId:
+ *           type: integer
+ *           nullable: true
+ *       example:
+ *         Status: "Voucher registrado"
+ *         voucherId: 1234
+ *
  *     PagoUpdate:
  *       type: object
  *       properties:
