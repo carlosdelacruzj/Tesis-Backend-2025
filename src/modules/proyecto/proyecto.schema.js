@@ -65,12 +65,23 @@
  *       type: object
  *       properties:
  *         proyectoId:     { type: integer }
+ *         codigo:         { type: string, nullable: true }
  *         proyectoNombre: { type: string }
  *         pedidoId:       { type: integer }
  *         pedidoCodigo:   { type: string, nullable: true }
  *         estadoId:       { type: integer }
  *         estadoNombre:   { type: string, nullable: true }
  *         responsableId:  { type: integer, nullable: true }
+ *         responsableNombre: { type: string, nullable: true }
+ *         eventoFecha:    { type: string, format: date, nullable: true }
+ *         diasParaEvento: { type: integer, nullable: true }
+ *         lugar:          { type: string, nullable: true }
+ *         ubicacion:      { type: string, nullable: true }
+ *         estadoPagoId:   { type: integer, nullable: true }
+ *         estadoPagoNombre: { type: string, nullable: true }
+ *         saldoPendiente: { type: number, format: double, nullable: true }
+ *         pendientesDevolucion: { type: integer, nullable: true }
+ *         tienePendientes: { type: integer, nullable: true }
  *         notas:          { type: string, nullable: true }
  *         enlace:         { type: string, nullable: true }
  *         createdAt:      { type: string, format: date-time, nullable: true }
