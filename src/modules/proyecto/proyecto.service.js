@@ -193,17 +193,47 @@ async function patchProyecto(id, payload = {}) {
 }
 
 async function patchProyectoPostproduccion(id, payload = {}) {
+  async function getEstadoProyectoIdFlexible(...nombres) {
+    let lastError = null;
+    for (const nombre of nombres) {
+      try {
+        return await repo.getEstadoProyectoIdByNombre(nombre);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
   const pid = ensurePositiveInt(id, "id");
   const clean = {
     fechaInicioEdicion: payload?.fechaInicioEdicion ?? undefined,
     fechaFinEdicion: payload?.fechaFinEdicion ?? undefined,
-    preEntregaEnlace: toCleanText(payload?.preEntregaEnlace, 255),
-    preEntregaTipo: toCleanText(payload?.preEntregaTipo, 60),
-    preEntregaFeedback: toCleanText(payload?.preEntregaFeedback, 255),
+    preEntregaEnlace:
+      payload?.preEntregaEnlace === undefined
+        ? undefined
+        : toCleanText(payload?.preEntregaEnlace, 255),
+    preEntregaTipo:
+      payload?.preEntregaTipo === undefined
+        ? undefined
+        : toCleanText(payload?.preEntregaTipo, 60),
+    preEntregaFeedback:
+      payload?.preEntregaFeedback === undefined
+        ? undefined
+        : toCleanText(payload?.preEntregaFeedback, 255),
     preEntregaFecha: payload?.preEntregaFecha ?? undefined,
-    respaldoUbicacion: toCleanText(payload?.respaldoUbicacion, 255),
-    respaldoNotas: toCleanText(payload?.respaldoNotas, 255),
-    entregaFinalEnlace: toCleanText(payload?.entregaFinalEnlace, 255),
+    respaldoUbicacion:
+      payload?.respaldoUbicacion === undefined
+        ? undefined
+        : toCleanText(payload?.respaldoUbicacion, 255),
+    respaldoNotas:
+      payload?.respaldoNotas === undefined
+        ? undefined
+        : toCleanText(payload?.respaldoNotas, 255),
+    entregaFinalEnlace:
+      payload?.entregaFinalEnlace === undefined
+        ? undefined
+        : toCleanText(payload?.entregaFinalEnlace, 255),
     entregaFinalFecha: payload?.entregaFinalFecha ?? undefined,
   };
 
@@ -213,6 +243,33 @@ async function patchProyectoPostproduccion(id, payload = {}) {
     err.status = 404;
     throw err;
   }
+
+  const current = await repo.getByIdProyecto(pid);
+  const row = current?.proyecto ?? null;
+  if (row) {
+    const fechaFinEdicionSet = row.fechaFinEdicion != null;
+    const respaldoUbicacionSet = String(row.respaldoUbicacion || "").trim().length > 0;
+    const entregaFinalEnlaceSet = String(row.entregaFinalEnlace || "").trim().length > 0;
+    const entregaFinalFechaSet = row.entregaFinalFecha != null;
+
+    if (entregaFinalEnlaceSet && entregaFinalFechaSet) {
+      const estadoEntregadoId = await getEstadoProyectoIdFlexible("Entregado");
+      const estadoActualId = Number(row.estadoId || 0);
+      if (estadoActualId !== estadoEntregadoId) {
+        await repo.patchProyectoById(pid, { estadoId: estadoEntregadoId });
+      }
+    } else if (fechaFinEdicionSet && respaldoUbicacionSet) {
+      const [estadoPostId, estadoListoEntregaId] = await Promise.all([
+        getEstadoProyectoIdFlexible("En postproduccion", "En postproducción"),
+        getEstadoProyectoIdFlexible("Listo para entrega"),
+      ]);
+      const estadoActualId = Number(row.estadoId || 0);
+      if (estadoActualId === estadoPostId) {
+        await repo.patchProyectoById(pid, { estadoId: estadoListoEntregaId });
+      }
+    }
+  }
+
   return { status: "Actualizacion postproduccion exitosa", proyectoId: pid };
 }
 
