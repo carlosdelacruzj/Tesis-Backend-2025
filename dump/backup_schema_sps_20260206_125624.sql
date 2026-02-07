@@ -3447,8 +3447,6 @@ BEGIN
   DECLARE v_estado_id TINYINT;
   DECLARE v_proyecto_id INT;
   DECLARE v_nombre VARCHAR(50);
-  DECLARE v_fecha_inicio DATE;
-  DECLARE v_fecha_fin DATE;
 
   IF p_pedido_id IS NULL THEN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'pedidoId es requerido';
@@ -3476,11 +3474,6 @@ BEGIN
     SIGNAL SQLSTATE '45000' SET MESSAGE_TEXT = 'Estado proyecto Planificado no existe';
   END IF;
 
-  SELECT MIN(PE_Fecha), MAX(PE_Fecha)
-  INTO v_fecha_inicio, v_fecha_fin
-  FROM T_PedidoEvento
-  WHERE FK_P_Cod = p_pedido_id;
-
   START TRANSACTION;
 
     INSERT INTO T_Proyecto (
@@ -3499,8 +3492,8 @@ BEGIN
       p_pedido_id,
       v_estado_id,
       p_responsable_id,
-      v_fecha_inicio,
-      v_fecha_fin,
+      NULL,
+      NULL,
       NULLIF(TRIM(p_enlace), ''),
       NULLIF(TRIM(p_notas), ''),
       NULL,
@@ -3514,9 +3507,6 @@ BEGIN
     FROM T_PedidoEvento pe
     WHERE pe.FK_P_Cod = p_pedido_id
     GROUP BY pe.PE_Fecha;
-
-    SET @pdb_orden := 0;
-    SET @pdb_fecha := NULL;
 
     INSERT INTO T_ProyectoDiaBloque (FK_PD_Cod, PDB_Hora, PDB_Ubicacion, PDB_Direccion, PDB_Notas, PDB_Orden)
     SELECT
@@ -3534,8 +3524,10 @@ BEGIN
         pe.PE_Ubicacion,
         pe.PE_Direccion,
         pe.PE_Notas,
-        (@pdb_orden := IF(@pdb_fecha = pe.PE_Fecha, @pdb_orden + 1, 1)) AS PDB_Orden,
-        (@pdb_fecha := pe.PE_Fecha) AS _set_fecha
+        ROW_NUMBER() OVER (
+          PARTITION BY pe.PE_Fecha
+          ORDER BY pe.PE_Hora, pe.PK_PE_Cod
+        ) AS PDB_Orden
       FROM T_PedidoEvento pe
       JOIN T_ProyectoDia pd
         ON pd.FK_Pro_Cod = v_proyecto_id AND pd.PD_Fecha = pe.PE_Fecha

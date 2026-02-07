@@ -225,6 +225,30 @@ async function listEstadosProyectoDia() {
 }
 
 async function updateProyectoDiaEstado(diaId, estadoDiaId) {
+  async function getEstadoProyectoIdFlexible(...nombres) {
+    let lastError = null;
+    for (const nombre of nombres) {
+      try {
+        return await repo.getEstadoProyectoIdByNombre(nombre);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
+  async function getEstadoPedidoIdFlexible(...nombres) {
+    let lastError = null;
+    for (const nombre of nombres) {
+      try {
+        return await repo.getEstadoPedidoIdByNombre(nombre);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
   const did = ensurePositiveInt(diaId, "diaId");
   const eid = ensurePositiveInt(estadoDiaId, "estadoDiaId");
 
@@ -253,15 +277,15 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
       const [
         estadoProyEnEjecId,
         estadoProyEntregadoId,
-        estadoProyCerradoId,
+        estadoProyListoEntregaId,
         estadoPedEnEjecId,
         estadoPedCotizadoId,
         estadoPedContratadoId,
       ] = await Promise.all([
-        repo.getEstadoProyectoIdByNombre("En ejecucion"),
-        repo.getEstadoProyectoIdByNombre("Entregado"),
-        repo.getEstadoProyectoIdByNombre("Cerrado"),
-        repo.getEstadoPedidoIdByNombre("En ejecución"),
+        getEstadoProyectoIdFlexible("En ejecucion", "En ejecución"),
+        getEstadoProyectoIdFlexible("Entregado"),
+        getEstadoProyectoIdFlexible("Listo para entrega"),
+        getEstadoPedidoIdFlexible("En ejecución", "En ejecucion"),
         repo.getEstadoPedidoIdByNombre("Cotizado"),
         repo.getEstadoPedidoIdByNombre("Contratado"),
       ]);
@@ -269,8 +293,8 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
       const proyEstadoId = Number(info.proyectoEstadoId);
       if (
         proyEstadoId !== estadoProyEnEjecId &&
-        proyEstadoId !== estadoProyEntregadoId &&
-        proyEstadoId !== estadoProyCerradoId
+        proyEstadoId !== estadoProyListoEntregaId &&
+        proyEstadoId !== estadoProyEntregadoId
       ) {
         await repo.patchProyectoById(info.proyectoId, { estadoId: estadoProyEnEjecId });
       }
