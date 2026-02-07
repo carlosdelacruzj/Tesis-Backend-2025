@@ -72,12 +72,22 @@ function mapComprobanteToTemplateData(header, items) {
   const h = header || {};
   const arr = Array.isArray(items) ? items : [];
 
+<<<<<<< HEAD
   // ====== helpers numéricos ======
   const n = (v) => {
     const x = Number(v);
     return Number.isFinite(x) ? x : 0;
   };
   const round2 = (v) => Math.round(n(v) * 100) / 100;
+=======
+  const tipo = safeStr(h.tipo).toUpperCase();
+  const esNC = tipo.includes("CRED") || tipo === "NC";
+
+  // En NC no aplica "pago parcial"
+  const mostrarPagoParcial = !esNC && Number(factorPago) < 0.999;
+  const pct = Math.round(Number(factorPago) * 100);
+  const pctLabel = `${pct}%`;
+>>>>>>> e479982 (avance nc)
 
   // ====== BASE (SIN IGV) ======
   const opGravadaNum = round2(n(h.opGravada));
@@ -104,13 +114,11 @@ function mapComprobanteToTemplateData(header, items) {
   const porcentajePagoNum = round2(factorPagoNum * 100);
   const porcentajePagoTxt = `${porcentajePagoNum}%`;
 
-  const tipo = safeStr(h.tipo).toUpperCase();
-  const tituloComprobante =
-    tipo.includes("CRED") || tipo === "NC"
-      ? "NOTA DE CRÉDITO"
-      : tipo === "FACTURA"
-      ? "FACTURA ELECTRÓNICA"
-      : "BOLETA DE VENTA ELECTRÓNICA";
+  const tituloComprobante = esNC
+    ? "NOTA DE CRÉDITO"
+    : tipo === "FACTURA"
+    ? "FACTURA ELECTRÓNICA"
+    : "BOLETA DE VENTA ELECTRÓNICA";
 
   // ====== pago parcial (condicional) ======
   // ✅ Regla simple: si factorPago < 100% entonces es parcial
@@ -148,7 +156,9 @@ function mapComprobanteToTemplateData(header, items) {
     fechaEmision: safeStr(h.fechaEmision),
     horaEmision: safeStr(h.horaEmision),
     fechaVencimiento: safeStr(h.fechaVencimiento || ""),
-    moneda: safeStr(h.moneda || "USD"),
+
+    // Moneda fija
+    moneda: "$",
 
     // ===== cliente =====
     clienteTipoDoc: safeStr(h.clienteTipoDoc),
@@ -163,6 +173,7 @@ function mapComprobanteToTemplateData(header, items) {
     mostrarPagoParcial: esPagoParcial,
     observacionPago,
 
+<<<<<<< HEAD
     // ===== totales =====
     opGravada: money2(opGravadaNum),
     igv: money2(igvNum),
@@ -177,6 +188,19 @@ function mapComprobanteToTemplateData(header, items) {
     opInafecta: money2(h.opInafecta ?? 0),
     isc: money2(h.isc ?? 0),
     redondeo: money2(h.redondeo ?? 0),
+=======
+    // totals
+    opGravada: money2(h.opGravada),
+    igv: money2(h.igv),
+    total: money2(h.total),
+    anticipos: money2(h.anticipos),
+    otrosCargos: money2(h.otrosCargos ?? 0),
+    otrosTributos: money2(h.otrosTributos ?? 0),
+
+    // Si tu helper es fijo a USD y no quieres tocarlo ahora, al menos que no reviente:
+    // (ideal: luego crear numberToWordsCurrency(total, "$"))
+    totalEnLetras: numberToWordsUSD(h.total),
+>>>>>>> e479982 (avance nc)
 
     totalEnLetras: numberToWordsUSD(totalSinIgvNum),
 
@@ -186,6 +210,7 @@ function mapComprobanteToTemplateData(header, items) {
     pedidoFechaEvento: safeStr(h.pedidoFechaEvento),
     pedidoLugar: safeStr(h.pedidoLugar),
 
+<<<<<<< HEAD
     // ===== detalle =====
     detalleItems: arr.map((it) => ({
       cantidad: safeStr(it.cantidad),
@@ -196,6 +221,25 @@ function mapComprobanteToTemplateData(header, items) {
       descuento: money2(it.descuento ?? 0),
       importe: money2(it.importe),
     })),
+=======
+    detalleItems: arr.map((it) => {
+      const cant = Number(it.cantidad ?? 0) || 0;
+      const importeParcial = Number(it.importe ?? 0) || 0;
+      const valorUnitarioParcial = cant > 0 ? importeParcial / cant : 0;
+
+      return {
+        cantidad: safeStr(it.cantidad),
+        unidad: safeStr(it.unidad),
+
+        // NC: no añade "(Pago xx%)"
+        descripcion: esNC ? safeStr(it.descripcion) : `${safeStr(it.descripcion)} (Pago ${pctLabel})`,
+
+        valorUnitario: money2(valorUnitarioParcial),
+        descuento: money2(it.descuento ?? 0),
+        importe: money2(importeParcial),
+      };
+    }),
+>>>>>>> e479982 (avance nc)
 
     leyendaSunat: safeStr(
       h.leyendaSunat ||
