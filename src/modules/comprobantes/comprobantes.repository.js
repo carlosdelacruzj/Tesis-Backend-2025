@@ -1,32 +1,45 @@
-// comprobantes.repository.js
-const db = require("../../db");
+// src/modules/comprobantes/comprobantes.repository.js
+const db = require("../../db"); // ajusta si tu import es distinto
 
-async function getComprobantePdfByVoucherId(p_PK_Pa_Cod) {
-  const id = Number(p_PK_Pa_Cod);
-  if (!Number.isInteger(id) || id <= 0) {
-    const e = new Error("voucherId inválido");
-    e.status = 400;
-    throw e;
-  }
+async function callSp(spName, params = []) {
+  const placeholders = params.map(() => "?").join(",");
+  const sql = `CALL ${spName}(${placeholders});`;
+  const [rows] = await db.query(sql, params);
 
-  const [rows] = await db.query("CALL SP_get_comprobante_pdf_by_voucher(?)", [id]);
-  const header = rows?.[0]?.[0] || null;
-  const items = Array.isArray(rows?.[1]) ? rows[1] : [];
-
+  // mysql2: CALL devuelve array de resultsets
+  // rows[0] = header, rows[1] = items
+  const header = rows?.[0]?.[0] ?? null;
+  const items = rows?.[1] ?? [];
   return { header, items };
 }
 
-// (opcional) si lo quieres conservar
-async function getSubtotalPedidoByPedidoId(pedidoId) {
-  const id = Number(pedidoId);
-  if (!Number.isInteger(id) || id <= 0) return 0;
-
-  const [rows] = await db.query(
-    "SELECT COALESCE(SUM(PS_Subtotal), 0) AS subtotalPedido FROM T_PedidoServicio WHERE FK_P_Cod = ?",
-    [id]
-  );
-
-  return Number(rows?.[0]?.subtotalPedido ?? 0);
+async function getVoucherById(voucherId) {
+  const sql = `
+    SELECT PK_Pa_Cod, Pa_Monto_Depositado, FK_P_Cod
+    FROM T_Voucher
+    WHERE PK_Pa_Cod = ?
+    LIMIT 1;
+  `;
+  const [rows] = await db.query(sql, [voucherId]);
+  return rows?.[0] ?? null;
 }
 
-module.exports = { getComprobantePdfByVoucherId, getSubtotalPedidoByPedidoId };
+async function getComprobantePdfByVoucherId(voucherId) {
+  const v = await getVoucherById(voucherId);
+  if (!v) return { header: null, items: [] };
+
+  const monto = Number(v.Pa_Monto_Depositado ?? 0);
+
+  // ✅ Nota de Crédito: voucher negativo -> SP NC (SOLO 1 ARG)
+  // OJO: aquí NO creamos nada, solo leemos para generar PDF.
+  if (monto < 0) {
+    return await callSp("SP_get_nota_credito_pdf_by_voucher", [voucherId]);
+  }
+
+  // ✅ Boleta/Factura: voucher positivo
+  return await callSp("SP_get_comprobante_pdf_by_voucher", [voucherId]);
+}
+
+module.exports = {
+  getComprobantePdfByVoucherId,
+};

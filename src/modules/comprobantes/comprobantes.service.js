@@ -90,41 +90,42 @@ function mapComprobanteToTemplateData(header, items) {
       : "BOLETA DE VENTA ELECTRÓNICA";
 
   // ===== totales vienen del SP =====
-  const opGravadaNum = round2(n(h.opGravada));
-  const igvNum = round2(n(h.igv));
+  const opGravadaNum = round2(n(h.opGravada)); // SIN IGV
+  const igvNum = round2(n(h.igv));             // IGV
+  const totalConIgvNum = round2(n(h.totalConIgv ?? h.total)); // CON IGV
 
-  // OJO: tu SP manda total = CON IGV
-  const totalConIgvNum = round2(n(h.totalConIgv ?? h.total));
+  // En tus SP actuales, "totalSinIgv" no siempre existe:
+  // el SIN IGV real para el template es opGravada
   const totalSinIgvNum =
-    (h.totalSinIgv != null && h.totalSinIgv !== "")
+    h.totalSinIgv != null && h.totalSinIgv !== ""
       ? round2(n(h.totalSinIgv))
-      : opGravadaNum; // en tu SP opGravada ya es sin IGV
+      : opGravadaNum;
 
-  // ===== factorPago viene del SP (no recalcular en Node) =====
+  // ===== factorPago viene del SP (NO recalcular en Node) =====
   const factorPagoNum =
     h.factorPago != null && h.factorPago !== "" ? round2(n(h.factorPago)) : 1;
 
   const porcentajePagoNum = Math.round(factorPagoNum * 100);
   const porcentajePagoTxt = `${porcentajePagoNum}%`;
 
-  // Pago parcial solo si < 100% y NO es NC
+  // Pago parcial SOLO si no es NC y < 100%
   const esPagoParcial = !esNC && factorPagoNum < 0.999;
 
-  // Observación: solo si es pago parcial
+  // Observación
   const observacionPagoTxt = esPagoParcial
     ? `Se ha pagado ${porcentajePagoTxt} del servicio.`
     : "";
 
-  // Para que el bloque {#mostrarPagoParcial}...{/mostrarPagoParcial} pinte SIEMPRE
-  // lo mandamos como array (loop) o array vacío
-  const mostrarPagoParcial = esPagoParcial
-    ? [{ observacionPago: observacionPagoTxt }]
-    : [];
+  // ✅ Para tu bloque en DOCX:
+  // {#mostrarPagoParcial} Observación: {observacionPago}{/mostrarPagoParcial}
+  const mostrarPagoParcial = Boolean(esPagoParcial);
 
   // Quitar descripción larga después del " — "
   const stripLongDesc = (s) => {
     const txt = safeStr(s);
-    return txt.includes(" — ") ? txt.split(" — ")[0].trim() : txt.trim();
+    if (txt.includes(" — ")) return txt.split(" — ")[0].trim();
+    if (txt.includes(" - ")) return txt.split(" - ")[0].trim();
+    return txt.trim();
   };
 
   // % al lado del servicio solo si es pago parcial (y NO es NC)
@@ -148,6 +149,7 @@ function mapComprobanteToTemplateData(header, items) {
 
     // Moneda fija
     moneda: "$",
+    descuentoTotal: money2(h.descuentoTotal ?? 0),
 
     // ===== cliente =====
     clienteTipoDoc: safeStr(h.clienteTipoDoc),
@@ -157,17 +159,18 @@ function mapComprobanteToTemplateData(header, items) {
     clienteCorreo: safeStr(h.clienteCorreo),
     clienteCelular: safeStr(h.clienteCelular),
 
-    // ===== observación (bloque condicional en Word) =====
-    // En DOCX: {#mostrarPagoParcial} Observación: {observacionPago}{/mostrarPagoParcial}
+    // ===== observación =====
     mostrarPagoParcial,
-    // (por si también lo usas fuera del loop)
     observacionPago: observacionPagoTxt,
 
     // ===== totales =====
     opGravada: money2(opGravadaNum),        // SIN IGV
     igv: money2(igvNum),
-    total: money2(totalSinIgvNum),         // primer total: SIN IGV (según tu template)
+    total: money2(totalSinIgvNum),         // primer total: SIN IGV
     totalConIgv: money2(totalConIgvNum),   // segundo total: CON IGV
+
+    // ✅ totalEnLetras SIN IGV (como pediste)
+    totalEnLetras: numberToWordsUSD(totalConIgvNum),
 
     anticipos: money2(h.anticipos ?? 0),
     otrosCargos: money2(h.otrosCargos ?? 0),
@@ -177,9 +180,6 @@ function mapComprobanteToTemplateData(header, items) {
     opInafecta: money2(h.opInafecta ?? 0),
     isc: money2(h.isc ?? 0),
     redondeo: money2(h.redondeo ?? 0),
-
-    // ✅ totalEnLetras SIN IGV (como pediste)
-    totalEnLetras: numberToWordsUSD(totalSinIgvNum),
 
     // ===== pedido/evento =====
     pedidoId: safeStr(h.pedidoId),
@@ -191,9 +191,7 @@ function mapComprobanteToTemplateData(header, items) {
     detalleItems: arr.map((it) => ({
       cantidad: safeStr(it.cantidad),
       unidad: safeStr(it.unidad || "UNIDAD"),
-      // Solo título; agrega % solo si parcial
       descripcion: `${stripLongDesc(it.descripcion)}${pctSuffix}`,
-      // No recalcular: el SP ya manda valorUnitario (SIN IGV)
       valorUnitario: money2(it.valorUnitario),
       descuento: money2(it.descuento ?? 0),
       importe: money2(it.importe),
