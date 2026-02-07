@@ -1,15 +1,17 @@
 
 -- Limpieza transaccional y carga de seed basico normalizado
 -- Ejecuta este archivo con el cliente mysql (SOURCE).
-
+use defaultdb;
 SET FOREIGN_KEY_CHECKS=0;
 
+SET SQL_SAFE_UPDATES=0;
 -- Transaccionales (hijos -> padres)
 DELETE FROM `T_Voucher`;
 DELETE FROM `T_ProyectoDiaServicio`;
 DELETE FROM `T_ProyectoDiaEmpleado`;
 DELETE FROM `T_ProyectoDiaEquipo`;
 DELETE FROM `T_ProyectoDiaBloque`;
+DELETE FROM `T_ProyectoDiaIncidencia`;
 DELETE FROM `T_ProyectoDia`;
 DELETE FROM `T_PedidoServicioFecha`;
 DELETE FROM `T_PedidoServicio`;
@@ -37,6 +39,7 @@ DELETE FROM `T_Tipo_Equipo`;
 DELETE FROM `T_Tipo_Empleado`;
 DELETE FROM `T_EventoServicioEstado`;
 DELETE FROM `T_EventoServicioCategoria`;
+DELETE FROM `T_PortafolioImagen`;
 DELETE FROM `T_Eventos`;
 DELETE FROM `T_Servicios`;
 DELETE FROM `T_Metodo_Pago`;
@@ -65,11 +68,16 @@ INSERT INTO `T_Estado_Equipo` (`PK_EE_Cod`, `EE_Nombre`) VALUES(1, 'Disponible')
 -- T_Estado_Pago
 INSERT INTO `T_Estado_Pago` (`PK_ESP_Cod`, `ESP_Nombre`) VALUES(1, 'Pendiente'),(2, 'Parcial'),(3, 'Pagado'),(4, 'Vencido'),(5, 'Anulado');
 -- T_Estado_Pedido
-INSERT INTO `T_Estado_Pedido` (`PK_EP_Cod`, `EP_Nombre`) VALUES(1, 'Cotizado'),(2, 'Contratado'),(3, 'En ejecución'),(4, 'Entregado'),(5, 'Cerrado'),(6, 'Cancelado'),(7, 'Expirado');
+INSERT INTO `T_Estado_Pedido` (`PK_EP_Cod`, `EP_Nombre`) VALUES(1, 'Cotizado'),(2, 'Contratado'),(3, 'En ejecucion'),(4, 'Entregado'),(5, 'Cerrado'),(6, 'Cancelado'),(7, 'Expirado');
 -- T_Estado_Cotizacion
 INSERT INTO `T_Estado_Cotizacion` (`PK_ECot_Cod`, `ECot_Nombre`) VALUES(1, 'Borrador'),(2, 'Enviada'),(3, 'Aceptada'),(4, 'Rechazada'),(5, 'Expirada');
 -- T_Estado_Proyecto
-INSERT INTO `T_Estado_Proyecto` (`PK_EPro_Cod`, `EPro_Nombre`, `EPro_Orden`, `Activo`) VALUES(1, 'Planificado', 1, 1),(2, 'En ejecucion', 2, 1),(3, 'En postproduccion', 3, 1),(4, 'Cerrado', 4, 1);
+INSERT INTO `T_Estado_Proyecto` (`PK_EPro_Cod`, `EPro_Nombre`, `EPro_Orden`, `Activo`) VALUES
+(1, 'Planificado', 1, 1),
+(2, 'En ejecucion', 2, 1),
+(3, 'En postproduccion', 3, 1),
+(4, 'Listo para entrega', 4, 1),
+(5, 'Entregado', 5, 1);
 -- T_Estado_Proyecto_Dia
 INSERT INTO `T_Estado_Proyecto_Dia` (`PK_EPD_Cod`, `EPD_Nombre`, `EPD_Orden`, `Activo`) VALUES
 (1, 'Pendiente', 1, 1),
@@ -84,7 +92,7 @@ INSERT INTO `T_Metodo_Pago` (`PK_MP_Cod`, `MP_Nombre`) VALUES(1, 'Efectivo'),(2,
 -- T_Servicios
 INSERT INTO `T_Servicios` (`PK_S_Cod`, `S_Nombre`) VALUES(1, 'Fotografia'),(2, 'Video'),(3, 'Drone'),(4, 'Photobooth');
 -- T_Eventos
-INSERT INTO `T_Eventos` (`PK_E_Cod`, `E_Nombre`, `E_IconUrl`) VALUES(1, 'Boda', 'assets/images/boda.jpg'),(2, 'Cumpleaños', 'assets/images/cumpleanos.jpg'),(3, 'Corporativo', 'assets/images/corporativo.jpg');
+INSERT INTO `T_Eventos` (`PK_E_Cod`, `E_Nombre`, `E_IconUrl`) VALUES(1, 'Boda', 'assets/images/boda.jpg'),(2, 'Cumpleanos', 'assets/images/cumpleanos.jpg'),(3, 'Corporativo', 'assets/images/corporativo.jpg');
 -- T_EventoServicioCategoria
 INSERT INTO `T_EventoServicioCategoria` (`PK_ESC_Cod`, `ESC_Nombre`, `ESC_Tipo`, `ESC_Activo`, `ESC_Fecha_Creacion`) VALUES(1, 'Standard', 'PAQUETE', 1, '2025-11-13 05:43:18'),(2, 'Deluxe', 'PAQUETE', 1, '2025-11-13 05:43:18'),(3, 'Premium', 'PAQUETE', 1, '2025-11-13 05:43:18'),(4, 'Corporate', 'PAQUETE', 1, '2025-11-13 05:43:18'),(5, 'Add-on', 'ADDON', 1, '2025-11-13 05:43:18');
 -- T_EventoServicioEstado
@@ -99,7 +107,7 @@ INSERT INTO `T_Tipo_Empleado` (`PK_Tipo_Emp_Cod`, `TiEm_Cargo`, `TiEm_PermiteLog
 (6, 'Piloto de dron', 0, 1),
 (7, 'Admin', 1, 0);
 -- T_Tipo_Equipo
-INSERT INTO `T_Tipo_Equipo` (`PK_TE_Cod`, `TE_Nombre`) VALUES(1, 'Cámara'),(2, 'Lente'),(3, 'Drone'),(4, 'Flash'),(5, 'Trípode'),(6, 'Gimbal'),(7, 'Grabadora'),(8, 'Micrófono'),(9, 'Luz continua'),(10, 'Bateria'),(11, 'GoPro'),(12, 'Monopode'),(13, 'Slider'),(14, 'Tarjeta SD'),(15, 'SSD');
+INSERT INTO `T_Tipo_Equipo` (`PK_TE_Cod`, `TE_Nombre`) VALUES(1, 'Camara'),(2, 'Lente'),(3, 'Drone'),(4, 'Flash'),(5, 'Tripode'),(6, 'Gimbal'),(7, 'Grabadora'),(8, 'Microfono'),(9, 'Luz continua'),(10, 'Bateria'),(11, 'GoPro'),(12, 'Monopode'),(13, 'Slider'),(14, 'Tarjeta SD'),(15, 'SSD');
 -- T_TipoDocumento
 INSERT INTO `T_TipoDocumento` (`PK_TD_Cod`, `TD_Codigo`, `TD_Nombre`, `TD_TipoDato`, `TD_TamMin`, `TD_TamMax`, `TD_Activo`) VALUES
 (1, 'DNI', 'Documento Nacional de Identidad',  'N', 8, 8, TRUE),
@@ -112,66 +120,66 @@ INSERT INTO `T_Marca` (`PK_IMa_Cod`, `NMa_Nombre`) VALUES(1, 'Canon'),(2, 'Sony'
 INSERT INTO `T_Usuario` (`PK_U_Cod`, `U_Nombre`, `U_Apellido`, `U_Correo`, `U_Contrasena`, `U_Celular`, `U_Numero_Documento`, `FK_TD_Cod`, `U_Direccion`, `U_Fecha_Crea`, `U_Fecha_Upd`) VALUES
 (1, 'Carlos Alfredo', 'De La Cruz Jaramillo', 'delacruzcarlos1405@gmail.com', 'dc5907c97e503e37f9eae7e25e387e05bff7bca24b99f0cd89ec67e59ba2846e', '931764349', '74034611', 1, 'Calle Francia', '2025-10-21 05:37:39', '2025-10-29 10:10:59'),
 (2, 'john', 'doe', 'johndoe@gmail.com', 'aed5e5903cae9e439c0a6d373e9a444a96ad630f5ee529c6c7be863331a1877b', '900000001', '00000001', 1, 'calle piura mz b4 lote 10', '2026-01-05 04:44:04', '2026-01-05 05:00:16'),
-(4, 'Lucía', 'García López', 'lucia.garcia01@gmail.com', '9863328cc3a69b72d0ebf7a46def01ec7c812703b2e44919f045d31f20682560', '900000002', '00000002', 1, 'Av. Los Olivos 100, Lima', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(5, 'Mateo', 'Rodríguez Pérez', 'mateo.rodriguez02@gmail.com', 'b67be0b75ac364bd070449ae6ca4cb1c76719b4682216138a09d207fd0dbb0c1', '900000003', '00000003', 1, 'Calle Las Flores 103, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(6, 'Sofía', 'Fernández Díaz', 'sofia.fernandez03@gmail.com', '1138d0668ac6c8bee0cb0c2a24105d6f385dad901c2fa821f28f72cc459261eb', '900000004', '00000004', 1, 'Jr. San Martín 106, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(7, 'Martín', 'González Ruiz', 'martin.gonzalez04@gmail.com', '0feb3bc89c6f8c42324964a2ee672760fc70470fa63493b35ba4bc5ca531fddf', '900000005', '00000005', 1, 'Av. La Marina 109, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(8, 'Valentina', 'Sánchez Torres', 'valentina.sanchez05@gmail.com', 'ca641d4467fbbcdb2efb7b1bb4b27b6b2fa9aa578dfc6569c296da1baad12ec9', '900000006', '00000006', 1, 'Calle Libertad 112, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(9, 'Sebastián', 'Ramírez Castillo', 'sebastian.ramirez06@gmail.com', 'ae54726163babf013a631d05d8871c18e65409e8ff3df2e9b2502ca6ca4b0321', '900000007', '00000007', 1, 'Av. El Sol 115, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(4, 'Lucia', 'Garcia Lopez', 'lucia.garcia01@gmail.com', '9863328cc3a69b72d0ebf7a46def01ec7c812703b2e44919f045d31f20682560', '900000002', '00000002', 1, 'Av. Los Olivos 100, Lima', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(5, 'Mateo', 'Rodriguez Perez', 'mateo.rodriguez02@gmail.com', 'b67be0b75ac364bd070449ae6ca4cb1c76719b4682216138a09d207fd0dbb0c1', '900000003', '00000003', 1, 'Calle Las Flores 103, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(6, 'Sofia', 'Fernandez Diaz', 'sofia.fernandez03@gmail.com', '1138d0668ac6c8bee0cb0c2a24105d6f385dad901c2fa821f28f72cc459261eb', '900000004', '00000004', 1, 'Jr. San Martin 106, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(7, 'Martin', 'Gonzalez Ruiz', 'martin.gonzalez04@gmail.com', '0feb3bc89c6f8c42324964a2ee672760fc70470fa63493b35ba4bc5ca531fddf', '900000005', '00000005', 1, 'Av. La Marina 109, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(8, 'Valentina', 'Sanchez Torres', 'valentina.sanchez05@gmail.com', 'ca641d4467fbbcdb2efb7b1bb4b27b6b2fa9aa578dfc6569c296da1baad12ec9', '900000006', '00000006', 1, 'Calle Libertad 112, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(9, 'Sebastian', 'Ramirez Castillo', 'sebastian.ramirez06@gmail.com', 'ae54726163babf013a631d05d8871c18e65409e8ff3df2e9b2502ca6ca4b0321', '900000007', '00000007', 1, 'Av. El Sol 115, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (10, 'Camila', 'Vargas Rojas', 'camila.vargas07@gmail.com', '811a26ced78120ae97a1c2d618a826a45a50b7bb02164afc0993f40c1c0b52ee', '900000008', '00000008', 1, 'Jr. Grau 118, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(11, 'Nicolás', 'Flores Medina', 'nicolas.flores08@gmail.com', 'e2f3d34c1038953b13132fe20aed005a1a0dce39f86dc2cd232dcdd1a7bcb162', '900000009', '00000009', 1, 'Calle Principal 121, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(12, 'Daniela', 'Herrera Chávez', 'daniela.herrera09@gmail.com', '790a975b60c20470190ede24097a549dab6ef22fde7d323235fc7318c0133a8e', '900000010', '00000010', 1, 'Av. Independencia 124, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(13, 'Alejandro', 'Silva Morales', 'alejandro.silva10@gmail.com', '67ec2f2cb6b3ad336536ae851b73a7f9be3be264e0d5ae940790b8a75aab8a7c', '900000011', '00000011', 1, 'Calle Unión 127, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(11, 'Nicolas', 'Flores Medina', 'nicolas.flores08@gmail.com', 'e2f3d34c1038953b13132fe20aed005a1a0dce39f86dc2cd232dcdd1a7bcb162', '900000009', '00000009', 1, 'Calle Principal 121, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(12, 'Daniela', 'Herrera Chavez', 'daniela.herrera09@gmail.com', '790a975b60c20470190ede24097a549dab6ef22fde7d323235fc7318c0133a8e', '900000010', '00000010', 1, 'Av. Independencia 124, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(13, 'Alejandro', 'Silva Morales', 'alejandro.silva10@gmail.com', '67ec2f2cb6b3ad336536ae851b73a7f9be3be264e0d5ae940790b8a75aab8a7c', '900000011', '00000011', 1, 'Calle Union 127, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (14, 'Mariana', 'Mendoza Paredes', 'mariana.mendoza11@gmail.com', 'e3d06092c0dcde3608ef14d3771fca598fa91fbaec8b7f4b208ef68bf9d90ca6', '900000012', '00000012', 1, 'Av. Los Olivos 130, Lima', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(15, 'Diego', 'Ríos Gutiérrez', 'diego.rios12@gmail.com', '96f1c5456b83cb9e708b893b6a0fc9a4c3db2f3d9b833f66562efb941869589f', '900000013', '00000013', 1, 'Calle Las Flores 133, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(16, 'Renata', 'Navarro Salas', 'renata.navarro13@gmail.com', '437290057d47af46acc0990b61d9e64d70eadba61103d88862f6da5baf50c2aa', '900000014', '00000014', 1, 'Jr. San Martín 136, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(15, 'Diego', 'Rios Gutierrez', 'diego.rios12@gmail.com', '96f1c5456b83cb9e708b893b6a0fc9a4c3db2f3d9b833f66562efb941869589f', '900000013', '00000013', 1, 'Calle Las Flores 133, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(16, 'Renata', 'Navarro Salas', 'renata.navarro13@gmail.com', '437290057d47af46acc0990b61d9e64d70eadba61103d88862f6da5baf50c2aa', '900000014', '00000014', 1, 'Jr. San Martin 136, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (17, 'Javier', 'Cruz Aguilar', 'javier.cruz14@gmail.com', 'a5f201bbe3b498706eafa82b5653af6a9bb4a30c8bf22c703f6749f0f792d1ca', '900000015', '00000015', 1, 'Av. La Marina 139, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (18, 'Paula', 'Ortega Campos', 'paula.ortega15@gmail.com', 'c89ee620547f2c30aafc6b835f623c99781045bd23513f57125eaff378378846', '900000016', '00000016', 1, 'Calle Libertad 142, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(19, 'Andrés', 'Castro Núñez', 'andres.castro16@gmail.com', '3167fc76da1b864d1d5857b14d18f1eea3d3437278bc3355a8071bf66c6e030d', '900000017', '00000017', 1, 'Av. El Sol 145, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(20, 'Gabriela', 'Suárez Vega', 'gabriela.suarez17@gmail.com', '01002972b94c4bca7458d7023a6d70944b6237eb7c904e0977ea1dae71dabedf', '900000018', '00000018', 1, 'Jr. Grau 148, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(21, 'Fernando', 'Ponce Cárdenas', 'fernando.ponce18@gmail.com', 'ead39d8517405cbeda500e69721f51454e344928f49a41aade10358decac8916', '900000019', '00000019', 1, 'Calle Principal 151, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(19, 'Andres', 'Castro Nunez', 'andres.castro16@gmail.com', '3167fc76da1b864d1d5857b14d18f1eea3d3437278bc3355a8071bf66c6e030d', '900000017', '00000017', 1, 'Av. El Sol 145, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(20, 'Gabriela', 'Suarez Vega', 'gabriela.suarez17@gmail.com', '01002972b94c4bca7458d7023a6d70944b6237eb7c904e0977ea1dae71dabedf', '900000018', '00000018', 1, 'Jr. Grau 148, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(21, 'Fernando', 'Ponce Cardenas', 'fernando.ponce18@gmail.com', 'ead39d8517405cbeda500e69721f51454e344928f49a41aade10358decac8916', '900000019', '00000019', 1, 'Calle Principal 151, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (22, 'Carolina', 'Delgado Palacios', 'carolina.delgado19@gmail.com', 'dc5907c97e503e37f9eae7e25e387e05bff7bca24b99f0cd89ec67e59ba2846e', '900000020', '00000020', 1, 'Av. Independencia 154, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(23, 'Ricardo', 'Cabrera León', 'ricardo.cabrera20@gmail.com', '280dc73df5ccef8f90dd86950715f0aab8ff4c6386344b199f4d5720b0832990', '900000021', '00000021', 1, 'Calle Unión 157, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(23, 'Ricardo', 'Cabrera Leon', 'ricardo.cabrera20@gmail.com', '280dc73df5ccef8f90dd86950715f0aab8ff4c6386344b199f4d5720b0832990', '900000021', '00000021', 1, 'Calle Union 157, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (24, 'Ana', 'Ibarra Soto', 'ana.ibarra21@gmail.com', '6d28613c623affe281f2bbe82d630f1f402253b388c947e19c93b16c726e49ff', '900000022', '00000022', 1, 'Av. Los Olivos 160, Lima', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (25, 'Pedro', 'Reyes Romero', 'pedro.reyes22@gmail.com', '63040aeb6634a65a45c5b3873cf96a1445b0c3f750b9c6c66f27d0a8d0afcaab', '900000023', '00000023', 1, 'Calle Las Flores 163, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(26, 'Isabella', 'Luna Valdés', 'isabella.luna23@gmail.com', '26d57d021030d7ef6ed2bd08563733cc76feb90b45d58a36a79eb8688378d153', '900000024', '00000024', 1, 'Jr. San Martín 166, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(27, 'Juan', 'Ramos Peña', 'juan.ramos24@gmail.com', '0d9ecfca383a4f5085c8ddbc3111339489b61efd431602db2402991e4ac64147', '900000025', '00000025', 1, 'Av. La Marina 169, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(28, 'Mónica', 'Salazar Arias', 'monica.salazar25@gmail.com', '9d44414dd85043c3e91d8dd71e57110d6729382a1d9a400a64fa3e52275d38b3', '900000026', '00000026', 1, 'Calle Libertad 172, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(29, 'Carlos', 'Quispe Huamán', 'carlos.quispe26@gmail.com', 'a96e723718da115c11e06370f817be15dd3b856579820dc222b2dbf1083fa2d6', '900000027', '00000027', 1, 'Av. El Sol 175, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(30, 'Florencia', 'Torres Mejía', 'florencia.torres27@gmail.com', 'b5ca4338897d7dc0312bbd837a10e8fc78f0f837b68fd810d17f9d8e07974cae', '900000028', '00000028', 1, 'Jr. Grau 178, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(31, 'Hugo', 'Alvarado Benítez', 'hugo.alvarado28@gmail.com', '5560f4db81c47eda7104996eeefa7be24a78d0655948cc162a20973f1a62d8ac', '900000029', '00000029', 1, 'Calle Principal 181, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(32, 'Natalia', 'Campos Farfán', 'natalia.campos29@gmail.com', '028ccc43a370457d952526da8d291db07625f72de2eed697a08a0273c2c41a93', '900000030', '00000030', 1, 'Av. Independencia 184, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(33, 'Oscar', 'Espinoza Rivas', 'oscar.espinoza30@gmail.com', '7c7ce0ba23aa33714eea4028c298ab96e39e7d1b12e1436e379ff6876d2d640a', '900000031', '00000031', 1, 'Calle Unión 187, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(26, 'Isabella', 'Luna Valdes', 'isabella.luna23@gmail.com', '26d57d021030d7ef6ed2bd08563733cc76feb90b45d58a36a79eb8688378d153', '900000024', '00000024', 1, 'Jr. San Martin 166, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(27, 'Juan', 'Ramos Pena', 'juan.ramos24@gmail.com', '0d9ecfca383a4f5085c8ddbc3111339489b61efd431602db2402991e4ac64147', '900000025', '00000025', 1, 'Av. La Marina 169, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(28, 'Monica', 'Salazar Arias', 'monica.salazar25@gmail.com', '9d44414dd85043c3e91d8dd71e57110d6729382a1d9a400a64fa3e52275d38b3', '900000026', '00000026', 1, 'Calle Libertad 172, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(29, 'Carlos', 'Quispe Huaman', 'carlos.quispe26@gmail.com', 'a96e723718da115c11e06370f817be15dd3b856579820dc222b2dbf1083fa2d6', '900000027', '00000027', 1, 'Av. El Sol 175, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(30, 'Florencia', 'Torres Mejia', 'florencia.torres27@gmail.com', 'b5ca4338897d7dc0312bbd837a10e8fc78f0f837b68fd810d17f9d8e07974cae', '900000028', '00000028', 1, 'Jr. Grau 178, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(31, 'Hugo', 'Alvarado Benitez', 'hugo.alvarado28@gmail.com', '5560f4db81c47eda7104996eeefa7be24a78d0655948cc162a20973f1a62d8ac', '900000029', '00000029', 1, 'Calle Principal 181, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(32, 'Natalia', 'Campos Farfan', 'natalia.campos29@gmail.com', '028ccc43a370457d952526da8d291db07625f72de2eed697a08a0273c2c41a93', '900000030', '00000030', 1, 'Av. Independencia 184, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(33, 'Oscar', 'Espinoza Rivas', 'oscar.espinoza30@gmail.com', '7c7ce0ba23aa33714eea4028c298ab96e39e7d1b12e1436e379ff6876d2d640a', '900000031', '00000031', 1, 'Calle Union 187, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (34, 'Paolo', 'Paredes Rojas', 'paolo.paredes01@gmail.com', '615281f4c0e09a9f0fd5aadf4d98022c99630e431ff2fdfa946c598b6e40a78f', '900000032', '00000032', 1, 'Av. Los Olivos 100, Lima', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(35, 'Verónica', 'Chávez Silva', 'veronica.chavez02@gmail.com', '1fa272990466e80c8dddecc43a684c20a787d4c9783bb5fab00711dc59b82883', '900000033', '00000033', 1, 'Calle Las Flores 103, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(36, 'Rosa', 'Morales Quispe', 'rosa.morales03@gmail.com', 'ad0abeb5e300fbba581dbdcb42cbe9b06a52b93a0109ab9f9e6a0497274eb453', '900000034', '00000034', 1, 'Jr. San Martín 106, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(37, 'Eduardo', 'Gutiérrez Flores', 'eduardo.gutierrez04@gmail.com', '08afd38cbcfcf76abdb4d37362d51d0c8d8f1146e611c780f43f89056425c844', '900000035', '00000035', 1, 'Av. La Marina 109, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(35, 'Veronica', 'Chavez Silva', 'veronica.chavez02@gmail.com', '1fa272990466e80c8dddecc43a684c20a787d4c9783bb5fab00711dc59b82883', '900000033', '00000033', 1, 'Calle Las Flores 103, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(36, 'Rosa', 'Morales Quispe', 'rosa.morales03@gmail.com', 'ad0abeb5e300fbba581dbdcb42cbe9b06a52b93a0109ab9f9e6a0497274eb453', '900000034', '00000034', 1, 'Jr. San Martin 106, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(37, 'Eduardo', 'Gutierrez Flores', 'eduardo.gutierrez04@gmail.com', '08afd38cbcfcf76abdb4d37362d51d0c8d8f1146e611c780f43f89056425c844', '900000035', '00000035', 1, 'Av. La Marina 109, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (38, 'Jimena', 'Salas Mendoza', 'jimena.salas05@gmail.com', 'f9151f8bea12f9e26e2fb1f97e420fcb3f84ed9efd165315e7523e3ac007e263', '900000036', '00000036', 1, 'Calle Libertad 112, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(39, 'Sergio', 'Vega Ríos', 'sergio.vega06@gmail.com', '8241bf770bec39c8adbaea0d5782049ac4772bb6155dd396e90a60b63f89bf69', '900000037', '00000037', 1, 'Av. El Sol 115, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(39, 'Sergio', 'Vega Rios', 'sergio.vega06@gmail.com', '8241bf770bec39c8adbaea0d5782049ac4772bb6155dd396e90a60b63f89bf69', '900000037', '00000037', 1, 'Av. El Sol 115, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (40, 'Claudia', 'Campos Luna', 'claudia.campos07@gmail.com', 'bdb2633a4df35ec4aeccebf3f492a6a327bc72041a67c9d00ae6bd756513be05', '900000038', '00000038', 1, 'Jr. Grau 118, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(41, 'Álvaro', 'Arias Ramos', 'alvaro.arias08@gmail.com', '9573a1682463d2b06ef2b2cae9dd87c2e77f6f71654b453ee5c16e1ea356ed89', '900000039', '00000039', 1, 'Calle Principal 121, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(42, 'Lorena', 'Peña Salazar', 'lorena.pena09@gmail.com', 'a16727b0a956c185af93b5bcc492335b25ad8e8e5db6a91db90a33f70c7fb80f', '900000040', '00000040', 1, 'Av. Independencia 124, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(43, 'Tomás', 'Romero Ibarra', 'tomas.romero10@gmail.com', '4c41baffb70f58eda16951603024843e637d8c063bf1d57333efbafd1c173b38', '900000041', '00000041', 1, 'Calle Unión 127, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(41, 'Alvaro', 'Arias Ramos', 'alvaro.arias08@gmail.com', '9573a1682463d2b06ef2b2cae9dd87c2e77f6f71654b453ee5c16e1ea356ed89', '900000039', '00000039', 1, 'Calle Principal 121, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(42, 'Lorena', 'Pena Salazar', 'lorena.pena09@gmail.com', 'a16727b0a956c185af93b5bcc492335b25ad8e8e5db6a91db90a33f70c7fb80f', '900000040', '00000040', 1, 'Av. Independencia 124, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(43, 'Tomas', 'Romero Ibarra', 'tomas.romero10@gmail.com', '4c41baffb70f58eda16951603024843e637d8c063bf1d57333efbafd1c173b38', '900000041', '00000041', 1, 'Calle Union 127, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (44, 'Patricia', 'Soto Reyes', 'patricia.soto11@gmail.com', '0d7c92adc8e502e6d8605deb00a10db6d3601e359aa187f6570ecbe475ce0765', '900000042', '00000042', 1, 'Av. Los Olivos 130, Lima', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(45, 'Luis', 'León Cabrera', 'luis.leon12@gmail.com', 'e8078208e48cdaab5a9b8e4eef676026e0f65af7658d02bf47254a427da7a770', '900000043', '00000043', 1, 'Calle Las Flores 133, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(46, 'Elena', 'Palacios Delgado', 'elena.palacios13@gmail.com', '0ee1d7b9d5264703256a9f59d0f9c1b5992bff0d229fadefe8fb11caad2f1a69', '900000044', '00000044', 1, 'Jr. San Martín 136, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(47, 'Marco', 'Cárdenas Ponce', 'marco.cardenas14@gmail.com', 'ed74b28afe618ac50615bc91994444b5e338276f4761a3e7d7eec0e146bedffa', '900000045', '00000045', 1, 'Av. La Marina 139, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(48, 'Raúl', 'Núñez Castro', 'raul.nunez15@gmail.com', '7428b3eebd26d3d10db7fb281c2d5447502b519d3f94d4b194dfa85367c786d3', '900000046', '00000046', 1, 'Calle Libertad 142, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(49, 'Silvia', 'Vargas Suárez', 'silvia.vargas16@gmail.com', '56c4e1424d6e7b160197f6c00d62ac9994a91fd9af16f94ca35259c39f2e4fdf', '900000047', '00000047', 1, 'Av. El Sol 145, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(45, 'Luis', 'Leon Cabrera', 'luis.leon12@gmail.com', 'e8078208e48cdaab5a9b8e4eef676026e0f65af7658d02bf47254a427da7a770', '900000043', '00000043', 1, 'Calle Las Flores 133, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(46, 'Elena', 'Palacios Delgado', 'elena.palacios13@gmail.com', '0ee1d7b9d5264703256a9f59d0f9c1b5992bff0d229fadefe8fb11caad2f1a69', '900000044', '00000044', 1, 'Jr. San Martin 136, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(47, 'Marco', 'Cardenas Ponce', 'marco.cardenas14@gmail.com', 'ed74b28afe618ac50615bc91994444b5e338276f4761a3e7d7eec0e146bedffa', '900000045', '00000045', 1, 'Av. La Marina 139, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(48, 'Raul', 'Nunez Castro', 'raul.nunez15@gmail.com', '7428b3eebd26d3d10db7fb281c2d5447502b519d3f94d4b194dfa85367c786d3', '900000046', '00000046', 1, 'Calle Libertad 142, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(49, 'Silvia', 'Vargas Suarez', 'silvia.vargas16@gmail.com', '56c4e1424d6e7b160197f6c00d62ac9994a91fd9af16f94ca35259c39f2e4fdf', '900000047', '00000047', 1, 'Av. El Sol 145, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (50, 'Bruno', 'Aguilar Ortega', 'bruno.aguilar17@gmail.com', '78fcb5ae8034f81e703f86a7b4c96c75f1b0891b381059c445d930385b2c79d0', '900000048', '00000048', 1, 'Jr. Grau 148, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(51, 'Noelia', 'Benítez Alvarado', 'noelia.benitez18@gmail.com', '58e8b2e84d6f65487da01d51caa94f5f8fee5f320b9b4d1276c586f99e7daac1', '900000049', '00000049', 1, 'Calle Principal 151, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(52, 'Felipe', 'Mejía Torres', 'felipe.mejia19@gmail.com', '09dacd965fbff194d182c7694924e86b934c07be9b15517191ed476940c6db55', '900000050', '00000050', 1, 'Av. Independencia 154, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(53, 'Rocío', 'Farfán Campos', 'rocio.farfan20@gmail.com', '120b658b6fbfcfcb70c86b5b1327a5294619b57001ecc48759d233fa1055cf36', '900000051', '00000051', 1, 'Calle Unión 157, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(51, 'Noelia', 'Benitez Alvarado', 'noelia.benitez18@gmail.com', '58e8b2e84d6f65487da01d51caa94f5f8fee5f320b9b4d1276c586f99e7daac1', '900000049', '00000049', 1, 'Calle Principal 151, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(52, 'Felipe', 'Mejia Torres', 'felipe.mejia19@gmail.com', '09dacd965fbff194d182c7694924e86b934c07be9b15517191ed476940c6db55', '900000050', '00000050', 1, 'Av. Independencia 154, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(53, 'Rocio', 'Farfan Campos', 'rocio.farfan20@gmail.com', '120b658b6fbfcfcb70c86b5b1327a5294619b57001ecc48759d233fa1055cf36', '900000051', '00000051', 1, 'Calle Union 157, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (54, 'Esteban', 'Rivas Espinoza', 'esteban.rivas21@gmail.com', 'd3f3d4329229ec2fa69deeaa95860b7f95c856dd5102d111abca2b9323b16976', '900000052', '00000052', 1, 'Av. Los Olivos 160, Lima', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
 (55, 'Cecilia', 'Medina Herrera', 'cecilia.medina22@gmail.com', '1f67c4e41ffc2fc10efa21f0093f8902fbfd8caba2ab662bd3d6a3bdb79f5a1a', '900000053', '00000053', 1, 'Calle Las Flores 163, Arequipa', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(56, 'Iván', 'Chávez Flores', 'ivan.chavez23@gmail.com', '12a8db8f3bf3978ec857124dc77b45a1d084cbf71255f206b027b50fcba42664', '900000054', '00000054', 1, 'Jr. San Martín 166, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(57, 'Beatriz', 'Ruiz González', 'beatriz.ruiz24@gmail.com', '9c574a77f18e99ab5c27654b8c00bceaf0bb129f06a52a9a22f0cf7b6e2ee78e', '900000055', '00000055', 1, 'Av. La Marina 169, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(58, 'Germán', 'Díaz Fernández', 'german.diaz25@gmail.com', '214eac47ad6b3f1fa9ab5f1d896c20311dcf96f3500f3a4b776619347d62d217', '900000056', '00000056', 1, 'Calle Libertad 172, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(59, 'Sandra', 'Pérez Rodríguez', 'sandra.perez26@gmail.com', '66e3236f0a70f3907dc91e9a99075dac8626e4e7608d4c99ba1ccab6c2263a08', '900000057', '00000057', 1, 'Av. El Sol 175, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(60, 'Alonso', 'López García', 'alonso.lopez27@gmail.com', '9a7a52a65102436a4fe445852b456d41cda3bc47700c1d936803a2743ff35519', '900000058', '00000058', 1, 'Jr. Grau 178, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(61, 'Marta', 'Torres Sánchez', 'marta.torres28@gmail.com', '52b52c09f1e61358bbd704bd1f76455245a1288ccdbc57ba48979eaf2e5f5b86', '900000059', '00000059', 1, 'Calle Principal 181, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(62, 'Gonzalo', 'Castillo Ramírez', 'gonzalo.castillo29@gmail.com', '80fe91a7b87e38bad955c7597d0985d450139d95ab8ab16fe9951cce770b9e6f', '900000060', '00000060', 1, 'Av. Independencia 184, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
-(63, 'Inés', 'Rojas Vargas', 'ines.rojas30@gmail.com', 'ac9371f9553f89d29c12415c7c384d48820b279d6db531182ff147a822abbf43', '900000061', '00000061', 1, 'Calle Unión 187, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00');
+(56, 'Ivan', 'Chavez Flores', 'ivan.chavez23@gmail.com', '12a8db8f3bf3978ec857124dc77b45a1d084cbf71255f206b027b50fcba42664', '900000054', '00000054', 1, 'Jr. San Martin 166, Cusco', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(57, 'Beatriz', 'Ruiz Gonzalez', 'beatriz.ruiz24@gmail.com', '9c574a77f18e99ab5c27654b8c00bceaf0bb129f06a52a9a22f0cf7b6e2ee78e', '900000055', '00000055', 1, 'Av. La Marina 169, Trujillo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(58, 'German', 'Diaz Fernandez', 'german.diaz25@gmail.com', '214eac47ad6b3f1fa9ab5f1d896c20311dcf96f3500f3a4b776619347d62d217', '900000056', '00000056', 1, 'Calle Libertad 172, Piura', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(59, 'Sandra', 'Perez Rodriguez', 'sandra.perez26@gmail.com', '66e3236f0a70f3907dc91e9a99075dac8626e4e7608d4c99ba1ccab6c2263a08', '900000057', '00000057', 1, 'Av. El Sol 175, Chiclayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(60, 'Alonso', 'Lopez Garcia', 'alonso.lopez27@gmail.com', '9a7a52a65102436a4fe445852b456d41cda3bc47700c1d936803a2743ff35519', '900000058', '00000058', 1, 'Jr. Grau 178, Iquitos', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(61, 'Marta', 'Torres Sanchez', 'marta.torres28@gmail.com', '52b52c09f1e61358bbd704bd1f76455245a1288ccdbc57ba48979eaf2e5f5b86', '900000059', '00000059', 1, 'Calle Principal 181, Huancayo', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(62, 'Gonzalo', 'Castillo Ramirez', 'gonzalo.castillo29@gmail.com', '80fe91a7b87e38bad955c7597d0985d450139d95ab8ab16fe9951cce770b9e6f', '900000060', '00000060', 1, 'Av. Independencia 184, Tacna', '2026-01-08 12:00:00', '2026-01-08 12:00:00'),
+(63, 'Ines', 'Rojas Vargas', 'ines.rojas30@gmail.com', 'ac9371f9553f89d29c12415c7c384d48820b279d6db531182ff147a822abbf43', '900000061', '00000061', 1, 'Calle Union 187, Puno', '2026-01-08 12:00:00', '2026-01-08 12:00:00');
 -- T_Modelo
 INSERT INTO `T_Modelo` (`PK_IMo_Cod`, `NMo_Nombre`, `FK_IMa_Cod`, `FK_TE_Cod`) VALUES
 (1, 'EOS R6 Mark II', 1, 1),
@@ -552,7 +560,7 @@ INSERT INTO `T_Equipo` (`PK_Eq_Cod`, `Eq_Fecha_Ingreso`, `FK_IMo_Cod`, `FK_EE_Co
 (255, '2025-01-01 00:00:00', 61, 1, 'BAT-GOPROENDUR-007'),
 (256, '2025-01-01 00:00:00', 61, 1, 'BAT-GOPROENDUR-008');
 -- T_EventoServicio
-INSERT INTO `T_EventoServicio` (`PK_ExS_Cod`, `PK_S_Cod`, `PK_E_Cod`, `ExS_Titulo`, `FK_ESC_Cod`, `ExS_EsAddon`, `FK_ESE_Cod`, `ExS_Precio`, `ExS_Descripcion`, `ExS_Horas`, `ExS_FotosImpresas`, `ExS_TrailerMin`, `ExS_FilmMin`) VALUES(1, 1, 1, 'Fotografia Boda Premium', 3, 0, 1, '1500.00', 'Cobertura completa (getting ready, ceremonia, recepcion) + album fine art', '10.0', 60, 0, 0),(2, 1, 1, 'Fotografia Boda Deluxe', 2, 0, 1, '2500.00', 'Cobertura full day con dos equipos y album de lujo', '12.0', 100, 0, 0),(3, 2, 1, 'Video Boda Ceremonia', 1, 0, 1, '800.00', 'Cobertura de ceremonia con entrega de highlight de 1 minuto', '4.0', NULL, 1, 15),(4, 2, 1, 'Video Boda Cinematic', 3, 0, 1, '4000.00', 'Cobertura cinematografica full day + highlight 3 min + film 45 min', '12.0', NULL, 3, 45),(5, 3, 1, 'Drone Boda Ceremonia', 5, 1, 1, '300.00', 'Tomas aereas de ceremonia y exteriores inmediatos', '2.0', NULL, NULL, NULL),(6, 3, 1, 'Drone Boda Jornada Completa', 5, 1, 1, '800.00', 'Cobertura aerea durante todo el evento (piloto certificado)', '6.0', NULL, NULL, NULL),(7, 4, 1, 'Photobooth Boda Glam', 5, 1, 1, '900.00', 'Photobooth glam 3h con props premium y album digital', '3.0', NULL, NULL, NULL),(8, 1, 2, 'Fotografia Cumple Express', 1, 0, 1, '1200.00', 'Cobertura fotografica 4h con edicion basica', '4.0', 0, NULL, NULL),(9, 1, 2, 'Fotografia Cumple Premium', 3, 0, 1, '1600.00', 'Cobertura fotografica 6h + album digital y impresiones', '6.0', 30, NULL, NULL),(10, 2, 2, 'Video Cumple Celebracion', 1, 0, 1, '1500.00', 'Cobertura video 4h con highlight 90 segundos', '4.0', NULL, 2, 12),(11, 2, 2, 'Video Cumple Signature', 3, 0, 1, '2000.00', 'Video 6h con highlight 3 min y film 20 min', '6.0', NULL, 3, 20),(12, 3, 2, 'Drone Cumple Show', 5, 1, 1, '300.00', 'Tomas aereas show central y exteriores', '2.0', NULL, NULL, NULL),(13, 4, 2, 'Photobooth Cumple Kids', 5, 1, 1, '500.00', 'Photobooth 3h con impresiones ilimitadas', '3.0', NULL, NULL, NULL),(14, 1, 3, 'Fotografia Corporativa Retratos', 4, 0, 1, '500.00', 'Sesion de retratos ejecutivos en estudio portatil', '3.0', NULL, NULL, NULL),(15, 1, 3, 'Fotografia Corporativa Evento', 4, 0, 1, '2500.00', 'Cobertura fotografica de congreso o lanzamiento (6h)', '6.0', NULL, NULL, NULL),(16, 2, 3, 'Video Corporativo Conferencia', 4, 0, 1, '3000.00', 'Cobertura completa de conferencia con edicion resumen', '6.0', NULL, 2, 25),(17, 2, 3, 'Video Corporativo Institucional', 4, 0, 1, '3500.00', 'Produccion de video institucional (entrevistas + broll)', '8.0', NULL, 1, 8),(18, 3, 3, 'Drone Corporativo Exterior', 5, 1, 1, '400.00', 'Tomas aereas del local y planos de contexto', '3.0', NULL, NULL, NULL),(19, 4, 3, 'Photobooth Corporativo Branding', 5, 1, 1, '600.00', 'Photobooth 3h con marco personalizado y envio inmediato', '3.0', NULL, NULL, NULL),(20, 1, 2, 'Fotografía Cumpleaños Deluxe', 2, 0, 1, '3000.00', NULL, '8.0', 50, NULL, NULL);
+INSERT INTO `T_EventoServicio` (`PK_ExS_Cod`, `PK_S_Cod`, `PK_E_Cod`, `ExS_Titulo`, `FK_ESC_Cod`, `ExS_EsAddon`, `FK_ESE_Cod`, `ExS_Precio`, `ExS_Descripcion`, `ExS_Horas`, `ExS_FotosImpresas`, `ExS_TrailerMin`, `ExS_FilmMin`) VALUES(1, 1, 1, 'Fotografia Boda Premium', 3, 0, 1, '1500.00', 'Cobertura completa (getting ready, ceremonia, recepcion) + album fine art', '10.0', 60, 0, 0),(2, 1, 1, 'Fotografia Boda Deluxe', 2, 0, 1, '2500.00', 'Cobertura full day con dos equipos y album de lujo', '12.0', 100, 0, 0),(3, 2, 1, 'Video Boda Ceremonia', 1, 0, 1, '800.00', 'Cobertura de ceremonia con entrega de highlight de 1 minuto', '4.0', NULL, 1, 15),(4, 2, 1, 'Video Boda Cinematic', 3, 0, 1, '4000.00', 'Cobertura cinematografica full day + highlight 3 min + film 45 min', '12.0', NULL, 3, 45),(5, 3, 1, 'Drone Boda Ceremonia', 5, 1, 1, '300.00', 'Tomas aereas de ceremonia y exteriores inmediatos', '2.0', NULL, NULL, NULL),(6, 3, 1, 'Drone Boda Jornada Completa', 5, 1, 1, '800.00', 'Cobertura aerea durante todo el evento (piloto certificado)', '6.0', NULL, NULL, NULL),(7, 4, 1, 'Photobooth Boda Glam', 5, 1, 1, '900.00', 'Photobooth glam 3h con props premium y album digital', '3.0', NULL, NULL, NULL),(8, 1, 2, 'Fotografia Cumple Express', 1, 0, 1, '1200.00', 'Cobertura fotografica 4h con edicion basica', '4.0', 0, NULL, NULL),(9, 1, 2, 'Fotografia Cumple Premium', 3, 0, 1, '1600.00', 'Cobertura fotografica 6h + album digital y impresiones', '6.0', 30, NULL, NULL),(10, 2, 2, 'Video Cumple Celebracion', 1, 0, 1, '1500.00', 'Cobertura video 4h con highlight 90 segundos', '4.0', NULL, 2, 12),(11, 2, 2, 'Video Cumple Signature', 3, 0, 1, '2000.00', 'Video 6h con highlight 3 min y film 20 min', '6.0', NULL, 3, 20),(12, 3, 2, 'Drone Cumple Show', 5, 1, 1, '300.00', 'Tomas aereas show central y exteriores', '2.0', NULL, NULL, NULL),(13, 4, 2, 'Photobooth Cumple Kids', 5, 1, 1, '500.00', 'Photobooth 3h con impresiones ilimitadas', '3.0', NULL, NULL, NULL),(14, 1, 3, 'Fotografia Corporativa Retratos', 4, 0, 1, '500.00', 'Sesion de retratos ejecutivos en estudio portatil', '3.0', NULL, NULL, NULL),(15, 1, 3, 'Fotografia Corporativa Evento', 4, 0, 1, '2500.00', 'Cobertura fotografica de congreso o lanzamiento (6h)', '6.0', NULL, NULL, NULL),(16, 2, 3, 'Video Corporativo Conferencia', 4, 0, 1, '3000.00', 'Cobertura completa de conferencia con edicion resumen', '6.0', NULL, 2, 25),(17, 2, 3, 'Video Corporativo Institucional', 4, 0, 1, '3500.00', 'Produccion de video institucional (entrevistas + broll)', '8.0', NULL, 1, 8),(18, 3, 3, 'Drone Corporativo Exterior', 5, 1, 1, '400.00', 'Tomas aereas del local y planos de contexto', '3.0', NULL, NULL, NULL),(19, 4, 3, 'Photobooth Corporativo Branding', 5, 1, 1, '600.00', 'Photobooth 3h con marco personalizado y envio inmediato', '3.0', NULL, NULL, NULL),(20, 1, 2, 'Fotografia Cumpleanos Deluxe', 2, 0, 1, '3000.00', NULL, '8.0', 50, NULL, NULL);
 -- T_EventoServicioEquipo
 INSERT INTO `T_EventoServicioEquipo` (`PK_ExS_Equipo_Cod`, `FK_ExS_Cod`, `FK_TE_Cod`, `Cantidad`, `Notas`) VALUES
 (1, 1, 1, 2, 'Camaras principales + backup'),
@@ -697,50 +705,64 @@ INSERT INTO `T_EventoServicioEquipo` (`PK_ExS_Equipo_Cod`, `FK_ExS_Cod`, `FK_TE_
 -- T_EventoServicioStaff
 INSERT INTO `T_EventoServicioStaff` (`PK_ExS_Staff_Cod`, `FK_ExS_Cod`, `Staff_Rol`, `Staff_Cantidad`) VALUES(1, 1, 'Fotografo', 2),(2, 1, 'Asistente', 1),(3, 2, 'Fotografo', 2),(4, 2, 'Asistente', 1),(5, 3, 'Videografo', 1),(6, 3, 'Asistente', 1),(7, 4, 'Videografo', 2),(8, 4, 'Asistente', 1),(9, 5, 'Piloto de dron', 1),(10, 6, 'Piloto de dron', 1),(11, 6, 'Asistente', 1),(12, 7, 'Fotografo', 1),(13, 7, 'Asistente', 1),(14, 8, 'Fotografo', 1),(15, 9, 'Fotografo', 2),(16, 9, 'Asistente', 1),(17, 10, 'Videografo', 1),(18, 10, 'Asistente', 1),(19, 11, 'Videografo', 1),(20, 11, 'Asistente', 1),(21, 12, 'Piloto de dron', 1),(22, 13, 'Asistente', 1),(23, 14, 'Fotografo', 1),(24, 14, 'Asistente', 1),(25, 15, 'Fotografo', 2),(26, 15, 'Asistente', 1),(27, 16, 'Videografo', 2),(28, 16, 'Asistente', 1),(29, 17, 'Videografo', 2),(30, 17, 'Asistente', 1),(31, 18, 'Piloto de dron', 1),(32, 19, 'Fotografo', 1),(33, 19, 'Asistente', 1),(34, 20, 'Fotografo', 2),(35, 20, 'Asistente', 1);
 -- T_Cotizacion (seed con estado Expirada)
-INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`) VALUES
-(1, NULL, 'Boda', '2025-12-10', 'Lima', 6.0, 'Cotizacion expirada de ejemplo', 5, '2025-11-01 10:00:00', 1, 1);
+INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Dias`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`, `Cot_ViaticosMonto`) VALUES
+(1, NULL, 'Boda', '2025-12-10', 'Lima', 8.0, 1, 'Caso expirado por vigencia comercial. Viaticos no aplica.', 5, '2025-11-01 10:00:00', 1, 1, 0.00);
 -- T_CotizacionServicio
 INSERT INTO `T_CotizacionServicio` (`PK_CotServ_Cod`, `FK_Cot_Cod`, `FK_ExS_Cod`, `CS_EventoId`, `CS_ServicioId`, `CS_Nombre`, `CS_Descripcion`, `CS_Moneda`, `CS_PrecioUnit`, `CS_Cantidad`, `CS_Descuento`, `CS_Recargo`, `CS_Notas`, `CS_Horas`, `CS_Staff`, `CS_FotosImpresas`, `CS_TrailerMin`, `CS_FilmMin`) VALUES
-(1, 1, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura completa + album', 'USD', 1500.00, 1, 0, 0, 'Estado expirada', 10.0, 2, 60, 0, 0);
+(1, 1, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura completa + album', 'USD', 1500.00, 1, 0, 0, 'Estado expirada', 8.0, 2, 60, 0, 0);
 -- T_CotizacionEvento
 INSERT INTO `T_CotizacionEvento` (`PK_CotE_Cod`, `FK_Cot_Cod`, `CotE_Fecha`, `CotE_Hora`, `CotE_Ubicacion`, `CotE_Direccion`, `CotE_Notas`) VALUES
-(1, 1, '2025-12-10', '18:00:00', 'Lima', 'Miraflores', 'Evento expirada');
+(1, 1, '2025-12-10', '18:00:00', 'Iglesia San Pedro', 'Av. Brasil 1234, Jesus Maria, Lima', 'Ceremonia');
 -- T_Cotizacion (seed con estado Borrador)
-INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`) VALUES
-(2, NULL, 'Cumpleaños', '2026-02-15', 'Arequipa', 4.0, 'Cotizacion borrador de ejemplo', 1, '2026-01-15 09:30:00', 2, 2);
+INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Dias`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`, `Cot_ViaticosMonto`) VALUES
+(2, NULL, 'Cumpleanos', '2026-02-15', 'Arequipa', 5.0, 1, 'Cotizacion borrador. Viaticos aceptados.', 1, '2026-01-15 09:30:00', 2, 2, 450.00);
 -- T_CotizacionServicio
 INSERT INTO `T_CotizacionServicio` (`PK_CotServ_Cod`, `FK_Cot_Cod`, `FK_ExS_Cod`, `CS_EventoId`, `CS_ServicioId`, `CS_Nombre`, `CS_Descripcion`, `CS_Moneda`, `CS_PrecioUnit`, `CS_Cantidad`, `CS_Descuento`, `CS_Recargo`, `CS_Notas`, `CS_Horas`, `CS_Staff`, `CS_FotosImpresas`, `CS_TrailerMin`, `CS_FilmMin`) VALUES
-(2, 2, 8, 2, 1, 'Fotografia Cumple Express', 'Cobertura fotografica 4h con edicion basica', 'USD', 1200.00, 1, 0, 0, 'Estado borrador', 4.0, NULL, 0, NULL, NULL);
+(2, 2, 8, 2, 1, 'Fotografia Cumple Express', 'Cobertura fotografica 5h con edicion basica', 'USD', 1200.00, 1, 0, 0, 'Estado borrador', 5.0, NULL, 0, NULL, NULL);
 -- T_CotizacionEvento
 INSERT INTO `T_CotizacionEvento` (`PK_CotE_Cod`, `FK_Cot_Cod`, `CotE_Fecha`, `CotE_Hora`, `CotE_Ubicacion`, `CotE_Direccion`, `CotE_Notas`) VALUES
-(2, 2, '2026-02-15', '19:30:00', 'Arequipa', 'Cercado', 'Evento borrador');
+(2, 2, '2026-02-15', '19:30:00', 'Casa de la novia', 'Calle Mercaderes 245, Cercado, Arequipa', 'Sesion previa');
 -- T_Cotizacion (seed con estado Enviada)
-INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`) VALUES
-(3, NULL, 'Corporativo', '2026-03-20', 'Lima', 6.0, 'Cotizacion enviada de ejemplo', 2, '2026-02-01 11:15:00', 3, 3);
+INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Dias`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`, `Cot_ViaticosMonto`) VALUES
+(3, NULL, 'Corporativo', '2026-03-20', 'Lima', 6.0, 2, 'Cotizacion enviada. Trabajo en dos dias.', 2, '2026-02-01 11:15:00', 3, 3, 0.00);
 -- T_CotizacionServicio
 INSERT INTO `T_CotizacionServicio` (`PK_CotServ_Cod`, `FK_Cot_Cod`, `FK_ExS_Cod`, `CS_EventoId`, `CS_ServicioId`, `CS_Nombre`, `CS_Descripcion`, `CS_Moneda`, `CS_PrecioUnit`, `CS_Cantidad`, `CS_Descuento`, `CS_Recargo`, `CS_Notas`, `CS_Horas`, `CS_Staff`, `CS_FotosImpresas`, `CS_TrailerMin`, `CS_FilmMin`) VALUES
-(3, 3, 16, 3, 2, 'Video Corporativo Conferencia', 'Cobertura completa de conferencia con edicion resumen', 'USD', 3000.00, 1, 0, 0, 'Estado enviada', 6.0, NULL, NULL, 2, 25);
+(16, 3, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura fotografica de congreso o lanzamiento (6h)', 'USD', 2500.00, 2.00, 0.00, 0.00, NULL, 6.0, 3, NULL, NULL, NULL),
+(17, 3, 16, 3, 2, 'Video Corporativo Conferencia', 'Cobertura completa de conferencia con edicion resumen', 'USD', 3000.00, 2.00, 0.00, 0.00, NULL, 6.0, 3, NULL, 2, 25),
+(18, 3, 18, 3, 3, 'Drone Corporativo Exterior', 'Tomas aereas del local y planos de contexto', 'USD', 400.00, 1.00, 0.00, 0.00, NULL, 3.0, 1, NULL, NULL, NULL);
 -- T_CotizacionEvento
 INSERT INTO `T_CotizacionEvento` (`PK_CotE_Cod`, `FK_Cot_Cod`, `CotE_Fecha`, `CotE_Hora`, `CotE_Ubicacion`, `CotE_Direccion`, `CotE_Notas`) VALUES
-(3, 3, '2026-03-20', '09:00:00', 'Lima', 'San Isidro', 'Evento enviada');
+(16, 3, '2026-03-20', '09:00:00', 'Centro de Convenciones San Isidro', 'Av. Javier Prado 1200, San Isidro, Lima', 'Conferencia dia 1'),
+(17, 3, '2026-03-21', '09:30:00', 'Auditorio Empresarial San Isidro', 'Av. Rivera Navarrete 450, San Isidro, Lima', 'Conferencia dia 2');
 -- T_Cotizacion (seed para reglas de vencimiento, usando fecha real)
-INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`) VALUES
-(4, NULL, 'Boda', '2026-02-15', 'Lima', 6.0, 'Caso expirado por vigencia comercial', 1, '2025-10-01 10:00:00', 1, 1),
-(5, NULL, 'Corporativo', '2026-01-18', 'Lima', 5.0, 'Caso expirado por vigencia operativa (no urgente)', 2, '2025-12-01 09:00:00', 3, 1),
-(6, NULL, 'Cumpleanos', '2026-01-16', 'Arequipa', 4.0, 'Caso urgente (no debe expirar por operativa)', 2, '2026-01-10 12:00:00', 2, 2),
-(7, NULL, 'Boda', '2026-03-01', 'Cusco', 8.0, 'Caso vigente normal', 1, '2025-12-20 15:30:00', 1, 3);
+INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Dias`, `Cot_Mensaje`, `FK_ECot_Cod`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`, `Cot_ViaticosMonto`) VALUES
+(4, NULL, 'Boda', '2026-02-15', 'Lima', 7.0, 1, 'Caso expirado por vigencia comercial. Viaticos no aplica.', 1, '2025-10-01 10:00:00', 1, 1, 0.00),
+(5, NULL, 'Corporativo', '2026-01-18', 'Piura', 5.0, 1, 'Caso expirado por vigencia operativa. Viaticos no aceptados.', 2, '2025-12-01 09:00:00', 3, 1, 0.00),
+(6, NULL, 'Cumpleanos', '2026-01-16', 'Arequipa', 4.0, 1, 'Caso urgente. Viaticos aceptados.', 2, '2026-01-10 12:00:00', 2, 2, 300.00),
+(7, NULL, 'Boda', '2026-03-01', 'Cusco', 8.0, 1, 'Caso vigente normal. Viaticos aceptados.', 1, '2025-12-20 15:30:00', 1, 3, 800.00);
 -- T_CotizacionServicio (reglas de vencimiento)
 INSERT INTO `T_CotizacionServicio` (`PK_CotServ_Cod`, `FK_Cot_Cod`, `FK_ExS_Cod`, `CS_EventoId`, `CS_ServicioId`, `CS_Nombre`, `CS_Descripcion`, `CS_Moneda`, `CS_PrecioUnit`, `CS_Cantidad`, `CS_Descuento`, `CS_Recargo`, `CS_Notas`, `CS_Horas`, `CS_Staff`, `CS_FotosImpresas`, `CS_TrailerMin`, `CS_FilmMin`) VALUES
-(4, 4, 1, 1, 1, 'Fotografia Boda Standard', 'Caso comercial vencido', 'USD', 1000.00, 1, 0, 0, 'Regla 90 dias', 6.0, 2, 40, 0, 0),
+(4, 4, 1, 1, 1, 'Fotografia Boda Standard', 'Caso comercial vencido', 'USD', 1000.00, 1, 0, 0, 'Regla 90 dias', 7.0, 2, 40, 0, 0),
 (5, 5, 16, 3, 2, 'Video Corporativo', 'Caso operativa vencida', 'USD', 2500.00, 1, 0, 0, 'Regla 7 dias', 5.0, NULL, NULL, 1, 15),
 (6, 6, 8, 2, 1, 'Fotografia Cumple Express', 'Caso urgente', 'USD', 900.00, 1, 0, 0, 'Urgente', 4.0, NULL, 0, NULL, NULL),
-(7, 7, 1, 1, 1, 'Fotografia Boda Standard', 'Caso vigente', 'USD', 1300.00, 1, 0, 0, 'Normal', 8.0, 2, 50, 0, 0);
+(13, 7, 3, 1, 2, 'Video Boda Ceremonia', 'Cobertura de ceremonia con entrega de highlight de 1 minuto', 'USD', 800.00, 1.00, 0.00, 0.00, NULL, 4.0, 2, NULL, 1, 15),
+(14, 7, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura completa (getting ready, ceremonia, recepcion) + album fine art', 'USD', 1500.00, 1.00, 0.00, 0.00, NULL, 10.0, 3, 60, 0, 0);
 -- T_CotizacionEvento (reglas de vencimiento)
 INSERT INTO `T_CotizacionEvento` (`PK_CotE_Cod`, `FK_Cot_Cod`, `CotE_Fecha`, `CotE_Hora`, `CotE_Ubicacion`, `CotE_Direccion`, `CotE_Notas`) VALUES
-(4, 4, '2026-02-15', '18:00:00', 'Lima', 'Miraflores', 'Evento comercial'),
-(5, 5, '2026-01-18', '09:00:00', 'Lima', 'San Isidro', 'Evento operativa'),
-(6, 6, '2026-01-16', '19:30:00', 'Arequipa', 'Cercado', 'Evento urgente'),
-(7, 7, '2026-03-01', '17:00:00', 'Cusco', 'Centro', 'Evento vigente');
+(4, 4, '2026-02-15', '18:00:00', 'Recepcion Los Olivos', 'Av. Los Olivos 560, Los Olivos, Lima', 'Recepcion'),
+(5, 5, '2026-01-18', '09:00:00', 'Hotel Costa Norte', 'Av. Grau 980, Piura', 'Sala principal'),
+(6, 6, '2026-01-16', '19:30:00', 'Iglesia Santa Ana', 'Jr. San Martin 320, Cayma, Arequipa', 'Ceremonia'),
+(13, 7, '2026-03-01', '14:00:00', 'Iglesia Catedral', 'Plaza de Armas S/N, Cusco', 'Ceremonia'),
+(14, 7, '2026-03-01', '19:30:00', 'Recepcion Valle Sagrado', 'Av. El Sol 420, Cusco', 'Recepcion');
+-- T_CotizacionServicioFecha (asignaciones por dia)
+INSERT INTO `T_CotizacionServicioFecha` (`PK_CSF_Cod`, `FK_Cot_Cod`, `FK_CotServ_Cod`, `CSF_Fecha`) VALUES
+(3, 7, 13, '2026-03-01'),
+(4, 7, 14, '2026-03-01'),
+(5, 3, 16, '2026-03-20'),
+(6, 3, 16, '2026-03-21'),
+(7, 3, 17, '2026-03-21'),
+(8, 3, 17, '2026-03-20'),
+(9, 3, 18, '2026-03-21');
 -- Ajusta AUTO_INCREMENT para continuar desde MAX(id)+1
 ALTER TABLE `T_Estado_Cliente` AUTO_INCREMENT = 1;
 ALTER TABLE `T_Estado_Empleado` AUTO_INCREMENT = 1;
@@ -787,3 +809,4 @@ ALTER TABLE `T_EventoServicioEquipo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_EventoServicioStaff` AUTO_INCREMENT = 1;
 ALTER TABLE `T_TipoDocumento` AUTO_INCREMENT = 1;
 SET FOREIGN_KEY_CHECKS=1;
+SET SQL_SAFE_UPDATES=1;
