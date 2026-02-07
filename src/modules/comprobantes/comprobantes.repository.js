@@ -16,7 +16,7 @@ async function getComprobantePdfByVoucherId(p_PK_Pa_Cod) {
   return { header, items };
 }
 
-// ✅ NUEVO: total del pedido = SUM(PS_Subtotal)
+// (opcional) si lo quieres conservar
 async function getSubtotalPedidoByPedidoId(pedidoId) {
   const id = Number(pedidoId);
   if (!Number.isInteger(id) || id <= 0) return 0;

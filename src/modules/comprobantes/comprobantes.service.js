@@ -3,7 +3,6 @@ const path = require("path");
 const fs = require("fs");
 const repo = require("./comprobantes.repository");
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
-const { getIgvRate } = require("../../utils/igv");
 
 function money2(v) {
   const n = Number(v ?? 0);
@@ -62,76 +61,73 @@ function numberToWordsUSD(amount) {
   else {
     const miles = Math.floor(enteroNum / 1000);
     const resto = enteroNum % 1000;
-    letras = (miles === 1 ? "MIL" : convertir(miles) + " MIL") + (resto ? " " + convertir(resto) : "");
+    letras =
+      (miles === 1 ? "MIL" : convertir(miles) + " MIL") +
+      (resto ? " " + convertir(resto) : "");
   }
 
   return `${letras} Y ${decimal}/100 DÃ“LARES`;
 }
 
-function mapComprobanteToTemplateData(header, items, opts = {}) {
+function mapComprobanteToTemplateData(header, items) {
   const h = header || {};
   const arr = Array.isArray(items) ? items : [];
 
-  // ====== helpers numéricos ======
   const n = (v) => {
     const x = Number(v);
     return Number.isFinite(x) ? x : 0;
   };
   const round2 = (v) => Math.round(n(v) * 100) / 100;
 
-  const factorPagoRaw = opts.factorPago ?? h.factorPago ?? 1;
-  const factorPagoNum = round2(n(factorPagoRaw) || 1);
+  const tipoUpper = safeStr(h.tipo).trim().toUpperCase();
+  const esNC = tipoUpper === "NC" || tipoUpper.includes("CRED");
 
-  const tipo = safeStr(h.tipo).toUpperCase();
-  const esNC = tipo.includes("CRED") || tipo === "NC";
+  const tituloComprobante =
+    esNC
+      ? "NOTA DE CRÃ‰DITO"
+      : tipoUpper === "FACTURA"
+      ? "FACTURA ELECTRÃ“NICA"
+      : "BOLETA DE VENTA ELECTRÃ“NICA";
 
-  // ====== BASE (SIN IGV) ======
+  // ===== totales vienen del SP =====
   const opGravadaNum = round2(n(h.opGravada));
+  const igvNum = round2(n(h.igv));
 
-  const igvNum =
-    h.igv != null && h.igv !== ""
-      ? round2(n(h.igv))
-      : round2(opGravadaNum * 0.18);
-
+  // OJO: tu SP manda total = CON IGV
+  const totalConIgvNum = round2(n(h.totalConIgv ?? h.total));
   const totalSinIgvNum =
-    h.total != null && h.total !== ""
-      ? round2(n(h.total))
-      : opGravadaNum;
+    (h.totalSinIgv != null && h.totalSinIgv !== "")
+      ? round2(n(h.totalSinIgv))
+      : opGravadaNum; // en tu SP opGravada ya es sin IGV
 
-  const totalConIgvNum =
-    h.totalConIgv != null && h.totalConIgv !== ""
-      ? round2(n(h.totalConIgv))
-      : round2(totalSinIgvNum + igvNum);
+  // ===== factorPago viene del SP (no recalcular en Node) =====
+  const factorPagoNum =
+    h.factorPago != null && h.factorPago !== "" ? round2(n(h.factorPago)) : 1;
 
-  const porcentajePagoNum = round2(factorPagoNum * 100);
+  const porcentajePagoNum = Math.round(factorPagoNum * 100);
   const porcentajePagoTxt = `${porcentajePagoNum}%`;
 
-  const tituloComprobante = esNC
-    ? "NOTA DE CRÉDITO"
-    : tipo === "FACTURA"
-    ? "FACTURA ELECTRÓNICA"
-    : "BOLETA DE VENTA ELECTRÓNICA";
+  // Pago parcial solo si < 100% y NO es NC
+  const esPagoParcial = !esNC && factorPagoNum < 0.999;
 
-  // ====== pago parcial (condicional) ======
-  // Regla simple: si factorPago < 100% entonces es parcial
-  const esPagoParcial =
-    !esNC &&
-    (Boolean(h.esPagoParcial) ||
-      Boolean(h.mostrarPagoParcial) ||
-      factorPagoNum < 0.999);
+  // ObservaciÃ³n: solo si es pago parcial
+  const observacionPagoTxt = esPagoParcial
+    ? `Se ha pagado ${porcentajePagoTxt} del servicio.`
+    : "";
 
-  // SOLO porcentaje, sin montos
-  const observacionPago =
-    safeStr(h.observacionPago) ||
-    (esPagoParcial ? `Se ha pagado ${porcentajePagoTxt} del servicio.` : "");
+  // Para que el bloque {#mostrarPagoParcial}...{/mostrarPagoParcial} pinte SIEMPRE
+  // lo mandamos como array (loop) o array vacÃ­o
+  const mostrarPagoParcial = esPagoParcial
+    ? [{ observacionPago: observacionPagoTxt }]
+    : [];
 
-  // ====== helper: quitar descripción larga después del " — " ======
+  // Quitar descripciÃ³n larga despuÃ©s del " â€” "
   const stripLongDesc = (s) => {
     const txt = safeStr(s);
-    return txt.includes(" — ") ? txt.split(" — ")[0].trim() : txt.trim();
+    return txt.includes(" â€” ") ? txt.split(" â€” ")[0].trim() : txt.trim();
   };
 
-  // si NO es parcial, no agregamos porcentaje en la descripción
+  // % al lado del servicio solo si es pago parcial (y NO es NC)
   const pctSuffix = esPagoParcial ? ` (${porcentajePagoTxt})` : "";
 
   return {
@@ -161,16 +157,17 @@ function mapComprobanteToTemplateData(header, items, opts = {}) {
     clienteCorreo: safeStr(h.clienteCorreo),
     clienteCelular: safeStr(h.clienteCelular),
 
-    // ===== observación (bloque condicional del DOCX) =====
-    // En el DOCX: {#mostrarPagoParcial} Observación: {observacionPago}{/mostrarPagoParcial}
-    mostrarPagoParcial: esPagoParcial,
-    observacionPago,
+    // ===== observaciÃ³n (bloque condicional en Word) =====
+    // En DOCX: {#mostrarPagoParcial} ObservaciÃ³n: {observacionPago}{/mostrarPagoParcial}
+    mostrarPagoParcial,
+    // (por si tambiÃ©n lo usas fuera del loop)
+    observacionPago: observacionPagoTxt,
 
     // ===== totales =====
-    opGravada: money2(opGravadaNum),
+    opGravada: money2(opGravadaNum),        // SIN IGV
     igv: money2(igvNum),
-    total: money2(totalSinIgvNum),          // SIN IGV (primer total)
-    totalConIgv: money2(totalConIgvNum),    // CON IGV (segundo total)
+    total: money2(totalSinIgvNum),         // primer total: SIN IGV (segÃºn tu template)
+    totalConIgv: money2(totalConIgvNum),   // segundo total: CON IGV
 
     anticipos: money2(h.anticipos ?? 0),
     otrosCargos: money2(h.otrosCargos ?? 0),
@@ -181,7 +178,8 @@ function mapComprobanteToTemplateData(header, items, opts = {}) {
     isc: money2(h.isc ?? 0),
     redondeo: money2(h.redondeo ?? 0),
 
-    totalEnLetras: numberToWordsUSD(totalConIgvNum),
+    // âœ… totalEnLetras SIN IGV (como pediste)
+    totalEnLetras: numberToWordsUSD(totalSinIgvNum),
 
     // ===== pedido/evento =====
     pedidoId: safeStr(h.pedidoId),
@@ -190,30 +188,20 @@ function mapComprobanteToTemplateData(header, items, opts = {}) {
     pedidoLugar: safeStr(h.pedidoLugar),
 
     // ===== detalle =====
-    detalleItems: arr.map((it) => {
-      const cantNum = n(it.cantidad);
-      const importeNum = n(it.importe);
-      const valorUnitarioNum =
-        it.valorUnitario != null && it.valorUnitario !== ""
-          ? n(it.valorUnitario)
-          : cantNum > 0
-          ? importeNum / cantNum
-          : 0;
-
-      return {
-        cantidad: safeStr(it.cantidad),
-        unidad: safeStr(it.unidad || "UNIDAD"),
-        // SOLO título, y solo agrega (xx%) si es pago parcial
-        descripcion: `${stripLongDesc(it.descripcion)}${pctSuffix}`,
-        valorUnitario: money2(valorUnitarioNum),
-        descuento: money2(it.descuento ?? 0),
-        importe: money2(importeNum),
-      };
-    }),
+    detalleItems: arr.map((it) => ({
+      cantidad: safeStr(it.cantidad),
+      unidad: safeStr(it.unidad || "UNIDAD"),
+      // Solo tÃ­tulo; agrega % solo si parcial
+      descripcion: `${stripLongDesc(it.descripcion)}${pctSuffix}`,
+      // No recalcular: el SP ya manda valorUnitario (SIN IGV)
+      valorUnitario: money2(it.valorUnitario),
+      descuento: money2(it.descuento ?? 0),
+      importe: money2(it.importe),
+    })),
 
     leyendaSunat: safeStr(
       h.leyendaSunat ||
-        "Esta es una representación impresa del comprobante. (Demo / uso interno)"
+        "Esta es una representaciÃ³n impresa del comprobante. (Demo / uso interno)"
     ),
 
     // ===== NC referencias =====
@@ -243,18 +231,14 @@ async function generateComprobantePdfBufferByVoucherId(voucherId) {
     throw e;
   }
 
-  // âœ… base del porcentaje = TOTAL con IGV (como UI)
-  // subtotalPedido sale de SUM(PS_Subtotal) en T_PedidoServicio
-  const subtotalPedido = await repo.getSubtotalPedidoByPedidoId(header.pedidoId);
-  const totalPedidoConIGV = Number(subtotalPedido ?? 0) * 1.18;
-
-  const totalPago = Number(header.total ?? 0);
-
-  const factorPago =
-    totalPedidoConIGV > 0 ? totalPago / totalPedidoConIGV : 1;
-
   const templateName = pickTemplate(header.tipo);
-  const templatePath = path.join(process.cwd(), "src", "pdf", "templates", templateName);
+  const templatePath = path.join(
+    process.cwd(),
+    "src",
+    "pdf",
+    "templates",
+    templateName
+  );
 
   if (!fs.existsSync(templatePath)) {
     const e = new Error(`No existe template DOCX: ${templatePath}`);
@@ -262,7 +246,7 @@ async function generateComprobantePdfBufferByVoucherId(voucherId) {
     throw e;
   }
 
-  const data = mapComprobanteToTemplateData(header, items, { factorPago });
+  const data = mapComprobanteToTemplateData(header, items);
 
   const pdfBuffer = await generatePdfBufferFromDocxTemplate({
     templatePath,
@@ -273,5 +257,3 @@ async function generateComprobantePdfBufferByVoucherId(voucherId) {
 }
 
 module.exports = { generateComprobantePdfBufferByVoucherId };
-
-
