@@ -148,7 +148,7 @@ function mapComprobanteToTemplateData(header, items) {
     fechaVencimiento: safeStr(h.fechaVencimiento || ""),
 
     // Moneda fija
-    moneda: "$",
+    moneda: "Dolares",
     descuentoTotal: money2(h.descuentoTotal ?? 0),
 
     // ===== cliente =====
