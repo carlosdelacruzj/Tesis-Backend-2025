@@ -124,10 +124,39 @@ async function postProyectoDiaDevolucion(req, res, next) {
   }
 }
 
+async function postProyectoDiaDevolucionAsync(req, res, next) {
+  try {
+    const { diaId } = req.params;
+    const r = await service.enqueueDevolucionEquiposDia(diaId, req.body);
+    res.status(202).json(r);
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function patchProyectoDiaEquipoDevolucion(req, res, next) {
   try {
     const { diaId, equipoId } = req.params;
     const r = await service.devolverEquipo(diaId, equipoId, req.body);
+    res.status(200).json(r);
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function postProyectoEquipoDevolucionPreview(req, res, next) {
+  try {
+    const r = await service.previewDevolucionEquipo(req.body);
+    res.status(200).json(r);
+  } catch (e) {
+    next(e);
+  }
+}
+
+async function getProyectoDevolucionJob(req, res, next) {
+  try {
+    const { jobId } = req.params;
+    const r = await service.getDevolucionJobStatus(jobId);
     res.status(200).json(r);
   } catch (e) {
     next(e);
@@ -149,5 +178,8 @@ module.exports = {
   postProyectoAsignacionesUpsert,
   postProyectoDiaIncidencia,
   postProyectoDiaDevolucion,
+  postProyectoDiaDevolucionAsync,
   patchProyectoDiaEquipoDevolucion,
+  postProyectoEquipoDevolucionPreview,
+  getProyectoDevolucionJob,
 };

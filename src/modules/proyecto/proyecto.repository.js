@@ -1,6 +1,8 @@
 ﻿const pool = require("../../db");
 const { formatCodigo } = require("../../utils/codigo");
 const { getLimaDateTimeString } = require("../../utils/dates");
+const { randomUUID } = require("crypto");
+const { ESTADOS_EQUIPO_OBJETIVO, ESTADOS_EQUIPO_IDS_ESPERADOS } = require("./devolucion.rules");
 
 async function runCall(sql, params = []) {
   const [rows] = await pool.query(sql, params);
@@ -82,6 +84,17 @@ async function getProyectoInfoByDiaId(diaId) {
   return rows?.[0] || null;
 }
 
+async function getProyectoDiaFechaById(diaId, queryable = pool) {
+  const [rows] = await queryable.query(
+    `SELECT PK_PD_Cod AS diaId, PD_Fecha AS fecha
+     FROM T_ProyectoDia
+     WHERE PK_PD_Cod = ?
+     LIMIT 1`,
+    [Number(diaId)]
+  );
+  return rows?.[0] || null;
+}
+
 async function countDiasNoTerminados(proyectoId, estadoTerminadoId) {
   const [rows] = await pool.query(
     `SELECT COUNT(*) AS cnt
@@ -99,7 +112,26 @@ async function countEquiposNoDevueltos(proyectoId) {
      FROM T_ProyectoDiaEquipo pdq
      JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdq.FK_PD_Cod
      WHERE pd.FK_Pro_Cod = ?
-       AND (pdq.PDQ_Devuelto IS NULL OR pdq.PDQ_Devuelto = 0)`,
+       AND (
+         pdq.PDQ_Estado_Devolucion IS NULL
+         OR UPPER(pdq.PDQ_Estado_Devolucion) NOT IN ('DEVUELTO', 'DANADO', 'PERDIDO', 'ROBADO')
+         OR (
+           UPPER(pdq.PDQ_Estado_Devolucion) = 'DEVUELTO'
+           AND COALESCE(pdq.PDQ_Devuelto, -1) <> 1
+         )
+         OR (
+           UPPER(pdq.PDQ_Estado_Devolucion) = 'DANADO'
+           AND COALESCE(pdq.PDQ_Devuelto, -1) <> 1
+         )
+         OR (
+           UPPER(pdq.PDQ_Estado_Devolucion) = 'PERDIDO'
+           AND COALESCE(pdq.PDQ_Devuelto, -1) <> 0
+         )
+         OR (
+           UPPER(pdq.PDQ_Estado_Devolucion) = 'ROBADO'
+           AND COALESCE(pdq.PDQ_Devuelto, -1) <> 0
+         )
+       )`,
     [Number(proyectoId)]
   );
   return Number(rows?.[0]?.cnt || 0);
@@ -110,6 +142,213 @@ async function updatePedidoEstadoById(pedidoId, estadoPedidoId) {
     [Number(estadoPedidoId), Number(pedidoId)]
   );
   return { affectedRows: result.affectedRows };
+}
+
+async function getEstadoEquipoIdByNombreValidado(queryable = pool) {
+  const estadosEsperados = Object.entries(ESTADOS_EQUIPO_IDS_ESPERADOS);
+  const nombres = estadosEsperados.map(([nombre]) => nombre);
+  const placeholders = nombres.map(() => "?").join(", ");
+  const [rows] = await queryable.query(
+    `SELECT PK_EE_Cod AS estadoId, EE_Nombre AS estadoNombre
+       FROM T_Estado_Equipo
+      WHERE EE_Nombre IN (${placeholders})`,
+    nombres
+  );
+
+  const byNombre = new Map((rows || []).map((r) => [String(r.estadoNombre), Number(r.estadoId)]));
+  for (const [nombre, idEsperado] of estadosEsperados) {
+    const idReal = byNombre.get(nombre);
+    if (!idReal) {
+      const err = new Error(`Estado de equipo no encontrado: ${nombre}`);
+      err.status = 500;
+      throw err;
+    }
+    if (Number(idReal) !== Number(idEsperado)) {
+      const err = new Error(
+        `Integridad de T_Estado_Equipo invalida para '${nombre}': esperado ${idEsperado}, obtenido ${idReal}`
+      );
+      err.status = 500;
+      throw err;
+    }
+  }
+
+  return byNombre;
+}
+
+async function ensureDevolucionJobTable() {
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS T_ProyectoDevolucionJob (
+      PK_PDJ_Cod INT NOT NULL AUTO_INCREMENT,
+      PDJ_UUID VARCHAR(64) NOT NULL,
+      FK_PD_Cod INT NOT NULL,
+      FK_U_Cod INT NULL,
+      PDJ_Estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+      PDJ_Request_JSON JSON NOT NULL,
+      PDJ_Result_JSON JSON NULL,
+      PDJ_Error VARCHAR(500) NULL,
+      PDJ_Intentos INT NOT NULL DEFAULT 0,
+      PDJ_Started_At DATETIME NULL,
+      PDJ_Completed_At DATETIME NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+      PRIMARY KEY (PK_PDJ_Cod),
+      UNIQUE KEY uq_pdj_uuid (PDJ_UUID),
+      KEY ix_pdj_estado_created (PDJ_Estado, created_at),
+      KEY ix_pdj_dia (FK_PD_Cod)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+  `);
+}
+
+async function createDevolucionJob(diaId, payload = {}, usuarioId = null) {
+  await ensureDevolucionJobTable();
+  const generated = typeof randomUUID === "function" ? randomUUID() : `${Date.now()}_${Math.random()}`;
+  const jobId = String(generated).replace(/-/g, "");
+  const [result] = await pool.query(
+    `INSERT INTO T_ProyectoDevolucionJob
+       (PDJ_UUID, FK_PD_Cod, FK_U_Cod, PDJ_Estado, PDJ_Request_JSON)
+     VALUES (?, ?, ?, 'PENDIENTE', ?)`,
+    [jobId, Number(diaId), usuarioId == null ? null : Number(usuarioId), JSON.stringify(payload || {})]
+  );
+  return { jobId, internalId: Number(result.insertId) };
+}
+
+async function getDevolucionJobById(jobId) {
+  await ensureDevolucionJobTable();
+  const [rows] = await pool.query(
+    `SELECT
+       PK_PDJ_Cod AS internalId,
+       PDJ_UUID AS jobId,
+       FK_PD_Cod AS diaId,
+       FK_U_Cod AS usuarioId,
+       PDJ_Estado AS estado,
+       PDJ_Request_JSON AS requestJson,
+       PDJ_Result_JSON AS resultJson,
+       PDJ_Error AS error,
+       PDJ_Intentos AS intentos,
+       PDJ_Started_At AS startedAt,
+       PDJ_Completed_At AS completedAt,
+       created_at AS createdAt,
+       updated_at AS updatedAt
+     FROM T_ProyectoDevolucionJob
+     WHERE PDJ_UUID = ?
+     LIMIT 1`,
+    [String(jobId)]
+  );
+  return rows?.[0] || null;
+}
+
+async function getProyectoInfoByProyectoId(proyectoId) {
+  const [rows] = await pool.query(
+    `SELECT
+       pr.PK_Pro_Cod AS proyectoId,
+       pr.Pro_Estado AS proyectoEstadoId,
+       pr.FK_P_Cod AS pedidoId,
+       p.FK_EP_Cod AS pedidoEstadoId
+     FROM T_Proyecto pr
+     LEFT JOIN T_Pedido p ON p.PK_P_Cod = pr.FK_P_Cod
+     WHERE pr.PK_Pro_Cod = ?
+     LIMIT 1`,
+    [Number(proyectoId)]
+  );
+  return rows?.[0] || null;
+}
+
+async function claimNextPendingDevolucionJob() {
+  await ensureDevolucionJobTable();
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+    const [rows] = await conn.query(
+      `SELECT PK_PDJ_Cod AS internalId, PDJ_UUID AS jobId, FK_PD_Cod AS diaId, PDJ_Request_JSON AS requestJson
+       FROM T_ProyectoDevolucionJob
+       WHERE PDJ_Estado = 'PENDIENTE'
+       ORDER BY created_at ASC, PK_PDJ_Cod ASC
+       LIMIT 1
+       FOR UPDATE`
+    );
+    if (!rows.length) {
+      await conn.commit();
+      return null;
+    }
+    const job = rows[0];
+    await conn.query(
+      `UPDATE T_ProyectoDevolucionJob
+       SET PDJ_Estado = 'PROCESANDO',
+           PDJ_Intentos = PDJ_Intentos + 1,
+           PDJ_Started_At = ?,
+           updated_at = ?
+       WHERE PK_PDJ_Cod = ?`,
+      [getLimaDateTimeString(), getLimaDateTimeString(), Number(job.internalId)]
+    );
+    await conn.commit();
+    return {
+      internalId: Number(job.internalId),
+      jobId: String(job.jobId),
+      diaId: Number(job.diaId),
+      requestJson: job.requestJson,
+    };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+async function completeDevolucionJob(internalId, result = null) {
+  await ensureDevolucionJobTable();
+  await pool.query(
+    `UPDATE T_ProyectoDevolucionJob
+     SET PDJ_Estado = 'COMPLETADO',
+         PDJ_Result_JSON = ?,
+         PDJ_Error = NULL,
+         PDJ_Completed_At = ?,
+         updated_at = ?
+     WHERE PK_PDJ_Cod = ?`,
+    [
+      result == null ? null : JSON.stringify(result),
+      getLimaDateTimeString(),
+      getLimaDateTimeString(),
+      Number(internalId),
+    ]
+  );
+}
+
+async function failDevolucionJob(internalId, errorMessage) {
+  await ensureDevolucionJobTable();
+  await pool.query(
+    `UPDATE T_ProyectoDevolucionJob
+     SET PDJ_Estado = 'ERROR',
+         PDJ_Error = ?,
+         PDJ_Completed_At = ?,
+         updated_at = ?
+     WHERE PK_PDJ_Cod = ?`,
+    [
+      String(errorMessage || "Error no especificado").slice(0, 500),
+      getLimaDateTimeString(),
+      getLimaDateTimeString(),
+      Number(internalId),
+    ]
+  );
+}
+
+function formatFechaLargaEs(fechaValue) {
+  if (!fechaValue) return null;
+  const raw = String(fechaValue);
+  const match = raw.match(/^(\d{4})-(\d{2})-(\d{2})/);
+  if (!match) return raw;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const d = new Date(Date.UTC(year, month - 1, day, 12, 0, 0));
+  const text = new Intl.DateTimeFormat("es-PE", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    timeZone: "UTC",
+  }).format(d);
+  return text ? text.charAt(0).toUpperCase() + text.slice(1) : raw;
 }
 
 /* Proyecto */
@@ -146,6 +385,23 @@ async function getByIdProyecto(id) {
         pedidoCodigo: pedidoId == null ? null : formatCodigo("PED", pedidoId),
       }
     : null;
+
+  if (proyecto && pedidoId != null) {
+    const [rowsPago] = await pool.query(
+      `SELECT
+         p.FK_ESP_Cod AS estadoPagoId,
+         ep.ESP_Nombre AS estadoPagoNombre
+       FROM T_Pedido p
+       LEFT JOIN T_Estado_Pago ep ON ep.PK_ESP_Cod = p.FK_ESP_Cod
+       WHERE p.PK_P_Cod = ?
+       LIMIT 1`,
+      [Number(pedidoId)]
+    );
+    const pago = rowsPago?.[0] || null;
+    proyecto.estadoPagoId = pago?.estadoPagoId ?? null;
+    proyecto.estadoPagoNombre = pago?.estadoPagoNombre ?? null;
+  }
+
   const empleadosDia = sets[4] || [];
   const incidenciasDia = sets[8] || [];
 
@@ -736,7 +992,7 @@ async function updateDevolucionEquipos(diaId, equipos = [], usuarioId = null) {
     await conn.beginTransaction();
 
     const [rowsDia] = await conn.query(
-      `SELECT FK_Pro_Cod FROM T_ProyectoDia WHERE PK_PD_Cod = ? LIMIT 1`,
+      `SELECT FK_Pro_Cod, PD_Fecha AS fechaBase FROM T_ProyectoDia WHERE PK_PD_Cod = ? LIMIT 1`,
       [Number(diaId)]
     );
     if (!rowsDia.length) {
@@ -744,12 +1000,37 @@ async function updateDevolucionEquipos(diaId, equipos = [], usuarioId = null) {
       err.status = 404;
       throw err;
     }
+    const fechaBaseDia = rowsDia[0]?.fechaBase;
+
+    const estadoEquipoIdByNombre = await getEstadoEquipoIdByNombreValidado(conn);
 
     let updated = 0;
     for (const item of equipos) {
       const eqId = Number(item.equipoId);
+      const causaByEstado = {
+        DANADO: "dano",
+        PERDIDO: "perdida",
+        ROBADO: "robo",
+        DEVUELTO: "devolucion",
+      };
+      const resultadoByEstadoEquipo = {
+        "De baja": "dado de baja",
+        "En Mantenimiento": "enviado a mantenimiento",
+        Disponible: "marcado como disponible",
+      };
       const [rowsEq] = await conn.query(
-        `SELECT 1 FROM T_ProyectoDiaEquipo WHERE FK_PD_Cod = ? AND FK_Eq_Cod = ? LIMIT 1`,
+        `SELECT
+           pdq.PK_PDQ_Cod AS asignacionId,
+           eq.PK_Eq_Cod AS equipoId,
+           eq.Eq_Serie AS serie,
+           mo.NMo_Nombre AS modeloNombre,
+           te.TE_Nombre AS tipoEquipoNombre
+         FROM T_ProyectoDiaEquipo pdq
+         JOIN T_Equipo eq ON eq.PK_Eq_Cod = pdq.FK_Eq_Cod
+         LEFT JOIN T_Modelo mo ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
+         LEFT JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
+         WHERE pdq.FK_PD_Cod = ? AND pdq.FK_Eq_Cod = ?
+         LIMIT 1`,
         [Number(diaId), eqId]
       );
       if (!rowsEq.length) {
@@ -761,7 +1042,7 @@ async function updateDevolucionEquipos(diaId, equipos = [], usuarioId = null) {
       const fecha =
         item.fechaDevolucion && item.fechaDevolucion !== "auto"
           ? item.fechaDevolucion
-          : null; // null => NOW() en SQL
+          : null;
 
       await conn.query(
         `UPDATE T_ProyectoDiaEquipo
@@ -781,6 +1062,108 @@ async function updateDevolucionEquipos(diaId, equipos = [], usuarioId = null) {
           eqId,
         ]
       );
+
+      const estadoDevolucion = String(item.estadoDevolucion || "").toUpperCase();
+      const estadoEquipoObjetivo = ESTADOS_EQUIPO_OBJETIVO[estadoDevolucion] || null;
+      if (!estadoEquipoObjetivo) {
+        const err = new Error(`estadoDevolucion no soportado para equipo ${eqId}`);
+        err.status = 400;
+        throw err;
+      }
+
+      const estadoEquipoObjetivoId = estadoEquipoIdByNombre.get(estadoEquipoObjetivo);
+      if (!estadoEquipoObjetivoId) {
+        const err = new Error(`Estado de equipo no encontrado: ${estadoEquipoObjetivo}`);
+        err.status = 500;
+        throw err;
+      }
+
+      await conn.query(
+        `UPDATE T_Equipo
+            SET FK_EE_Cod = ?
+          WHERE PK_Eq_Cod = ?`,
+        [estadoEquipoObjetivoId, eqId]
+      );
+
+      if (estadoEquipoObjetivo !== "Disponible") {
+        const [rowsFuturas] = await conn.query(
+          `SELECT
+             pdq.PK_PDQ_Cod AS asignacionId,
+             pdq.FK_PD_Cod AS diaFuturoId,
+             pd.FK_Pro_Cod AS proyectoId,
+             pd.PD_Fecha AS fecha,
+             pr.Pro_Nombre AS proyectoNombre
+           FROM T_ProyectoDiaEquipo pdq
+           JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdq.FK_PD_Cod
+           JOIN T_Proyecto pr ON pr.PK_Pro_Cod = pd.FK_Pro_Cod
+           WHERE pdq.FK_Eq_Cod = ?
+             AND pdq.FK_PD_Cod <> ?
+             AND pd.PD_Fecha >= DATE_ADD(?, INTERVAL 1 DAY)`,
+          [eqId, Number(diaId), fechaBaseDia]
+        );
+
+        if ((rowsFuturas || []).length) {
+          const eq = rowsEq[0] || {};
+          const equipoNombre = [eq.tipoEquipoNombre, eq.modeloNombre].filter(Boolean).join(" ");
+          const equipoLabel = equipoNombre
+            ? `${equipoNombre} · ${eq.serie || `#${eqId}`}`
+            : `#${eqId}`;
+          const causa = causaByEstado[estadoDevolucion] || estadoDevolucion.toLowerCase();
+          const resultado =
+            resultadoByEstadoEquipo[estadoEquipoObjetivo] || `marcado como ${estadoEquipoObjetivo}`;
+          const comentario = item.notasDevolucion
+            ? ` Comentario: ${String(item.notasDevolucion).trim()}`
+            : "";
+
+          const impactosPorProyecto = new Map();
+          for (const futura of rowsFuturas || []) {
+            const proyectoId = Number(futura.proyectoId);
+            const key = `${proyectoId}`;
+            if (!impactosPorProyecto.has(key)) {
+              impactosPorProyecto.set(key, {
+                proyectoId,
+                proyectoNombre: futura.proyectoNombre || `Proyecto ${proyectoId}`,
+                fechas: [],
+                fechaSet: new Set(),
+              });
+            }
+            const bag = impactosPorProyecto.get(key);
+            const fechaLarga = formatFechaLargaEs(futura.fecha);
+            if (!bag.fechaSet.has(fechaLarga)) {
+              bag.fechaSet.add(fechaLarga);
+              bag.fechas.push(fechaLarga);
+            }
+          }
+
+          const impactoTexto = Array.from(impactosPorProyecto.values())
+            .map((p) => `[${p.proyectoNombre}] Fechas: ${p.fechas.join(" | ")}`)
+            .join(" | ");
+
+          const descripcion =
+            `${equipoLabel} ${resultado} por ${causa}.` +
+            `${comentario}` +
+            ` Impacto en: ${impactoTexto}.`;
+
+          await conn.query(
+            `INSERT INTO T_ProyectoDiaIncidencia
+               (FK_PD_Cod, PDI_Tipo, PDI_Descripcion, PDI_FechaHora_Evento, FK_Em_Cod, FK_Em_Reemplazo_Cod, FK_Eq_Cod, FK_Eq_Reemplazo_Cod, FK_U_Cod)
+             VALUES (?, 'EQUIPO_DESASIGNADO_AUTOMATICO', ?, ?, NULL, NULL, ?, NULL, ?)`,
+            [
+              Number(diaId),
+              descripcion,
+              getLimaDateTimeString(),
+              eqId,
+              usuarioId == null ? null : Number(usuarioId),
+            ]
+          );
+
+          const asignacionesIds = rowsFuturas.map((f) => Number(f.asignacionId));
+          await conn.query(`DELETE FROM T_ProyectoDiaEquipo WHERE PK_PDQ_Cod IN (?)`, [
+            asignacionesIds,
+          ]);
+        }
+      }
+
       updated += 1;
     }
 
@@ -792,6 +1175,53 @@ async function updateDevolucionEquipos(diaId, equipos = [], usuarioId = null) {
   } finally {
     conn.release();
   }
+}
+
+async function previewDevolucionEquipo({ equipoId, fechaBase, diaId = null }) {
+  await getEstadoEquipoIdByNombreValidado(pool);
+
+  const [rowsEquipo] = await pool.query(
+    `SELECT
+       eq.PK_Eq_Cod AS equipoId,
+       eq.Eq_Serie AS serie,
+       mo.PK_IMo_Cod AS modeloId,
+       mo.NMo_Nombre AS modeloNombre,
+       te.PK_TE_Cod AS tipoEquipoId,
+       te.TE_Nombre AS tipoEquipoNombre
+     FROM T_Equipo eq
+     LEFT JOIN T_Modelo mo ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
+     LEFT JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
+     WHERE eq.PK_Eq_Cod = ?
+     LIMIT 1`,
+    [Number(equipoId)]
+  );
+  if (!rowsEquipo.length) {
+    const err = new Error("Equipo no encontrado");
+    err.status = 404;
+    throw err;
+  }
+
+  const [rowsImpacto] = await pool.query(
+    `SELECT
+       pdq.PK_PDQ_Cod AS asignacionId,
+       pd.PK_PD_Cod AS diaId,
+       pd.PD_Fecha AS fecha,
+       pd.FK_Pro_Cod AS proyectoId,
+       pr.Pro_Nombre AS proyectoNombre
+     FROM T_ProyectoDiaEquipo pdq
+     JOIN T_ProyectoDia pd ON pd.PK_PD_Cod = pdq.FK_PD_Cod
+     JOIN T_Proyecto pr ON pr.PK_Pro_Cod = pd.FK_Pro_Cod
+     WHERE pdq.FK_Eq_Cod = ?
+       AND (? IS NULL OR pdq.FK_PD_Cod <> ?)
+       AND pd.PD_Fecha >= DATE_ADD(?, INTERVAL 1 DAY)
+     ORDER BY pd.PD_Fecha, pd.PK_PD_Cod`,
+    [Number(equipoId), diaId == null ? null : Number(diaId), diaId == null ? null : Number(diaId), fechaBase]
+  );
+
+  return {
+    equipo: rowsEquipo[0],
+    impacto: rowsImpacto || [],
+  };
 }
 
 module.exports = {
@@ -810,10 +1240,20 @@ module.exports = {
   listEstadoProyectoDia,
   updateProyectoDiaEstado,
   getProyectoInfoByDiaId,
+  getProyectoInfoByProyectoId,
+  getProyectoDiaFechaById,
   countDiasNoTerminados,
   countEquiposNoDevueltos,
   upsertProyectoAsignaciones,
   createProyectoDiaIncidencia,
   updatePedidoEstadoById,
   updateDevolucionEquipos,
+  previewDevolucionEquipo,
+  ensureDevolucionJobTable,
+  createDevolucionJob,
+  getDevolucionJobById,
+  claimNextPendingDevolucionJob,
+  completeDevolucionJob,
+  failDevolucionJob,
 };
+

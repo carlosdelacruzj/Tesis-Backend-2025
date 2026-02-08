@@ -175,6 +175,67 @@ router.post("/dias/:diaId(\\d+)/equipos/devolucion", ctrl.postProyectoDiaDevoluc
 
 /**
  * @swagger
+ * /proyecto/dias/{diaId}/equipos/devolucion/async:
+ *   post:
+ *     tags: [proyecto]
+ *     summary: Registrar devolucion de equipos de un dia en segundo plano (job async)
+ *     parameters:
+ *       - in: path
+ *         name: diaId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ProyectoDiaDevolucion' }
+ *     responses:
+ *       '202': { description: Aceptado }
+ *       '400': { description: Datos invalidos }
+ */
+router.post("/dias/:diaId(\\d+)/equipos/devolucion/async", ctrl.postProyectoDiaDevolucionAsync);
+
+/**
+ * @swagger
+ * /proyecto/equipos/devolucion/preview:
+ *   post:
+ *     tags: [proyecto]
+ *     summary: Simular impacto de devolucion de equipo(s) (sin escritura)
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema: { $ref: '#/components/schemas/ProyectoDevolucionPreviewRequest' }
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema: { $ref: '#/components/schemas/ProyectoDevolucionPreviewResponse' }
+ *       '400': { description: Datos invalidos }
+ *       '404': { description: Equipo no encontrado }
+ */
+router.post("/equipos/devolucion/preview", ctrl.postProyectoEquipoDevolucionPreview);
+
+/**
+ * @swagger
+ * /proyecto/devoluciones/jobs/{jobId}:
+ *   get:
+ *     tags: [proyecto]
+ *     summary: Consultar estado de job de devolucion async
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema: { type: string }
+ *     responses:
+ *       '200': { description: OK }
+ *       '404': { description: Job no encontrado }
+ */
+router.get("/devoluciones/jobs/:jobId", ctrl.getProyectoDevolucionJob);
+
+/**
+ * @swagger
  * /proyecto/dias/{diaId}/equipos/{equipoId}/devolucion:
  *   patch:
  *     tags: [proyecto]
@@ -307,13 +368,11 @@ router.delete("/:id(\\d+)", ctrl.deleteProyecto);
  *               respaldoNotas: { type: string }
  *               entregaFinalEnlace: { type: string }
  *               entregaFinalFecha: { type: string, format: date }
- *               estadoId: { type: integer }
  *               responsableId: { type: integer, nullable: true }
  *               notas: { type: string }
  *               enlace: { type: string }
  *             example:
- *               estadoId: 2
- *               notas: "Actualizando estado a En ejecucion"
+ *               notas: "Actualizando metadatos del proyecto"
  *     responses: { '200': { description: Actualizacion parcial exitosa } }
  */
 router.patch("/:id(\\d+)", ctrl.patchProyecto);

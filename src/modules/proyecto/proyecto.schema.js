@@ -199,7 +199,10 @@
  *         responsableId:     { type: integer, nullable: true }
  *         responsableNombre: { type: string, nullable: true }
  *         notas:             { type: string, nullable: true }
- *         devuelto:          { type: integer, nullable: true }
+ *         devuelto:
+ *           type: integer
+ *           nullable: true
+ *           description: "Retorno fisico (1=devuelto fisicamente, 0=no retornado). No representa operatividad."
  *         fechaDevolucion:   { type: string, format: date-time, nullable: true }
  *         estadoDevolucion:  { type: string, nullable: true }
  *         notasDevolucion:   { type: string, nullable: true }
@@ -209,7 +212,10 @@
  *       type: object
  *       required: [devuelto]
  *       properties:
- *         devuelto:           { type: integer, enum: [0,1] }
+ *         devuelto:
+ *           type: integer
+ *           enum: [0,1]
+ *           description: "Retorno fisico. El estado operativo del equipo se determina por T_Estado_Equipo."
  *         estadoDevolucion:
  *           type: string
  *           nullable: true
@@ -223,7 +229,10 @@
  *       required: [equipoId, devuelto]
  *       properties:
  *         equipoId:           { type: integer }
- *         devuelto:           { type: integer, enum: [0,1] }
+ *         devuelto:
+ *           type: integer
+ *           enum: [0,1]
+ *           description: "Retorno fisico. El estado operativo del equipo se determina por T_Estado_Equipo."
  *         estadoDevolucion:
  *           type: string
  *           nullable: true
@@ -244,6 +253,147 @@
  *           format: date-time
  *           nullable: true
  *           description: "Fecha por defecto para los items; cada item puede override con su propia fecha"
+ *
+ *     ProyectoDevolucionPreviewRequest:
+ *       type: object
+ *       properties:
+ *         equipoId:
+ *           type: integer
+ *           description: Modo unitario (compatibilidad).
+ *         estadoDevolucion:
+ *           type: string
+ *           enum: [DEVUELTO, DANADO, PERDIDO, ROBADO]
+ *           description: Modo unitario (compatibilidad).
+ *         fechaBase:
+ *           type: string
+ *           format: date
+ *           description: Fecha base global o unitaria; el impacto se calcula desde el dia siguiente. Si no se envia y hay diaId, se usa la fecha del dia.
+ *         diaId:
+ *           type: integer
+ *           nullable: true
+ *           description: Modo unitario (compatibilidad). Si se envia, se usa la fecha real del dia y se ignora fechaBase.
+ *         equipos:
+ *           type: array
+ *           description: Modo masivo recomendado.
+ *           items:
+ *             type: object
+ *             required: [equipoId, estadoDevolucion]
+ *             properties:
+ *               equipoId: { type: integer }
+ *               estadoDevolucion:
+ *                 type: string
+ *                 enum: [DEVUELTO, DANADO, PERDIDO, ROBADO]
+ *               fechaBase:
+ *                 type: string
+ *                 format: date
+ *                 nullable: true
+ *                 description: Opcional por item; si no se envia, usa la fechaBase global. Si tampoco hay fechaBase global y hay diaId, usa la fecha del dia.
+ *               diaId:
+ *                 type: integer
+ *                 nullable: true
+ *                 description: Si se envia, se usa la fecha real del dia y se ignora fechaBase (item/global).
+ *       description: |
+ *         Se acepta modo unitario (equipoId + estadoDevolucion + fechaBase) o modo masivo con equipos[].
+ *
+ *     ProyectoDevolucionPreviewEquipo:
+ *       type: object
+ *       properties:
+ *         equipoId: { type: integer }
+ *         serie: { type: string, nullable: true }
+ *         modeloId: { type: integer, nullable: true }
+ *         modeloNombre: { type: string, nullable: true }
+ *         tipoEquipoId: { type: integer, nullable: true }
+ *         tipoEquipoNombre: { type: string, nullable: true }
+ *
+ *     ProyectoDevolucionPreviewDia:
+ *       type: object
+ *       properties:
+ *         diaId: { type: integer }
+ *         fecha: { type: string, format: date }
+ *         proyectoId: { type: integer }
+ *         proyectoNombre: { type: string, nullable: true }
+ *
+ *     ProyectoDevolucionPreviewProyecto:
+ *       type: object
+ *       properties:
+ *         proyectoId: { type: integer }
+ *         proyectoNombre: { type: string, nullable: true }
+ *         diasAfectados: { type: integer }
+ *         cantidadDesasignaciones: { type: integer }
+ *
+ *     ProyectoDevolucionPreviewResponse:
+ *       type: object
+ *       properties:
+ *         status: { type: string, example: Preview generado }
+ *         resumen:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             cantidadEquipos: { type: integer }
+ *             cantidadDesasignaciones: { type: integer }
+ *             proyectosAfectadosUnicos: { type: integer }
+ *             diasAfectadosUnicos: { type: integer }
+ *         simulacion:
+ *           type: object
+ *           nullable: true
+ *           properties:
+ *             equipo: { $ref: '#/components/schemas/ProyectoDevolucionPreviewEquipo' }
+ *             estadoDevolucion: { type: string, enum: [DEVUELTO, DANADO, PERDIDO, ROBADO] }
+ *             estadoEquipoObjetivo: { type: string, example: "En Mantenimiento" }
+ *             fechaBase: { type: string, format: date }
+ *             regla: { type: string }
+ *             aplicaDesasignacion: { type: boolean }
+ *             motivo: { type: string }
+ *             cantidadDesasignaciones: { type: integer }
+ *             diasAfectados:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/ProyectoDevolucionPreviewDia' }
+ *             proyectosAfectados:
+ *               type: array
+ *               items: { $ref: '#/components/schemas/ProyectoDevolucionPreviewProyecto' }
+ *         simulaciones:
+ *           type: array
+ *           nullable: true
+ *           items:
+ *             type: object
+ *             properties:
+ *               equipo: { $ref: '#/components/schemas/ProyectoDevolucionPreviewEquipo' }
+ *               estadoDevolucion: { type: string, enum: [DEVUELTO, DANADO, PERDIDO, ROBADO] }
+ *               estadoEquipoObjetivo: { type: string, example: "En Mantenimiento" }
+ *               fechaBase: { type: string, format: date }
+ *               regla: { type: string }
+ *               aplicaDesasignacion: { type: boolean }
+ *               motivo: { type: string }
+ *               cantidadDesasignaciones: { type: integer }
+ *               diasAfectados:
+ *                 type: array
+ *                 items: { $ref: '#/components/schemas/ProyectoDevolucionPreviewDia' }
+ *               proyectosAfectados:
+ *                 type: array
+ *                 items: { $ref: '#/components/schemas/ProyectoDevolucionPreviewProyecto' }
+ *
+ *     ProyectoDevolucionAsyncAccepted:
+ *       type: object
+ *       properties:
+ *         status: { type: string, example: Aceptado }
+ *         jobId: { type: string }
+ *         diaId: { type: integer }
+ *
+ *     ProyectoDevolucionJobStatus:
+ *       type: object
+ *       properties:
+ *         jobId: { type: string }
+ *         estado: { type: string, enum: [PENDIENTE, PROCESANDO, COMPLETADO, ERROR] }
+ *         diaId: { type: integer }
+ *         usuarioId: { type: integer, nullable: true }
+ *         intentos: { type: integer }
+ *         error: { type: string, nullable: true }
+ *         createdAt: { type: string, format: date-time, nullable: true }
+ *         startedAt: { type: string, format: date-time, nullable: true }
+ *         completedAt: { type: string, format: date-time, nullable: true }
+ *         result:
+ *           type: object
+ *           nullable: true
  *
  *     RequerimientoPersonalDia:
  *       type: object
@@ -510,7 +660,6 @@
  *         respaldoNotas:        { type: string }
  *         entregaFinalEnlace:   { type: string }
  *         entregaFinalFecha:    { type: string, format: date }
- *         estadoId:             { type: integer }
  *         responsableId:        { type: integer }
  *         notas:                { type: string }
  *         enlace:               { type: string }
@@ -527,7 +676,6 @@
  *         respaldoNotas: "Copia completa con verificación"
  *         entregaFinalEnlace: "https://drive.com/final"
  *         entregaFinalFecha: "2025-10-05"
- *         estadoId: 2
  *         responsableId: 4
  *         notas: "Cambiar locación a parque"
  *         enlace: "https://link.com/drive"

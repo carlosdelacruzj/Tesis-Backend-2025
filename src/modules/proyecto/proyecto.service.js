@@ -1,4 +1,13 @@
 ﻿const repo = require("./proyecto.repository");
+const {
+  ESTADOS_DEVOLUCION,
+  ESTADOS_EQUIPO_OBJETIVO,
+  CONSISTENCIA_DEVUELTO,
+} = require("./devolucion.rules");
+
+let devolucionWorkerStarted = false;
+let devolucionWorkerBusy = false;
+let devolucionWorkerTimer = null;
 
 function ensurePositiveInt(value, field) {
   const num = Number(value);
@@ -68,6 +77,120 @@ function normalizeFechaHoraEvento(value) {
     throw err;
   }
   return `${fecha} ${hh}:${mm}:${ss}`;
+}
+
+function normalizeFechaBase(value) {
+  const raw = String(value || "").trim();
+  if (!raw) {
+    const err = new Error("fechaBase es requerida (YYYY-MM-DD)");
+    err.status = 400;
+    throw err;
+  }
+
+  const m = raw.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) {
+    const err = new Error("fechaBase debe tener formato YYYY-MM-DD");
+    err.status = 400;
+    throw err;
+  }
+
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const parsed = new Date(y, mo - 1, d);
+  if (
+    Number.isNaN(parsed.getTime()) ||
+    parsed.getFullYear() !== y ||
+    parsed.getMonth() !== mo - 1 ||
+    parsed.getDate() !== d
+  ) {
+    const err = new Error("fechaBase invalida");
+    err.status = 400;
+    throw err;
+  }
+  return raw;
+}
+
+function tryParseJSON(value) {
+  if (value == null) return null;
+  if (typeof value === "object") return value;
+  try {
+    return JSON.parse(String(value));
+  } catch (_err) {
+    return null;
+  }
+}
+
+function normalizeDevolucionPayload(payload = {}, { requireUsuarioId = false } = {}) {
+  const equiposInput = ensureArray(payload, "equipos");
+  if (!equiposInput.length) {
+    const err = new Error("equipos no puede estar vacio");
+    err.status = 400;
+    throw err;
+  }
+
+  const usuarioId =
+    payload?.usuarioId == null ? null : ensurePositiveInt(payload.usuarioId, "usuarioId");
+  if (requireUsuarioId && usuarioId == null) {
+    const err = new Error("usuarioId es requerido");
+    err.status = 400;
+    throw err;
+  }
+
+  const fechaGlobal =
+    payload?.fechaDevolucion && String(payload.fechaDevolucion).toLowerCase() !== "auto"
+      ? payload.fechaDevolucion
+      : null;
+
+  const estadosValidos = new Set(Object.values(ESTADOS_DEVOLUCION));
+  const equipos = equiposInput.map((e) => {
+    const eqId = ensurePositiveInt(e?.equipoId, "equipoId");
+    if (e?.devuelto === undefined) {
+      const err = new Error("devuelto es requerido (0 o 1)");
+      err.status = 400;
+      throw err;
+    }
+    const devuelto = Number(e.devuelto) ? 1 : 0;
+    const estadoDevRaw = toCleanText(e?.estadoDevolucion, 100);
+    const estadoDev = estadoDevRaw ? estadoDevRaw.toUpperCase() : null;
+    if (!estadoDev) {
+      const err = new Error("estadoDevolucion es requerido");
+      err.status = 400;
+      throw err;
+    }
+    if (!estadosValidos.has(estadoDev)) {
+      const err = new Error("estadoDevolucion no valido");
+      err.status = 400;
+      throw err;
+    }
+    if (CONSISTENCIA_DEVUELTO[estadoDev] !== devuelto) {
+      const err = new Error("estadoDevolucion y devuelto son inconsistentes");
+      err.status = 400;
+      throw err;
+    }
+    const notasDev = toCleanText(e?.notasDevolucion, 255);
+    const fechaDev =
+      e?.fechaDevolucion && String(e.fechaDevolucion).toLowerCase() !== "auto"
+        ? e.fechaDevolucion
+        : fechaGlobal;
+    return {
+      equipoId: eqId,
+      devuelto,
+      estadoDevolucion: estadoDev,
+      notasDevolucion: notasDev,
+      fechaDevolucion: fechaDev,
+    };
+  });
+
+  return {
+    usuarioId,
+    equipos,
+    payloadNormalizado: {
+      equipos,
+      usuarioId,
+      fechaDevolucion: fechaGlobal,
+    },
+  };
 }
 
 /* Proyecto */
@@ -183,6 +306,13 @@ async function deleteProyecto(id) {
 
 async function patchProyecto(id, payload = {}) {
   const pid = ensurePositiveInt(id, "id");
+  if (payload?.estadoId !== undefined) {
+    const err = new Error(
+      "estadoId no se puede actualizar manualmente en este endpoint"
+    );
+    err.status = 400;
+    throw err;
+  }
   const result = await repo.patchProyectoById(pid, payload);
   if (!result || result.affectedRows === 0) {
     const err = new Error("Proyecto no encontrado o sin cambios");
@@ -198,6 +328,18 @@ async function patchProyectoPostproduccion(id, payload = {}) {
     for (const nombre of nombres) {
       try {
         return await repo.getEstadoProyectoIdByNombre(nombre);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
+  async function getEstadoPedidoIdFlexible(...nombres) {
+    let lastError = null;
+    for (const nombre of nombres) {
+      try {
+        return await repo.getEstadoPedidoIdByNombre(nombre);
       } catch (err) {
         lastError = err;
       }
@@ -257,6 +399,31 @@ async function patchProyectoPostproduccion(id, payload = {}) {
       const estadoActualId = Number(row.estadoId || 0);
       if (estadoActualId !== estadoEntregadoId) {
         await repo.patchProyectoById(pid, { estadoId: estadoEntregadoId });
+      }
+
+      const info = await repo.getProyectoInfoByProyectoId(pid);
+      if (info?.pedidoId) {
+        const [
+          estadoPedEntregadoId,
+          estadoPedCotizadoId,
+          estadoPedContratadoId,
+          estadoPedEnEjecId,
+        ] = await Promise.all([
+          getEstadoPedidoIdFlexible("Entregado"),
+          repo.getEstadoPedidoIdByNombre("Cotizado"),
+          repo.getEstadoPedidoIdByNombre("Contratado"),
+          getEstadoPedidoIdFlexible("En ejecución", "En ejecucion"),
+        ]);
+
+        const pedEstadoId = Number(info.pedidoEstadoId || 0);
+        if (
+          pedEstadoId !== estadoPedEntregadoId &&
+          (pedEstadoId === estadoPedCotizadoId ||
+            pedEstadoId === estadoPedContratadoId ||
+            pedEstadoId === estadoPedEnEjecId)
+        ) {
+          await repo.updatePedidoEstadoById(info.pedidoId, estadoPedEntregadoId);
+        }
       }
     } else if (fechaFinEdicionSet && respaldoUbicacionSet) {
       const [estadoPostId, estadoListoEntregaId] = await Promise.all([
@@ -574,49 +741,7 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
 
 async function devolverEquiposDia(diaId, payload = {}) {
   const did = ensurePositiveInt(diaId, "diaId");
-  const equiposInput = ensureArray(payload, "equipos");
-  if (!equiposInput.length) {
-    const err = new Error("equipos no puede estar vacio");
-    err.status = 400;
-    throw err;
-  }
-  const usuarioId =
-    payload?.usuarioId == null ? null : ensurePositiveInt(payload.usuarioId, "usuarioId");
-  const fechaGlobal =
-    payload?.fechaDevolucion && String(payload.fechaDevolucion).toLowerCase() !== "auto"
-      ? payload.fechaDevolucion
-      : null;
-
-  const estadosValidos = new Set(["DEVUELTO", "DANADO", "PERDIDO", "ROBADO"]);
-
-  const equipos = equiposInput.map((e) => {
-    const eqId = ensurePositiveInt(e?.equipoId, "equipoId");
-    if (e?.devuelto === undefined) {
-      const err = new Error("devuelto es requerido (0 o 1)");
-      err.status = 400;
-      throw err;
-    }
-    const devuelto = Number(e.devuelto) ? 1 : 0;
-    const estadoDevRaw = toCleanText(e?.estadoDevolucion, 100);
-    const estadoDev = estadoDevRaw ? estadoDevRaw.toUpperCase() : null;
-    if (estadoDev && !estadosValidos.has(estadoDev)) {
-      const err = new Error("estadoDevolucion no valido");
-      err.status = 400;
-      throw err;
-    }
-    const notasDev = toCleanText(e?.notasDevolucion, 255);
-    const fechaDev =
-      e?.fechaDevolucion && String(e.fechaDevolucion).toLowerCase() !== "auto"
-        ? e.fechaDevolucion
-        : fechaGlobal;
-    return {
-      equipoId: eqId,
-      devuelto,
-      estadoDevolucion: estadoDev,
-      notasDevolucion: notasDev,
-      fechaDevolucion: fechaDev,
-    };
-  });
+  const { usuarioId, equipos } = normalizeDevolucionPayload(payload);
 
   const result = await repo.updateDevolucionEquipos(did, equipos, usuarioId);
   await tryAutoPostproduccionByDiaId(did);
@@ -639,18 +764,29 @@ async function devolverEquipo(diaId, equipoId, payload = {}) {
   const usuarioId =
     payload?.usuarioId == null ? null : ensurePositiveInt(payload.usuarioId, "usuarioId");
 
-  const estadosValidos = new Set(["DEVUELTO", "DANADO", "PERDIDO", "ROBADO"]);
+  const estadosValidos = new Set(Object.values(ESTADOS_DEVOLUCION));
   const estadoDevRaw = toCleanText(payload?.estadoDevolucion, 100);
   const estadoDev = estadoDevRaw ? estadoDevRaw.toUpperCase() : null;
+  if (!estadoDev) {
+    const err = new Error("estadoDevolucion es requerido");
+    err.status = 400;
+    throw err;
+  }
   if (estadoDev && !estadosValidos.has(estadoDev)) {
     const err = new Error("estadoDevolucion no valido");
+    err.status = 400;
+    throw err;
+  }
+  const devuelto = Number(devueltoField) ? 1 : 0;
+  if (CONSISTENCIA_DEVUELTO[estadoDev] !== devuelto) {
+    const err = new Error("estadoDevolucion y devuelto son inconsistentes");
     err.status = 400;
     throw err;
   }
 
   const item = {
     equipoId: eqId,
-    devuelto: Number(devueltoField) ? 1 : 0,
+    devuelto,
     estadoDevolucion: estadoDev,
     notasDevolucion: toCleanText(payload?.notasDevolucion, 255),
     fechaDevolucion:
@@ -665,6 +801,227 @@ async function devolverEquipo(diaId, equipoId, payload = {}) {
     status: "Devolucion registrada",
     diaId: did,
     equiposActualizados: result?.updated ?? 1,
+  };
+}
+
+async function processOneDevolucionJobTick() {
+  if (devolucionWorkerBusy) return;
+  devolucionWorkerBusy = true;
+  try {
+    const job = await repo.claimNextPendingDevolucionJob();
+    if (!job) return;
+
+    const payload = tryParseJSON(job.requestJson);
+    if (!payload || typeof payload !== "object") {
+      await repo.failDevolucionJob(job.internalId, "Payload del job invalido");
+      return;
+    }
+
+    try {
+      const result = await devolverEquiposDia(job.diaId, payload);
+      await repo.completeDevolucionJob(job.internalId, result);
+    } catch (err) {
+      await repo.failDevolucionJob(job.internalId, err?.message || "Error al procesar job");
+    }
+  } finally {
+    devolucionWorkerBusy = false;
+  }
+}
+
+function startDevolucionJobWorker() {
+  if (devolucionWorkerStarted) return;
+  devolucionWorkerStarted = true;
+  repo.ensureDevolucionJobTable().catch(() => {});
+  devolucionWorkerTimer = setInterval(() => {
+    processOneDevolucionJobTick().catch(() => {});
+  }, 1000);
+  if (devolucionWorkerTimer?.unref) devolucionWorkerTimer.unref();
+  processOneDevolucionJobTick().catch(() => {});
+}
+
+async function enqueueDevolucionEquiposDia(diaId, payload = {}) {
+  const did = ensurePositiveInt(diaId, "diaId");
+  const { payloadNormalizado, usuarioId } = normalizeDevolucionPayload(payload);
+  startDevolucionJobWorker();
+  const created = await repo.createDevolucionJob(did, payloadNormalizado, usuarioId);
+  return {
+    status: "Aceptado",
+    jobId: created.jobId,
+    diaId: did,
+  };
+}
+
+async function getDevolucionJobStatus(jobId) {
+  const id = String(jobId || "").trim();
+  if (!id) {
+    const err = new Error("jobId es requerido");
+    err.status = 400;
+    throw err;
+  }
+  const job = await repo.getDevolucionJobById(id);
+  if (!job) {
+    const err = new Error("Job no encontrado");
+    err.status = 404;
+    throw err;
+  }
+  return {
+    jobId: job.jobId,
+    estado: job.estado,
+    diaId: Number(job.diaId),
+    usuarioId: job.usuarioId == null ? null : Number(job.usuarioId),
+    intentos: Number(job.intentos || 0),
+    error: job.error || null,
+    createdAt: job.createdAt || null,
+    startedAt: job.startedAt || null,
+    completedAt: job.completedAt || null,
+    result: tryParseJSON(job.resultJson),
+  };
+}
+
+async function previewDevolucionEquipo(payload = {}) {
+  async function buildSinglePreview(item = {}, idx = null, fechaBaseGlobal = null) {
+    const suf = idx == null ? "" : `[${idx}]`;
+    const equipoId = ensurePositiveInt(item?.equipoId, `equipos${suf}.equipoId`);
+    const estadoDevRaw = toCleanText(item?.estadoDevolucion, 100);
+    const estadoDevolucion = estadoDevRaw ? estadoDevRaw.toUpperCase() : null;
+    const diaId =
+      item?.diaId == null ? null : ensurePositiveInt(item.diaId, `equipos${suf}.diaId`);
+    let fechaBaseRaw = null;
+    if (diaId != null) {
+      const dia = await repo.getProyectoDiaFechaById(diaId);
+      if (!dia?.fecha) {
+        const err = new Error(`equipos${suf}.diaId no encontrado`);
+        err.status = 404;
+        throw err;
+      }
+      fechaBaseRaw = dia.fecha;
+    } else {
+      fechaBaseRaw = item?.fechaBase ?? fechaBaseGlobal ?? null;
+    }
+    const fechaBase = normalizeFechaBase(fechaBaseRaw);
+
+    const estadosValidos = new Set(Object.values(ESTADOS_DEVOLUCION));
+    if (!estadoDevolucion) {
+      const err = new Error(`equipos${suf}.estadoDevolucion es requerido`);
+      err.status = 400;
+      throw err;
+    }
+    if (!estadosValidos.has(estadoDevolucion)) {
+      const err = new Error(`equipos${suf}.estadoDevolucion no valido`);
+      err.status = 400;
+      throw err;
+    }
+
+    const estadoEquipoObjetivo = ESTADOS_EQUIPO_OBJETIVO[estadoDevolucion];
+    const aplicaDesasignacion = estadoEquipoObjetivo !== "Disponible";
+    const motivo = aplicaDesasignacion
+      ? `Devolucion ${estadoDevolucion}: equipo pasa a ${estadoEquipoObjetivo} y se desasigna desde el dia siguiente.`
+      : `Devolucion ${estadoDevolucion}: equipo queda en ${estadoEquipoObjetivo}; no aplica desasignacion automatica.`;
+
+    const { equipo, impacto } = await repo.previewDevolucionEquipo({
+      equipoId,
+      fechaBase,
+      diaId,
+    });
+
+    const impactoAplicable = aplicaDesasignacion ? impacto : [];
+    const proyectosMap = new Map();
+    const diasClave = new Set();
+    for (const row of impactoAplicable) {
+      const proyectoId = Number(row.proyectoId);
+      const diaKey = `${proyectoId}:${Number(row.diaId)}`;
+      diasClave.add(diaKey);
+      if (!proyectosMap.has(proyectoId)) {
+        proyectosMap.set(proyectoId, {
+          proyectoId,
+          proyectoNombre: row.proyectoNombre ?? null,
+          diasAfectados: 0,
+          cantidadDesasignaciones: 0,
+        });
+      }
+      const proyecto = proyectosMap.get(proyectoId);
+      proyecto.cantidadDesasignaciones += 1;
+    }
+    for (const diaKey of diasClave) {
+      const [proyectoIdRaw] = diaKey.split(":");
+      const proyecto = proyectosMap.get(Number(proyectoIdRaw));
+      if (proyecto) proyecto.diasAfectados += 1;
+    }
+
+    return {
+      equipo: {
+        equipoId: Number(equipo.equipoId),
+        serie: equipo.serie ?? null,
+        modeloId: equipo.modeloId ?? null,
+        modeloNombre: equipo.modeloNombre ?? null,
+        tipoEquipoId: equipo.tipoEquipoId ?? null,
+        tipoEquipoNombre: equipo.tipoEquipoNombre ?? null,
+      },
+      estadoDevolucion,
+      estadoEquipoObjetivo,
+      fechaBase,
+      regla: "desasignar solo desde el dia siguiente en adelante",
+      aplicaDesasignacion,
+      motivo,
+      cantidadDesasignaciones: impactoAplicable.length,
+      diasAfectados: impactoAplicable.map((row) => ({
+        diaId: Number(row.diaId),
+        fecha: row.fecha,
+        proyectoId: Number(row.proyectoId),
+        proyectoNombre: row.proyectoNombre ?? null,
+      })),
+      proyectosAfectados: Array.from(proyectosMap.values()),
+    };
+  }
+
+  if (Array.isArray(payload?.equipos)) {
+    if (!payload.equipos.length) {
+      const err = new Error("equipos no puede estar vacio");
+      err.status = 400;
+      throw err;
+    }
+    const fechaBaseGlobal = payload?.fechaBase ?? null;
+    const simulaciones = [];
+    for (let i = 0; i < payload.equipos.length; i += 1) {
+      // Secuencial para conservar trazabilidad de error por indice.
+      const simulacion = await buildSinglePreview(payload.equipos[i], i, fechaBaseGlobal);
+      simulaciones.push(simulacion);
+    }
+
+    const resumen = {
+      cantidadEquipos: simulaciones.length,
+      cantidadDesasignaciones: simulaciones.reduce(
+        (acc, s) => acc + Number(s.cantidadDesasignaciones || 0),
+        0
+      ),
+      proyectosAfectadosUnicos: 0,
+      diasAfectadosUnicos: 0,
+    };
+    const proyectosSet = new Set();
+    const diasSet = new Set();
+    for (const sim of simulaciones) {
+      for (const p of sim.proyectosAfectados || []) {
+        proyectosSet.add(Number(p.proyectoId));
+      }
+      for (const d of sim.diasAfectados || []) {
+        diasSet.add(`${Number(d.proyectoId)}:${Number(d.diaId)}`);
+      }
+    }
+    resumen.proyectosAfectadosUnicos = proyectosSet.size;
+    resumen.diasAfectadosUnicos = diasSet.size;
+
+    return {
+      status: "Preview generado",
+      simulaciones,
+      resumen,
+    };
+  }
+
+  // Compatibilidad con payload unitario existente.
+  const simulacion = await buildSinglePreview(payload, null, null);
+  return {
+    status: "Preview generado",
+    simulacion,
   };
 }
 
@@ -684,5 +1041,13 @@ module.exports = {
   createProyectoDiaIncidencia,
   devolverEquiposDia,
   devolverEquipo,
+  enqueueDevolucionEquiposDia,
+  getDevolucionJobStatus,
+  startDevolucionJobWorker,
+  previewDevolucionEquipo,
 };
+
+
+
+
 

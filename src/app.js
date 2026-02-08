@@ -14,6 +14,7 @@ const logger = require("./utils/logger");
 const authMiddleware = require("./middlewares/auth");
 const errorHandler = require("./middlewares/error-handler");
 const basicAuth = require("./middlewares/basic-auth");
+const proyectoService = require("./modules/proyecto/proyecto.service");
 
 // ───────────── FS ─────────────
 try {
@@ -176,6 +177,13 @@ async function startServer() {
   } catch (err) {
     logger.error({ err: err.message }, "[DB] ERROR de conexión. Abortando arranque.");
     process.exit(1);
+  }
+
+  try {
+    proyectoService.startDevolucionJobWorker();
+    logger.info("[proyecto] worker de devoluciones async iniciado");
+  } catch (err) {
+    logger.error({ err: err?.message || err }, "[proyecto] no se pudo iniciar worker async");
   }
 
   server = app.listen(app.get("port"), "0.0.0.0", () => {

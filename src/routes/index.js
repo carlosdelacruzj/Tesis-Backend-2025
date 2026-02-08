@@ -39,6 +39,7 @@ router.use(
   "/tipos-documento",
   require("../modules/tipo_documento/tipo_documento.routes.rest")
 );
+router.use("/operaciones", require("../modules/operaciones/operaciones.routes.rest"));
 
 
 module.exports = router;
