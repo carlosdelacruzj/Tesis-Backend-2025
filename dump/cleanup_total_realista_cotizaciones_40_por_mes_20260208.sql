@@ -1455,34 +1455,34 @@ INSERT INTO T_CotizacionEvento (PK_CotE_Cod, FK_Cot_Cod, CotE_Fecha, CotE_Hora, 
 ALTER TABLE T_CotizacionEvento AUTO_INCREMENT = 45;
 
 INSERT INTO T_CotizacionServicio (PK_CotServ_Cod, FK_Cot_Cod, FK_ExS_Cod, CS_EventoId, CS_ServicioId, CS_Nombre, CS_Descripcion, CS_Moneda, CS_PrecioUnit, CS_Cantidad, CS_Descuento, CS_Recargo, CS_Notas, CS_Horas, CS_Staff, CS_FotosImpresas, CS_TrailerMin, CS_FilmMin) VALUES
-(18, 15, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(19, 16, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(20, 17, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(21, 18, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(22, 19, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(23, 20, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(24, 21, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(25, 22, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(26, 23, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(27, 24, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(28, 25, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(29, 26, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(30, 27, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(31, 28, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(32, 29, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(33, 30, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(34, 31, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(35, 32, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(36, 33, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(37, 34, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(38, 35, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(39, 36, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(40, 37, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(41, 38, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(42, 39, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0),
-(43, 40, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
-(44, 41, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '6.0', 2, NULL, NULL, NULL),
-(45, 42, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '8.0', 2, 60, 0, 0)
+(18, 15, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(19, 16, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(20, 17, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(21, 18, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(22, 19, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(23, 20, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(24, 21, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(25, 22, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(26, 23, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(27, 24, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(28, 25, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(29, 26, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(30, 27, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(31, 28, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(32, 29, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(33, 30, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(34, 31, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(35, 32, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(36, 33, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(37, 34, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(38, 35, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(39, 36, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(40, 37, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(41, 38, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(42, 39, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(43, 40, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(44, 41, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(45, 42, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0)
 ;
 ALTER TABLE T_CotizacionServicio AUTO_INCREMENT = 46;
 
@@ -1517,7 +1517,44 @@ INSERT INTO T_CotizacionServicioFecha (PK_CSF_Cod, FK_Cot_Cod, FK_CotServ_Cod, C
 (47, 42, 45, '2026-03-28 00:00:00')
 ;
 ALTER TABLE T_CotizacionServicioFecha AUTO_INCREMENT = 48;
+
+-- Ajuste 2026-02-08: consumo realista de SD/SSD por servicio
+UPDATE T_EventoServicioEquipo
+SET Cantidad = CASE
+  WHEN FK_TE_Cod = 14 AND FK_ExS_Cod IN (2,4,15,16,17,20) THEN 4
+  WHEN FK_TE_Cod = 14 THEN 2
+  WHEN FK_TE_Cod = 15 AND FK_ExS_Cod IN (4,16,17) THEN 2
+  WHEN FK_TE_Cod = 15 THEN 1
+  ELSE Cantidad
+END
+WHERE FK_TE_Cod IN (14,15);
+
+-- Ajuste 2026-02-08: ampliacion de inventario SD/SSD para evitar quiebres de stock en seleccion
+INSERT INTO T_Equipo (PK_Eq_Cod, Eq_Fecha_Ingreso, FK_IMo_Cod, FK_EE_Cod, Eq_Serie) VALUES
+(407, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-011'),
+(408, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-012'),
+(409, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-013'),
+(410, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-014'),
+(411, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-015'),
+(412, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-016'),
+(413, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-017'),
+(414, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-018'),
+(415, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-019'),
+(416, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-020'),
+(417, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-021'),
+(418, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-022'),
+(419, '2025-01-01 00:00:00', 51, 1, 'SSD-ECO-T7-011'),
+(420, '2025-01-01 00:00:00', 51, 1, 'SSD-ECO-T7-012'),
+(421, '2025-01-01 00:00:00', 51, 1, 'SSD-ECO-T7-013'),
+(422, '2025-01-01 00:00:00', 51, 1, 'SSD-ECO-T7-014'),
+(423, '2025-01-01 00:00:00', 52, 1, 'SSD-ECO-MP-007'),
+(424, '2025-01-01 00:00:00', 52, 1, 'SSD-ECO-MP-008'),
+(425, '2025-01-01 00:00:00', 52, 1, 'SSD-ECO-MP-009'),
+(426, '2025-01-01 00:00:00', 52, 1, 'SSD-ECO-MP-010');
+ALTER TABLE T_Equipo AUTO_INCREMENT = 427;
 COMMIT;
 SET SQL_SAFE_UPDATES = @OLD_SQL_SAFE_UPDATES;
 SET FOREIGN_KEY_CHECKS = 1;
+
+
 
