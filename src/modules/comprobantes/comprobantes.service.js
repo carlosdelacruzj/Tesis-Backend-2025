@@ -6,8 +6,16 @@ const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 
 function money2(v) {
   const n = Number(v ?? 0);
-  return Number.isFinite(n) ? n.toFixed(2) : "0.00";
+  const safe = Number.isFinite(n) ? n : 0;
+
+  // 1,234.56 (coma miles, punto decimales)
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: true,
+  }).format(safe);
 }
+
 
 function safeStr(v) {
   return v == null ? "" : String(v);

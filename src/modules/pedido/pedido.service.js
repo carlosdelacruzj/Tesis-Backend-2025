@@ -636,10 +636,17 @@ function classifyItem(it) {
   return "foto";
 }
 
-function money2(n) {
-  const x = Number(n || 0);
-  return Number.isFinite(x) ? x.toFixed(2) : "0.00";
+function money2(value) {
+  const n = Number(value ?? 0);
+  const safe = Number.isFinite(n) ? n : 0;
+
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+    useGrouping: true,
+  }).format(safe);
 }
+
 
 function sumTotal(items = []) {
   return (items || []).reduce((acc, it) => {

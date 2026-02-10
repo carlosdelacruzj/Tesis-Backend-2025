@@ -36,6 +36,16 @@ function normalizeViaticos(cotizacion) {
   }
 }
 
+function formatMoney(value, decimals = 2) {
+  const n = Number(value);
+  if (!Number.isFinite(n)) return "";
+  return new Intl.NumberFormat("en-US", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+  }).format(n);
+}
+
+
 function formatDateDMY(value) {
   if (!value) return "";
   const s = String(value).trim();
@@ -586,7 +596,6 @@ function dedupeByKey(arr, keyFn) {
   }
   return out;
 }
-
 function mapSpJsonToTemplateData(detail) {
   const cot = detail?.cotizacion || {};
   const contacto = detail?.contacto || {};
@@ -598,6 +607,17 @@ function mapSpJsonToTemplateData(detail) {
   // Helpers locales
   // =========================
   const normalize = (v) => normalizeText(v);
+
+  // ✅ Formato con separador de miles: 2,500.00
+  // (en-US => coma miles, punto decimales)
+  const formatMoney = (value, decimals = 2) => {
+    const n = Number(value);
+    if (!Number.isFinite(n)) return "";
+    return new Intl.NumberFormat("en-US", {
+      minimumFractionDigits: decimals,
+      maximumFractionDigits: decimals,
+    }).format(n);
+  };
 
   const getItemId = (it) =>
     it?.idCotizacionServicio ??
@@ -866,53 +886,53 @@ function mapSpJsonToTemplateData(detail) {
     const servicios = [];
     let n = 1;
 
-  const pushServicio = (key, arr) => {
-    if (!arr.length) return;
+    const pushServicio = (key, arr) => {
+      if (!arr.length) return;
 
-    let titulo = "";
-    if (key === "foto") titulo = `${n++}) Fotografía`;
-    else if (key === "video") titulo = `${n++}) Video`;
-    else if (key === "drone") titulo = hasMainDia ? "Extra: Drones" : `${n++}) Drones`;
-    else if (key === "booth") titulo = hasMainDia ? "Extra: Photobooth" : `${n++}) Photobooth`;
-    else titulo = `${n++}) Servicio`;
+      let titulo = "";
+      if (key === "foto") titulo = `${n++}) Fotografía`;
+      else if (key === "video") titulo = `${n++}) Video`;
+      else if (key === "drone") titulo = hasMainDia ? "Extra: Drones" : `${n++}) Drones`;
+      else if (key === "booth") titulo = hasMainDia ? "Extra: Photobooth" : `${n++}) Photobooth`;
+      else titulo = `${n++}) Servicio`;
 
-    // ✅ En vez de objeto/loop (que deja párrafo vacío cuando no aplica),
-    // mandamos una línea lista (o vacío), con salto \n dentro del MISMO párrafo.
-    let cantidadFotosLinea = "";
-    if (key === "foto") {
-      const maxFotos = arr.reduce((max, it) => {
-        const val = Number(
-          it?.fotosImpresas ??
-            it?.eventoServicio?.fotosImpresas ??
-            it?.eventoServicio?.ExS_FotosImpresas ??
-            0
-        );
-        return Number.isFinite(val) ? Math.max(max, val) : max;
+      let cantidadFotosLinea = "";
+      if (key === "foto") {
+        const maxFotos = arr.reduce((max, it) => {
+          const val = Number(
+            it?.fotosImpresas ??
+              it?.eventoServicio?.fotosImpresas ??
+              it?.eventoServicio?.ExS_FotosImpresas ??
+              0
+          );
+          return Number.isFinite(val) ? Math.max(max, val) : max;
+        }, 0);
+
+        if (maxFotos > 0) {
+          cantidadFotosLinea = `• Cantidad de fotos: ${maxFotos}\n`;
+        }
+      }
+
+      const subtotalProrrateado = arr.reduce((acc, it) => {
+        const subtotal = sumItemSubtotal(it);
+        const ds = getDatesForItem(it);
+        const k = ds.length || 1;
+        return acc + subtotal / k;
       }, 0);
 
-      if (maxFotos > 0) {
-        cantidadFotosLinea = `• Cantidad de fotos: ${maxFotos}\n`;
-      }
-    }
+      servicios.push({
+        titulo,
+        equiposTexto: collectEquiposNombres(arr),
+        personal: collectPersonal(arr),
+        cantidadFotosLinea,
+        entregables: arr.map(toEntregable),
 
-    const subtotalProrrateado = arr.reduce((acc, it) => {
-      const subtotal = sumItemSubtotal(it);
-      const ds = getDatesForItem(it);
-      const k = ds.length || 1;
-      return acc + subtotal / k;
-    }, 0);
+        // ✅ si lo quieres pintar en docx por servicio:
+        subtotalServicio: formatMoney(subtotalProrrateado, 2),
 
-    servicios.push({
-      titulo,
-      equiposTexto: collectEquiposNombres(arr),
-      personal: collectPersonal(arr),
-      // ✅ ya NO locaciones aquí (se muestran 1 vez por día)
-      cantidadFotosLinea,
-      entregables: arr.map(toEntregable),
-      _subtotalNum: subtotalProrrateado,
-    });
-  };
-
+        _subtotalNum: subtotalProrrateado,
+      });
+    };
 
     pushServicio("foto", fotoDia);
     pushServicio("video", videoDia);
@@ -931,7 +951,10 @@ function mapSpJsonToTemplateData(detail) {
       fecha: fechaDMY,
       locacionesDia,
       servicios,
-      subtotalDia: subtotalDiaNum.toFixed(2),
+
+      // ✅ con coma
+      subtotalDia: formatMoney(subtotalDiaNum, 2),
+
       _subtotalDiaNum: subtotalDiaNum,
     });
   }
@@ -965,7 +988,9 @@ function mapSpJsonToTemplateData(detail) {
     (acc, d) => acc + (Number(d._subtotalDiaNum) || 0),
     0
   );
-  const subtotalServiciosDias = subtotalServiciosDiasNum.toFixed(2);
+
+  // ✅ con coma
+  const subtotalServiciosDias = formatMoney(subtotalServiciosDiasNum, 2);
 
   const montoTotalFinal = totalServicios + (mostrarViaticosMonto ? viaticosMontoOk : 0);
 
@@ -987,16 +1012,16 @@ function mapSpJsonToTemplateData(detail) {
     mostrarViaticos,
     viaticosTexto,
     mostrarViaticosMonto,
-    viaticosMonto: viaticosMontoOk.toFixed(2),
-    montoTotal: montoTotalFinal.toFixed(2),
+
+    // ✅ con coma
+    viaticosMonto: formatMoney(viaticosMontoOk, 2),
+    montoTotal: formatMoney(montoTotalFinal, 2),
 
     fechaEmisionLarga: cot?.fechaCreacion
       ? formatDateLong(cot.fechaCreacion)
       : formatDateLong(new Date()),
   };
 }
-
-
 
 
 module.exports = {
