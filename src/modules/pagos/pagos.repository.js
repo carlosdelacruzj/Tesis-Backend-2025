@@ -79,10 +79,22 @@ async function listParciales() {
 async function listPagados() {
   return runCall("CALL sp_pedido_saldo_listar_pagados()");
 }
+async function listCerrados() {
+  return runCall("CALL sp_pedido_saldo_listar_cerrados()");
+}
 
 // === Resumen y vouchers por pedido ===
 async function getResumenByPedido(pedidoId) {
   return runCall("CALL sp_pedido_pago_resumen(?)", [Number(pedidoId)]);
+}
+async function getPedidoCierreFinancieroTipo(pedidoId) {
+  const [rows] = await pool.query(
+    `SELECT P_CierreFinancieroTipo AS cierreFinancieroTipo
+     FROM T_Pedido
+     WHERE PK_P_Cod = ?`,
+    [Number(pedidoId)]
+  );
+  return rows?.[0] || null;
 }
 async function listVouchersByPedido(pedidoId) {
   return runCall("CALL sp_voucher_listar_por_pedido_detalle(?,?)", [
@@ -301,7 +313,9 @@ module.exports = {
   listPendientes,
   listParciales,
   listPagados,
+  listCerrados,
   getResumenByPedido,
+  getPedidoCierreFinancieroTipo,
   listVouchersByPedido,
   listMetodos,
   listEstadosPago,

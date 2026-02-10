@@ -91,6 +91,24 @@ router.get("/pagados", ctrl.getPagados);
 
 /**
  * @swagger
+ * /pagos/cerrados:
+ *   get:
+ *     tags: [pagos]
+ *     summary: Listar pedidos cerrados por cierre financiero
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 $ref: '#/components/schemas/PedidoLite'
+ */
+router.get("/cerrados", ctrl.getCerrados);
+
+/**
+ * @swagger
  * /pagos/resumen/{pedidoId}:
  *   get:
  *     tags: [pagos]

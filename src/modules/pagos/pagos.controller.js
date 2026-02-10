@@ -36,6 +36,15 @@ async function getPagados(_req, res, next) {
   }
 }
 
+// GET /pagos/cerrados
+async function getCerrados(_req, res, next) {
+  try {
+    res.status(200).json(await service.listCerrados());
+  } catch (e) {
+    next(e);
+  }
+}
+
 // GET /pagos/resumen/:pedidoId
 async function getResumen(req, res, next) {
   try {
@@ -163,6 +172,7 @@ module.exports = {
   getPendientes,
   getParciales,
   getPagados,
+  getCerrados,
   getResumen,
   getVouchers,
   getMetodos,

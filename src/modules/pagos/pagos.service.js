@@ -10,7 +10,9 @@ function badRequest(msg) {
 const ESTADO_PAGO_PENDIENTE = "Pendiente";
 const ESTADO_PAGO_PARCIAL = "Parcial";
 const ESTADO_PAGO_PAGADO = "Pagado";
+const ESTADO_PAGO_CERRADO = "Cerrado";
 const ESTADO_PAGO_VENCIDO = "Vencido";
+const CIERRE_FINANCIERO_RETENCION_CANCEL_CLIENTE = "RETENCION_CANCEL_CLIENTE";
 const ESTADO_VOUCHER_APROBADO = "Aprobado";
 const ESTADO_PEDIDO_COTIZADO = "Cotizado";
 const ESTADO_PEDIDO_CONTRATADO = "Contratado";
@@ -83,6 +85,12 @@ function applyIgvToResumen(resumen) {
 
 async function syncEstadoPagoPedido(pedidoId) {
   const resumenRows = await repo.getResumenByPedido(pedidoId);
+  let cierreFinanciero = null;
+  try {
+    cierreFinanciero = await repo.getPedidoCierreFinancieroTipo(pedidoId);
+  } catch (err) {
+    if (err?.code !== "ER_BAD_FIELD_ERROR" && err?.errno !== 1054) throw err;
+  }
   const resumenRaw = resumenRows?.[0];
   if (!resumenRaw) {
     const e = new Error(`No se encontr� resumen de pago para pedido ${pedidoId}`);
@@ -95,14 +103,20 @@ async function syncEstadoPagoPedido(pedidoId) {
   const montoAbonado = toNumber(resumen.MontoAbonado);
   const saldoPendiente = toNumber(resumen.SaldoPendiente ?? costoTotal - montoAbonado);
 
-  const [pendienteId, parcialId, pagadoId] = await Promise.all([
+  const [pendienteId, parcialId, pagadoId, cerradoId] = await Promise.all([
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PENDIENTE),
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PARCIAL),
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PAGADO),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_CERRADO),
   ]);
 
   let estadoPagoId = pendienteId;
-  if (saldoPendiente <= 0) estadoPagoId = pagadoId;
+  if (
+    cierreFinanciero?.cierreFinancieroTipo ===
+    CIERRE_FINANCIERO_RETENCION_CANCEL_CLIENTE
+  ) {
+    estadoPagoId = cerradoId;
+  } else if (saldoPendiente <= 0) estadoPagoId = pagadoId;
   else if (montoAbonado > 0) estadoPagoId = parcialId;
 
   await repo.updatePedidoEstadoPago(pedidoId, estadoPagoId);
@@ -141,6 +155,10 @@ async function listParciales() {
 async function listPagados() {
   await marcarPagosVencidosLocal();
   return repo.listPagados();
+}
+async function listCerrados() {
+  await marcarPagosVencidosLocal();
+  return repo.listCerrados();
 }
 async function listAllVouchers() {
   return repo.listAllVouchers();
@@ -341,6 +359,7 @@ module.exports = {
   listPendientes,
   listParciales,
   listPagados,
+  listCerrados,
   listAllVouchers,
   marcarPagosVencidosLocal,
   getResumen,
