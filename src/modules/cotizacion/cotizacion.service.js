@@ -36,6 +36,14 @@ function normalizeViaticos(cotizacion) {
   }
 }
 
+function formatDateDMY(value) {
+  if (!value) return "";
+  const s = String(value).trim();
+  const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return s;
+  return `${m[3]}/${m[2]}/${m[1]}`; // DD/MM/AAAA
+}
+
 function applyFechaEventoFromEventos(cotizacion, eventos) {
   if (!cotizacion || typeof cotizacion !== "object") return;
   if (!Array.isArray(eventos) || eventos.length == 0) return;
@@ -234,26 +242,36 @@ function formatDateDetail(value) {
 
 function formatDateLong(value) {
   if (!value) return "";
-  const date = parseLocalDate(value);
-  if (!date) return String(value);
-  const parts = new Intl.DateTimeFormat("es-PE", {
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  }).formatToParts(date);
-  const day = parts.find((p) => p.type === "day")?.value;
-  const month = parts.find((p) => p.type === "month")?.value;
-  const year = parts.find((p) => p.type === "year")?.value;
-  if (!day || !month || !year) {
-    return new Intl.DateTimeFormat("es-PE", {
-      day: "numeric",
-      month: "long",
-      year: "numeric",
-    }).format(date);
+
+  // Soporta YYYY-MM-DD o Date/datetime
+  let date = null;
+
+  if (typeof value === "string") {
+    const s = value.trim();
+
+    // YYYY-MM-DD
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      date = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    } else {
+      // datetime tipo 2026-02-10T...
+      const d2 = new Date(s);
+      date = Number.isNaN(d2.getTime()) ? null : d2;
+    }
+  } else {
+    const d = new Date(value);
+    date = Number.isNaN(d.getTime()) ? null : d;
   }
-  const prettyMonth = month.charAt(0).toUpperCase() + month.slice(1);
-  return `${prettyMonth} ${day}, ${year}`;
+
+  if (!date) return String(value);
+
+  const day = new Intl.DateTimeFormat("es-PE", { day: "2-digit" }).format(date);
+  const month = new Intl.DateTimeFormat("es-PE", { month: "long" }).format(date);
+  const year = new Intl.DateTimeFormat("es-PE", { year: "numeric" }).format(date);
+
+  return `${day} de ${month} de ${year}`;
 }
+
 
 function uniqueJoin(values = [], joiner = " - ") {
   const uniq = [];
@@ -906,10 +924,12 @@ function mapSpJsonToTemplateData(detail) {
     const subtotalDiaNum = servicios.reduce((acc, s) => acc + (Number(s._subtotalNum) || 0), 0);
     for (const s of servicios) delete s._subtotalNum;
 
+    const fechaDMY = formatDateDMY(fecha);
+
     dias.push({
       diaNumero: dias.length + 1,
-      fecha,
-      locacionesDia, // ✅ NUEVO: Word mostrará locaciones 1 vez por día
+      fecha: fechaDMY,
+      locacionesDia,
       servicios,
       subtotalDia: subtotalDiaNum.toFixed(2),
       _subtotalDiaNum: subtotalDiaNum,
