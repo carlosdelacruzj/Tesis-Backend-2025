@@ -12,7 +12,6 @@ coverage/
 !.env.example
 secrets/
 certs/
-uploads/
 src/service-account.json
 
 # Logs
