@@ -86,6 +86,16 @@ async function patchProyectoDiaEstado(req, res, next) {
   }
 }
 
+async function postProyectoDiaCancelar(req, res, next) {
+  try {
+    const { diaId } = req.params;
+    const r = await service.cancelarDiaProyecto(diaId, req.body || {});
+    res.status(200).json(r);
+  } catch (e) {
+    next(e);
+  }
+}
+
 async function getDisponibilidadAsignaciones(req, res, next) {
   try {
     const data = await service.disponibilidadAsignaciones(req.query);
@@ -174,6 +184,7 @@ module.exports = {
   getEstados,
   getEstadosDia,
   patchProyectoDiaEstado,
+  postProyectoDiaCancelar,
   getDisponibilidadAsignaciones,
   postProyectoAsignacionesUpsert,
   postProyectoDiaIncidencia,

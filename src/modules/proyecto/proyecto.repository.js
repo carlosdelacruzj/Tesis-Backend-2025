@@ -771,6 +771,65 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
   return { affectedRows: result.affectedRows };
 }
 
+async function cancelProyectoDia(diaId, payload = {}) {
+  const {
+    estadoCanceladoId,
+    responsable,
+    motivo,
+    notas = null,
+    cancelFecha = getLimaDateTimeString(),
+    ncRequerida = 0,
+  } = payload;
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rowsDia] = await conn.query(
+      `SELECT PK_PD_Cod AS diaId
+       FROM T_ProyectoDia
+       WHERE PK_PD_Cod = ?
+       LIMIT 1`,
+      [Number(diaId)]
+    );
+    if (!rowsDia.length) {
+      const err = new Error("Dia no encontrado");
+      err.status = 404;
+      throw err;
+    }
+
+    const [result] = await conn.query(
+      `UPDATE T_ProyectoDia
+       SET FK_EPD_Cod = ?,
+           PD_CancelResponsable = ?,
+           PD_CancelMotivo = ?,
+           PD_CancelNotas = ?,
+           PD_CancelFecha = ?,
+           PD_NC_Requerida = ?,
+           updated_at = ?
+       WHERE PK_PD_Cod = ?`,
+      [
+        Number(estadoCanceladoId),
+        String(responsable),
+        String(motivo),
+        notas,
+        cancelFecha,
+        Number(ncRequerida) ? 1 : 0,
+        getLimaDateTimeString(),
+        Number(diaId),
+      ]
+    );
+
+    await conn.commit();
+    return { affectedRows: result.affectedRows };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
 async function getDisponibilidad({
   fechaInicio,
   fechaFin,
@@ -1239,6 +1298,7 @@ module.exports = {
   getEstadoPedidoIdByNombre,
   listEstadoProyectoDia,
   updateProyectoDiaEstado,
+  cancelProyectoDia,
   getProyectoInfoByDiaId,
   getProyectoInfoByProyectoId,
   getProyectoDiaFechaById,

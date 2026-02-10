@@ -40,6 +40,13 @@ function toCleanText(value, maxLen = 255) {
   return text.length > maxLen ? text.slice(0, maxLen) : text;
 }
 
+const CANCEL_RESPONSABLES = new Set(["CLIENTE", "INTERNO"]);
+const CANCEL_MOTIVOS_POR_RESPONSABLE = {
+  CLIENTE: new Set(["DESISTE_EVENTO", "FUERZA_MAYOR_CLIENTE", "OTRO_CLIENTE"]),
+  INTERNO: new Set(["FUERZA_MAYOR_INTERNA", "OTRO_INTERNO"]),
+};
+const CANCEL_MOTIVOS_OTRO = new Set(["OTRO_CLIENTE", "OTRO_INTERNO"]);
+
 function normalizeTipoIncidencia(value) {
   const tipo = String(value || "").trim().toUpperCase();
   return tipo || null;
@@ -539,6 +546,68 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
   return { status: "Actualizacion exitosa", diaId: did, estadoDiaId: eid };
 }
 
+async function cancelarDiaProyecto(diaId, payload = {}) {
+  const did = ensurePositiveInt(diaId, "diaId");
+
+  const responsable = String(payload?.responsable || "")
+    .trim()
+    .toUpperCase();
+  if (!CANCEL_RESPONSABLES.has(responsable)) {
+    const err = new Error("responsable invalido. Valores permitidos: CLIENTE, INTERNO");
+    err.status = 400;
+    throw err;
+  }
+
+  const motivo = String(payload?.motivo || "")
+    .trim()
+    .toUpperCase();
+  const motivosValidos = CANCEL_MOTIVOS_POR_RESPONSABLE[responsable];
+  if (!motivosValidos || !motivosValidos.has(motivo)) {
+    const err = new Error(`motivo invalido para responsable ${responsable}`);
+    err.status = 400;
+    throw err;
+  }
+
+  const notas = toCleanText(payload?.notas, 500);
+  if (CANCEL_MOTIVOS_OTRO.has(motivo) && (!notas || notas.length < 8)) {
+    const err = new Error("notas debe tener al menos 8 caracteres para motivos OTRO_*");
+    err.status = 400;
+    throw err;
+  }
+
+  let estadoCanceladoId = null;
+  try {
+    estadoCanceladoId = await repo.getEstadoProyectoDiaIdByNombre("Cancelado");
+  } catch (_err) {
+    const err = new Error("No se encontro el estado de dia 'Cancelado'");
+    err.status = 500;
+    throw err;
+  }
+
+  const ncRequerida = responsable === "INTERNO" ? 1 : 0;
+  const result = await repo.cancelProyectoDia(did, {
+    estadoCanceladoId,
+    responsable,
+    motivo,
+    notas,
+    ncRequerida,
+  });
+
+  if (!result || result.affectedRows === 0) {
+    const err = new Error("Dia no encontrado o sin cambios");
+    err.status = 404;
+    throw err;
+  }
+
+  return {
+    status: "Dia cancelado",
+    diaId: did,
+    responsable,
+    motivo,
+    ncRequerida,
+  };
+}
+
 async function tryAutoPostproduccionByDiaId(diaId) {
   const info = await repo.getProyectoInfoByDiaId(diaId);
   if (!info?.proyectoId) return;
@@ -1036,6 +1105,7 @@ module.exports = {
   listEstadosProyecto,
   listEstadosProyectoDia,
   updateProyectoDiaEstado,
+  cancelarDiaProyecto,
   disponibilidadAsignaciones,
   upsertProyectoAsignaciones,
   createProyectoDiaIncidencia,

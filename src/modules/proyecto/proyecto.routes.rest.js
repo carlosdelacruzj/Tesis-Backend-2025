@@ -286,6 +286,34 @@ router.patch("/dias/:diaId(\\d+)/estado", ctrl.patchProyectoDiaEstado);
 
 /**
  * @swagger
+ * /proyecto/dias/{diaId}/cancelar:
+ *   post:
+ *     tags: [proyecto]
+ *     summary: Cancelar un dia de proyecto con metadatos de responsabilidad
+ *     parameters:
+ *       - in: path
+ *         name: diaId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [responsable, motivo]
+ *             properties:
+ *               responsable: { type: string, enum: [CLIENTE, INTERNO] }
+ *               motivo:
+ *                 type: string
+ *                 enum: [DESISTE_EVENTO, FUERZA_MAYOR_CLIENTE, OTRO_CLIENTE, FUERZA_MAYOR_INTERNA, OTRO_INTERNO]
+ *               notas: { type: string, nullable: true }
+ *     responses: { '200': { description: OK } }
+ */
+router.post("/dias/:diaId(\\d+)/cancelar", ctrl.postProyectoDiaCancelar);
+
+/**
+ * @swagger
  * /proyecto/{id}/postproduccion:
  *   patch:
  *     tags: [proyecto]
