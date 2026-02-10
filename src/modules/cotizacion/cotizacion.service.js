@@ -9,6 +9,14 @@ const { getLimaDate, getLimaISODate } = require("../../utils/dates");
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ESTADOS_ABIERTOS = new Set(["Borrador", "Enviada"]);
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+const isEnabled = (value) => ["1", "true", "yes", "on"].includes(String(value ?? "0").toLowerCase());
+const COTIZACIONES_MODO_ESTRICTO = isEnabled(process.env.COTIZACIONES_MODO_ESTRICTO);
+const AUTO_EXPIRACION_COTIZACIONES =
+  COTIZACIONES_MODO_ESTRICTO || isEnabled(process.env.COTIZACIONES_AUTO_EXPIRACION);
+const VALIDAR_ACEPTACION_ANTES_EVENTO =
+  COTIZACIONES_MODO_ESTRICTO || isEnabled(process.env.COTIZACIONES_VALIDAR_ACEPTACION_ANTES_EVENTO);
+const VALIDAR_BLOQUEO_EVENTO_VENCIDO =
+  COTIZACIONES_MODO_ESTRICTO || isEnabled(process.env.COTIZACIONES_VALIDAR_BLOQUEO_EVENTO_VENCIDO ?? "1");
 
 const fs = require("fs");
 
@@ -192,6 +200,7 @@ function parseLocalDate(value) {
 }
 
 async function rechazarVencidasLocal() {
+  if (!AUTO_EXPIRACION_COTIZACIONES) return;
   await repo.rechazarVencidas(getLimaISODate());
 }
 
@@ -479,10 +488,18 @@ async function cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) 
   const info = await repo.getFechaYEstado(nId);
   if (!info) { const err = new Error(`Cotización ${nId} no encontrada`); err.status = 404; throw err; }
 
-  if (nuevo !== "Rechazada" && !isEditableFechaEvento(info.fechaEvento)) {
+  if (
+    VALIDAR_BLOQUEO_EVENTO_VENCIDO &&
+    nuevo !== "Rechazada" &&
+    !isEditableFechaEvento(info.fechaEvento)
+  ) {
     throw badRequest("Cotización vencida: solo se permite rechazar el mismo día del evento.");
   }
-  if (nuevo === "Aceptada" && !isAceptableFechaEvento(info.fechaEvento)) {
+  if (
+    VALIDAR_ACEPTACION_ANTES_EVENTO &&
+    nuevo === "Aceptada" &&
+    !isAceptableFechaEvento(info.fechaEvento)
+  ) {
     throw badRequest("La cotización solo puede aceptarse hasta un día antes del evento.");
   }
 

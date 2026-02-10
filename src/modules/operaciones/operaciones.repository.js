@@ -320,6 +320,8 @@ async function listAgendaProyectoDias(fromYmd, toYmd) {
        p.P_Nombre_Pedido AS pedido,
        p.FK_EP_Cod AS estadoPedidoId,
        epe.EP_Nombre AS estadoPedido,
+       p.FK_ESP_Cod AS estadoPagoId,
+       esp.ESP_Nombre AS estadoPago,
        IFNULL(bq.totalBloques, 0) AS totalBloques,
        IFNULL(emp.totalEmpleados, 0) AS totalEmpleados,
        IFNULL(eq.totalEquipos, 0) AS totalEquipos,
@@ -330,6 +332,7 @@ async function listAgendaProyectoDias(fromYmd, toYmd) {
      LEFT JOIN T_Estado_Proyecto ep ON ep.PK_EPro_Cod = pr.Pro_Estado
      LEFT JOIN T_Pedido p ON p.PK_P_Cod = pr.FK_P_Cod
      LEFT JOIN T_Estado_Pedido epe ON epe.PK_EP_Cod = p.FK_EP_Cod
+     LEFT JOIN T_Estado_Pago esp ON esp.PK_ESP_Cod = p.FK_ESP_Cod
      LEFT JOIN (
        SELECT FK_PD_Cod, COUNT(*) AS totalBloques
        FROM T_ProyectoDiaBloque
@@ -375,6 +378,54 @@ async function listAgendaBloquesByDiaIds(diaIds) {
   return rows;
 }
 
+async function listAgendaEmpleadosByDiaIds(diaIds) {
+  if (!Array.isArray(diaIds) || diaIds.length === 0) return [];
+  const placeholders = diaIds.map(() => "?").join(",");
+  const [rows] = await pool.query(
+    `SELECT
+       pde.PK_PDE_Cod AS asignacionId,
+       pde.FK_PD_Cod AS diaId,
+       pde.FK_Em_Cod AS empleadoId,
+       CONCAT(u.U_Nombre, ' ', u.U_Apellido) AS empleadoNombre,
+       pde.PDE_Notas AS notas
+     FROM T_ProyectoDiaEmpleado pde
+     INNER JOIN T_Empleados em ON em.PK_Em_Cod = pde.FK_Em_Cod
+     INNER JOIN T_Usuario u ON u.PK_U_Cod = em.FK_U_Cod
+     WHERE pde.FK_PD_Cod IN (${placeholders})
+     ORDER BY pde.FK_PD_Cod ASC, empleadoNombre ASC, pde.PK_PDE_Cod ASC`,
+    diaIds
+  );
+  return rows;
+}
+
+async function listAgendaEquiposByDiaIds(diaIds) {
+  if (!Array.isArray(diaIds) || diaIds.length === 0) return [];
+  const placeholders = diaIds.map(() => "?").join(",");
+  const [rows] = await pool.query(
+    `SELECT
+       pdq.PK_PDQ_Cod AS asignacionId,
+       pdq.FK_PD_Cod AS diaId,
+       pdq.FK_Eq_Cod AS equipoId,
+       eq.Eq_Serie AS equipoSerie,
+       mo.NMo_Nombre AS modelo,
+       te.TE_Nombre AS tipoEquipo,
+       pdq.FK_Em_Cod AS responsableId,
+       CONCAT(u.U_Nombre, ' ', u.U_Apellido) AS responsableNombre,
+       pdq.PDQ_Devuelto AS devuelto,
+       pdq.PDQ_Notas AS notas
+     FROM T_ProyectoDiaEquipo pdq
+     INNER JOIN T_Equipo eq ON eq.PK_Eq_Cod = pdq.FK_Eq_Cod
+     INNER JOIN T_Modelo mo ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
+     INNER JOIN T_Tipo_Equipo te ON te.PK_TE_Cod = mo.FK_TE_Cod
+     LEFT JOIN T_Empleados em ON em.PK_Em_Cod = pdq.FK_Em_Cod
+     LEFT JOIN T_Usuario u ON u.PK_U_Cod = em.FK_U_Cod
+     WHERE pdq.FK_PD_Cod IN (${placeholders})
+     ORDER BY pdq.FK_PD_Cod ASC, tipoEquipo ASC, modelo ASC, pdq.PK_PDQ_Cod ASC`,
+    diaIds
+  );
+  return rows;
+}
+
 async function listAgendaPedidosEventos(fromYmd, toYmd) {
   const [rows] = await pool.query(
     `SELECT
@@ -388,14 +439,224 @@ async function listAgendaPedidosEventos(fromYmd, toYmd) {
        pe.PE_Notas AS notas,
        p.FK_EP_Cod AS estadoPedidoId,
        epe.EP_Nombre AS estadoPedido,
+       p.FK_ESP_Cod AS estadoPagoId,
+       esp.ESP_Nombre AS estadoPago,
        pr.PK_Pro_Cod AS proyectoIdVinculado
      FROM T_PedidoEvento pe
      INNER JOIN T_Pedido p ON p.PK_P_Cod = pe.FK_P_Cod
      LEFT JOIN T_Estado_Pedido epe ON epe.PK_EP_Cod = p.FK_EP_Cod
+     LEFT JOIN T_Estado_Pago esp ON esp.PK_ESP_Cod = p.FK_ESP_Cod
      LEFT JOIN T_Proyecto pr ON pr.FK_P_Cod = p.PK_P_Cod
      WHERE DATE(pe.PE_Fecha) BETWEEN ? AND ?
      ORDER BY pe.PE_Fecha ASC, pe.PE_Hora ASC, pe.PK_PE_Cod ASC`,
     [fromYmd, toYmd]
+  );
+  return rows;
+}
+
+async function getResumenCobrosDelDia(fechaYmd) {
+  const [rows] = await pool.query(
+    `SELECT
+       SUM(CASE WHEN esp.ESP_Nombre = 'Pendiente' THEN 1 ELSE 0 END) AS pedidosPendientePago,
+       SUM(CASE WHEN esp.ESP_Nombre = 'Parcial' THEN 1 ELSE 0 END) AS pedidosParcialPago,
+       SUM(CASE WHEN esp.ESP_Nombre = 'Pagado' THEN 1 ELSE 0 END) AS pedidosPagado,
+       SUM(CASE WHEN esp.ESP_Nombre IN ('Pendiente', 'Parcial') THEN 1 ELSE 0 END) AS pedidosConSaldo
+     FROM T_Pedido p
+     LEFT JOIN T_Estado_Pago esp ON esp.PK_ESP_Cod = p.FK_ESP_Cod
+     LEFT JOIN (
+       SELECT FK_P_Cod AS pedidoId, MIN(PE_Fecha) AS primerFecha
+       FROM T_PedidoEvento
+       GROUP BY FK_P_Cod
+     ) ev ON ev.pedidoId = p.PK_P_Cod
+     WHERE DATE(COALESCE(ev.primerFecha, p.P_FechaEvento)) = ?`,
+    [fechaYmd]
+  );
+  return rows[0] || {
+    pedidosPendientePago: 0,
+    pedidosParcialPago: 0,
+    pedidosPagado: 0,
+    pedidosConSaldo: 0,
+  };
+}
+
+async function getAlertaCotizacionesPorExpirarCount(horizonDays = 7) {
+  const [rows] = await pool.query(
+    `SELECT
+       SUM(
+         CASE
+           WHEN base.diasParaEvento IS NOT NULL
+             AND base.diasParaEvento BETWEEN 0 AND ?
+           THEN 1 ELSE 0
+         END
+       ) AS totalPorEvento,
+       SUM(
+         CASE
+           WHEN base.diasParaVencimientoComercial BETWEEN 0 AND ?
+           THEN 1 ELSE 0
+         END
+       ) AS totalPorAntiguedadComercial,
+       SUM(
+         CASE
+           WHEN (
+             (base.diasParaEvento IS NOT NULL AND base.diasParaEvento <= ?)
+             OR base.diasParaVencimientoComercial <= ?
+           )
+           THEN 1 ELSE 0
+         END
+       ) AS totalCotizaciones,
+       SUM(
+         CASE
+           WHEN (
+             (base.diasParaEvento IS NOT NULL AND base.diasParaEvento < 0)
+             OR base.diasParaVencimientoComercial < 0
+           )
+           THEN 1 ELSE 0
+         END
+       ) AS totalVencidas
+     FROM (
+       SELECT
+         c.PK_Cot_Cod AS cotizacionId,
+         DATEDIFF(c.Cot_FechaEvento, CURDATE()) AS diasParaEvento,
+         DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE()) AS diasParaVencimientoComercial
+       FROM T_Cotizacion c
+       INNER JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+       LEFT JOIN T_Pedido p ON p.FK_Cot_Cod = c.PK_Cot_Cod
+       WHERE p.PK_P_Cod IS NULL
+         AND ec.ECot_Nombre IN ('Borrador', 'Enviada')
+     ) base`,
+    [Number(horizonDays), Number(horizonDays), Number(horizonDays), Number(horizonDays)]
+  );
+  return rows[0] || {
+    totalPorEvento: 0,
+    totalPorAntiguedadComercial: 0,
+    totalCotizaciones: 0,
+    totalVencidas: 0,
+  };
+}
+
+async function listAlertaCotizacionesPorExpirar(limit = 25, horizonDays = 7) {
+  const [rows] = await pool.query(
+    `SELECT
+       c.PK_Cot_Cod AS cotizacionId,
+       DATE_FORMAT(c.Cot_Fecha_Crea, '%Y-%m-%d') AS fechaCreacion,
+       DATE_FORMAT(c.Cot_FechaEvento, '%Y-%m-%d') AS fechaEvento,
+       ec.ECot_Nombre AS estadoCotizacion,
+       DATEDIFF(c.Cot_FechaEvento, CURDATE()) AS diasParaEvento,
+       DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE()) AS diasParaVencimientoComercial,
+       CASE
+         WHEN (
+           DATEDIFF(c.Cot_FechaEvento, CURDATE()) <= ?
+           AND DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE()) <= ?
+         ) THEN 'evento_y_antiguedad'
+         WHEN DATEDIFF(c.Cot_FechaEvento, CURDATE()) <= ? THEN 'evento'
+         ELSE 'antiguedad'
+       END AS motivoRiesgo
+     FROM T_Cotizacion c
+     INNER JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
+     LEFT JOIN T_Pedido p ON p.FK_Cot_Cod = c.PK_Cot_Cod
+     WHERE p.PK_P_Cod IS NULL
+       AND ec.ECot_Nombre IN ('Borrador', 'Enviada')
+       AND (
+         (c.Cot_FechaEvento IS NOT NULL AND DATEDIFF(c.Cot_FechaEvento, CURDATE()) <= ?)
+         OR DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE()) <= ?
+       )
+     ORDER BY
+       LEAST(
+         COALESCE(DATEDIFF(c.Cot_FechaEvento, CURDATE()), 9999),
+         DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE())
+       ) ASC,
+       c.PK_Cot_Cod ASC
+     LIMIT ?`,
+    [
+      Number(horizonDays),
+      Number(horizonDays),
+      Number(horizonDays),
+      Number(horizonDays),
+      Number(horizonDays),
+      Number(limit),
+    ]
+  );
+  return rows;
+}
+
+async function getAlertaPedidosEnRiesgoCount(horizonDays = 7) {
+  const [rows] = await pool.query(
+    `SELECT
+       SUM(
+         CASE
+           WHEN base.fechaReferencia IS NULL THEN 1
+           ELSE 0
+         END
+       ) AS totalSinFechaEvento,
+       SUM(
+         CASE
+           WHEN base.fechaReferencia IS NOT NULL
+             AND DATEDIFF(base.fechaReferencia, CURDATE()) < 0
+           THEN 1 ELSE 0
+         END
+       ) AS totalVencidos,
+       SUM(
+         CASE
+           WHEN base.fechaReferencia IS NOT NULL
+             AND DATEDIFF(base.fechaReferencia, CURDATE()) BETWEEN 0 AND ?
+           THEN 1 ELSE 0
+         END
+       ) AS totalPorVencer,
+       SUM(
+         CASE
+           WHEN base.fechaReferencia IS NULL
+             OR (
+               base.fechaReferencia IS NOT NULL
+               AND DATEDIFF(base.fechaReferencia, CURDATE()) <= ?
+             )
+           THEN 1 ELSE 0
+         END
+       ) AS totalPedidos
+     FROM (
+       SELECT
+         p.PK_P_Cod AS pedidoId,
+         COALESCE(ev.primerFecha, p.P_FechaEvento) AS fechaReferencia
+       FROM T_Pedido p
+       LEFT JOIN (
+         SELECT FK_P_Cod AS pedidoId, MIN(PE_Fecha) AS primerFecha
+         FROM T_PedidoEvento
+         GROUP BY FK_P_Cod
+       ) ev ON ev.pedidoId = p.PK_P_Cod
+       LEFT JOIN T_Proyecto pr ON pr.FK_P_Cod = p.PK_P_Cod
+       WHERE pr.PK_Pro_Cod IS NULL
+     ) base`,
+    [Number(horizonDays), Number(horizonDays)]
+  );
+  return rows[0] || {
+    totalSinFechaEvento: 0,
+    totalVencidos: 0,
+    totalPorVencer: 0,
+    totalPedidos: 0,
+  };
+}
+
+async function listAlertaPedidosEnRiesgo(limit = 25, horizonDays = 7) {
+  const [rows] = await pool.query(
+    `SELECT
+       p.PK_P_Cod AS pedidoId,
+       p.P_Nombre_Pedido AS pedido,
+       DATE_FORMAT(COALESCE(ev.primerFecha, p.P_FechaEvento), '%Y-%m-%d') AS fechaReferencia,
+       DATEDIFF(COALESCE(ev.primerFecha, p.P_FechaEvento), CURDATE()) AS diasParaEvento,
+       ep.EP_Nombre AS estadoPedido
+     FROM T_Pedido p
+     LEFT JOIN (
+       SELECT FK_P_Cod AS pedidoId, MIN(PE_Fecha) AS primerFecha
+       FROM T_PedidoEvento
+       GROUP BY FK_P_Cod
+     ) ev ON ev.pedidoId = p.PK_P_Cod
+     LEFT JOIN T_Estado_Pedido ep ON ep.PK_EP_Cod = p.FK_EP_Cod
+     LEFT JOIN T_Proyecto pr ON pr.FK_P_Cod = p.PK_P_Cod
+     WHERE pr.PK_Pro_Cod IS NULL
+       AND COALESCE(ev.primerFecha, p.P_FechaEvento) IS NOT NULL
+       AND DATEDIFF(COALESCE(ev.primerFecha, p.P_FechaEvento), CURDATE()) <= ?
+     ORDER BY diasParaEvento ASC, p.PK_P_Cod ASC
+     LIMIT ?`,
+    [Number(horizonDays), Number(limit)]
   );
   return rows;
 }
@@ -532,7 +793,14 @@ module.exports = {
   listCuellosBotellaProyectos,
   listAgendaProyectoDias,
   listAgendaBloquesByDiaIds,
+  listAgendaEmpleadosByDiaIds,
+  listAgendaEquiposByDiaIds,
   listAgendaPedidosEventos,
+  getResumenCobrosDelDia,
+  getAlertaCotizacionesPorExpirarCount,
+  listAlertaCotizacionesPorExpirar,
+  getAlertaPedidosEnRiesgoCount,
+  listAlertaPedidosEnRiesgo,
   getCapacidadStaffTotal,
   getCapacidadEquipoTotal,
   listUsoStaffPorDia,

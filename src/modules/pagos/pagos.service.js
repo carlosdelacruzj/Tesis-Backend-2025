@@ -17,6 +17,11 @@ const ESTADO_PEDIDO_CONTRATADO = "Contratado";
 const ESTADO_PEDIDO_EXPIRADO = "Expirado";
 const METODO_PAGO_TRANSFERENCIA = "Transferencia";
 const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
+const isEnabled = (value) =>
+  ["1", "true", "yes", "on"].includes(String(value ?? "0").toLowerCase());
+const PEDIDOS_MODO_ESTRICTO = isEnabled(process.env.PEDIDOS_MODO_ESTRICTO);
+const PEDIDOS_AUTO_VENCIMIENTO =
+  PEDIDOS_MODO_ESTRICTO || isEnabled(process.env.PEDIDOS_AUTO_VENCIMIENTO ?? "1");
 function assertIdPositivo(val, nombre = "id") {
   const n = Number(val);
   if (!Number.isFinite(n) || n <= 0) throw badRequest(`${nombre} inválido`);
@@ -111,6 +116,7 @@ async function syncEstadoPagoPedido(pedidoId) {
 }
 
 async function marcarPagosVencidosLocal() {
+  if (!PEDIDOS_AUTO_VENCIMIENTO) return;
   const [pendienteId, vencidoId, pedidoExpiradoId] = await Promise.all([
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PENDIENTE),
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_VENCIDO),

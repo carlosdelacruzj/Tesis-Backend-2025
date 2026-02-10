@@ -1,7 +1,7 @@
-﻿-- Limpieza total + seed actual (snapshot real de la BD)
+-- Limpieza total + seed actual (snapshot real de la BD)
 -- Generado: 2026-02-08T05:10:49.907Z
 -- Basado en el formato cleanup_total_realista_*
-
+use defaultdb;
 SET NAMES utf8mb4;
 SET FOREIGN_KEY_CHECKS = 0;
 SET @OLD_SQL_SAFE_UPDATES := @@SQL_SAFE_UPDATES;
@@ -96,52 +96,85 @@ ALTER TABLE `T_Cliente` AUTO_INCREMENT = 32;
 
 -- T_Cotizacion
 INSERT INTO `T_Cotizacion` (`PK_Cot_Cod`, `FK_Lead_Cod`, `Cot_TipoEvento`, `Cot_FechaEvento`, `Cot_Lugar`, `Cot_HorasEst`, `Cot_Dias`, `Cot_Mensaje`, `Cot_Fecha_Crea`, `Cot_IdTipoEvento`, `FK_Cli_Cod`, `FK_ECot_Cod`, `Cot_ViaticosMonto`) VALUES
-(1, NULL, 'Boda', '2025-12-10 00:00:00', 'Lima', '8.0', 1, 'Caso expirado por vigencia comercial. Viaticos no aplica.', '2025-11-01 10:00:00', 1, 1, 5, '0.00'),
-(2, NULL, 'Cumpleanos', '2026-02-15 00:00:00', 'Arequipa', '5.0', 1, 'Cotizacion borrador. Viaticos aceptados.', '2026-01-15 09:30:00', 2, 2, 5, '450.00'),
+(1, NULL, 'Boda', '2026-01-10 00:00:00', 'Lima', '8.0', 1, 'Cotizacion vencida por vigencia comercial.', '2025-12-05 10:00:00', 1, 1, 5, '0.00'),
+(2, NULL, 'Corporativo', '2026-01-24 00:00:00', 'Piura', '6.0', 1, 'Cotizacion vencida por cierre de ventana operativa.', '2025-12-18 09:00:00', 3, 2, 5, '0.00'),
 (3, NULL, 'Corporativo', '2026-03-20 00:00:00', 'Lima', '6.0', 2, 'Cotizacion enviada. Trabajo en dos dias.', '2026-02-01 11:15:00', 3, 3, 3, '0.00'),
-(4, NULL, 'Boda', '2026-02-15 00:00:00', 'Lima', '7.0', 1, 'Caso expirado por vigencia comercial. Viaticos no aplica.', '2025-10-01 10:00:00', 1, 1, 5, '0.00'),
-(5, NULL, 'Corporativo', '2026-01-18 00:00:00', 'Piura', '5.0', 1, 'Caso expirado por vigencia operativa. Viaticos no aceptados.', '2025-12-01 09:00:00', 3, 1, 5, '0.00'),
-(6, NULL, 'Cumpleanos', '2026-01-16 00:00:00', 'Arequipa', '4.0', 1, 'Caso urgente. Viaticos aceptados.', '2026-01-10 12:00:00', 2, 2, 5, '300.00'),
-(7, NULL, 'Boda', '2026-03-01 00:00:00', 'Cusco', '8.0', 1, 'Caso vigente normal. Viaticos aceptados.', '2025-12-20 15:30:00', 1, 3, 3, '800.00');
-ALTER TABLE `T_Cotizacion` AUTO_INCREMENT = 8;
+(4, NULL, 'Cumpleanos', '2026-02-12 00:00:00', 'Arequipa', '5.0', 1, 'Cotizacion en borrador para cierre rapido.', '2026-02-01 09:30:00', 2, 4, 1, '250.00'),
+(5, NULL, 'Boda', '2026-02-18 00:00:00', 'Trujillo', '8.0', 1, 'Cotizacion enviada con paquete premium.', '2026-02-03 14:00:00', 1, 5, 2, '300.00'),
+(6, NULL, 'Corporativo', '2026-02-22 00:00:00', 'Chiclayo', '6.0', 1, 'Cotizacion rechazada por presupuesto.', '2026-02-05 16:20:00', 3, 6, 4, '0.00'),
+(7, NULL, 'Boda', '2026-03-01 00:00:00', 'Cusco', '8.0', 1, 'Caso vigente normal. Viaticos aceptados.', '2026-02-06 15:30:00', 1, 3, 3, '800.00'),
+(8, NULL, 'Cumpleanos', '2026-02-26 00:00:00', 'Lima', '4.0', 1, 'Cotizacion enviada con cobertura express.', '2026-02-09 10:40:00', 2, 7, 2, '120.00'),
+(9, NULL, 'Corporativo', '2026-02-28 00:00:00', 'Callao', '5.0', 1, 'Cotizacion en borrador a espera de aprobacion.', '2026-02-10 11:10:00', 3, 8, 1, '0.00'),
+(10, NULL, 'Corporativo', '2026-02-08 00:00:00', 'Lima', '4.0', 1, 'Cotizacion enviada para cobertura institucional.', '2026-02-02 08:15:00', 3, 9, 2, '0.00'),
+(11, NULL, 'Cumpleanos', '2026-03-08 00:00:00', 'Arequipa', '5.0', 1, 'Cotizacion enviada con video corto adicional.', '2026-02-12 12:00:00', 2, 10, 2, '200.00'),
+(12, NULL, 'Boda', '2026-03-15 00:00:00', 'Lima', '9.0', 1, 'Cotizacion en borrador con segunda locacion.', '2026-02-13 18:00:00', 1, 11, 1, '350.00'),
+(13, NULL, 'Corporativo', '2026-03-22 00:00:00', 'Cusco', '7.0', 1, 'Cotizacion rechazada por cambio de fecha.', '2026-02-14 09:45:00', 3, 12, 4, '0.00'),
+(14, NULL, 'Cumpleanos', '2026-03-29 00:00:00', 'Lima', '4.0', 1, 'Cotizacion enviada para sesion familiar.', '2026-02-16 13:30:00', 2, 13, 2, '100.00');
+ALTER TABLE `T_Cotizacion` AUTO_INCREMENT = 15;
 
 -- T_CotizacionEvento
 INSERT INTO `T_CotizacionEvento` (`PK_CotE_Cod`, `FK_Cot_Cod`, `CotE_Fecha`, `CotE_Hora`, `CotE_Ubicacion`, `CotE_Direccion`, `CotE_Notas`) VALUES
-(1, 1, '2025-12-10 00:00:00', '18:00:00', 'Iglesia San Pedro', 'Av. Brasil 1234, Jesus Maria, Lima', 'Ceremonia'),
-(2, 2, '2026-02-15 00:00:00', '19:30:00', 'Casa de la novia', 'Calle Mercaderes 245, Cercado, Arequipa', 'Sesion previa'),
-(4, 4, '2026-02-15 00:00:00', '18:00:00', 'Recepcion Los Olivos', 'Av. Los Olivos 560, Los Olivos, Lima', 'Recepcion'),
-(5, 5, '2026-01-18 00:00:00', '09:00:00', 'Hotel Costa Norte', 'Av. Grau 980, Piura', 'Sala principal'),
-(6, 6, '2026-01-16 00:00:00', '19:30:00', 'Iglesia Santa Ana', 'Jr. San Martin 320, Cayma, Arequipa', 'Ceremonia'),
-(13, 7, '2026-03-01 00:00:00', '14:00:00', 'Iglesia Catedral', 'Plaza de Armas S/N, Cusco', 'Ceremonia'),
-(14, 7, '2026-03-01 00:00:00', '19:30:00', 'Recepcion Valle Sagrado', 'Av. El Sol 420, Cusco', 'Recepcion'),
-(16, 3, '2026-03-20 00:00:00', '09:00:00', 'Centro de Convenciones San Isidro', 'Av. Javier Prado 1200, San Isidro, Lima', 'Conferencia dia 1'),
-(17, 3, '2026-03-21 00:00:00', '09:30:00', 'Auditorio Empresarial San Isidro', 'Av. Rivera Navarrete 450, San Isidro, Lima', 'Conferencia dia 2');
-ALTER TABLE `T_CotizacionEvento` AUTO_INCREMENT = 18;
+(1, 1, '2026-01-10 00:00:00', '18:00:00', 'Iglesia San Pedro', 'Av. Brasil 1234, Jesus Maria, Lima', 'Ceremonia'),
+(2, 2, '2026-01-24 00:00:00', '09:00:00', 'Centro Empresarial Norte', 'Av. Grau 980, Piura', 'Conferencia'),
+(3, 3, '2026-03-20 00:00:00', '09:00:00', 'Centro de Convenciones San Isidro', 'Av. Javier Prado 1200, San Isidro, Lima', 'Conferencia dia 1'),
+(4, 3, '2026-03-21 00:00:00', '09:30:00', 'Auditorio Empresarial San Isidro', 'Av. Rivera Navarrete 450, San Isidro, Lima', 'Conferencia dia 2'),
+(5, 4, '2026-02-12 00:00:00', '19:30:00', 'Casa de la familia', 'Calle Mercaderes 245, Cercado, Arequipa', 'Celebracion'),
+(6, 5, '2026-02-18 00:00:00', '18:00:00', 'Recepcion Primavera', 'Av. Mansiche 980, Trujillo', 'Recepcion'),
+(7, 6, '2026-02-22 00:00:00', '10:00:00', 'Hotel Gran Sol', 'Av. Balta 300, Chiclayo', 'Conferencia'),
+(8, 7, '2026-03-01 00:00:00', '14:00:00', 'Iglesia Catedral', 'Plaza de Armas S/N, Cusco', 'Ceremonia'),
+(9, 7, '2026-03-01 00:00:00', '19:30:00', 'Recepcion Valle Sagrado', 'Av. El Sol 420, Cusco', 'Recepcion'),
+(10, 8, '2026-02-26 00:00:00', '17:00:00', 'Salon Vista Sur', 'Av. Benavides 1140, Miraflores, Lima', 'Cumpleanos'),
+(11, 9, '2026-02-28 00:00:00', '08:30:00', 'Terminal Maritimo', 'Av. Nestor Gambetta 399, Callao', 'Activacion'),
+(12, 10, '2026-02-08 00:00:00', '11:00:00', 'Centro Cultural', 'Av. Arequipa 1500, Lima', 'Evento institucional'),
+(13, 11, '2026-03-08 00:00:00', '16:00:00', 'Casa de campo', 'Jr. Jerusalén 320, Arequipa', 'Fiesta principal'),
+(14, 12, '2026-03-15 00:00:00', '17:30:00', 'Fundo Los Sauces', 'Av. Trapiche 450, Lima', 'Ceremonia civil'),
+(15, 13, '2026-03-22 00:00:00', '09:30:00', 'Centro Historico', 'Plaza Regocijo 100, Cusco', 'Lanzamiento'),
+(16, 14, '2026-03-29 00:00:00', '12:00:00', 'Parque Familiar', 'Av. El Parque 220, Surco, Lima', 'Sesion familiar');
+ALTER TABLE `T_CotizacionEvento` AUTO_INCREMENT = 17;
 
 -- T_CotizacionServicio
 INSERT INTO `T_CotizacionServicio` (`PK_CotServ_Cod`, `FK_Cot_Cod`, `FK_ExS_Cod`, `CS_EventoId`, `CS_ServicioId`, `CS_Nombre`, `CS_Descripcion`, `CS_Moneda`, `CS_PrecioUnit`, `CS_Cantidad`, `CS_Descuento`, `CS_Recargo`, `CS_Notas`, `CS_Horas`, `CS_Staff`, `CS_FotosImpresas`, `CS_TrailerMin`, `CS_FilmMin`) VALUES
-(1, 1, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', 'Estado expirada', '10.0', 2, 60, 0, 0),
-(2, 2, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', 'Estado borrador', '4.0', 1, 0, NULL, NULL),
-(4, 4, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', 'Regla 90 dias', '10.0', 2, 60, 0, 0),
-(5, 5, 16, 3, 2, 'Video Corporativo Conferencia', 'Registro multicamara de conferencia con edicion de resumen.', 'USD', '3200.00', '1.00', '0.00', '0.00', 'Regla 7 dias', '6.0', 3, NULL, 2, 25),
-(6, 6, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', 'Urgente', '4.0', 1, 0, NULL, NULL),
-(13, 7, 3, 1, 2, 'Video Boda Ceremonia', 'Registro de ceremonia con highlight corto y audio limpio.', 'USD', '1100.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, NULL, 1, 15),
-(14, 7, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
-(16, 3, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '2.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
-(17, 3, 16, 3, 2, 'Video Corporativo Conferencia', 'Registro multicamara de conferencia con edicion de resumen.', 'USD', '3200.00', '2.00', '0.00', '0.00', NULL, '6.0', 3, NULL, 2, 25),
-(18, 3, 18, 3, 3, 'Drone Corporativo Exterior', 'Tomas aereas de fachada, entorno y activos del cliente.', 'USD', '500.00', '1.00', '0.00', '0.00', NULL, '3.0', 1, NULL, NULL, NULL);
-ALTER TABLE `T_CotizacionServicio` AUTO_INCREMENT = 19;
+(1, 1, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', 'Expirada', '10.0', 2, 60, 0, 0),
+(2, 2, 16, 3, 2, 'Video Corporativo Conferencia', 'Registro multicamara de conferencia con edicion de resumen.', 'USD', '3200.00', '1.00', '0.00', '0.00', 'Expirada', '6.0', 3, NULL, 2, 25),
+(3, 3, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '2.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(4, 3, 16, 3, 2, 'Video Corporativo Conferencia', 'Registro multicamara de conferencia con edicion de resumen.', 'USD', '3200.00', '2.00', '0.00', '0.00', NULL, '6.0', 3, NULL, 2, 25),
+(5, 3, 18, 3, 3, 'Drone Corporativo Exterior', 'Tomas aereas de fachada, entorno y activos del cliente.', 'USD', '500.00', '1.00', '0.00', '0.00', NULL, '3.0', 1, NULL, NULL, NULL),
+(6, 4, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', 'Borrador', '4.0', 1, 0, NULL, NULL),
+(7, 5, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(8, 6, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', 'Rechazada', '6.0', 2, NULL, NULL, NULL),
+(9, 7, 3, 1, 2, 'Video Boda Ceremonia', 'Registro de ceremonia con highlight corto y audio limpio.', 'USD', '1100.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, NULL, 1, 15),
+(10, 7, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(11, 8, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(12, 9, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', 'Borrador', '5.0', 2, NULL, NULL, NULL),
+(13, 10, 16, 3, 2, 'Video Corporativo Conferencia', 'Registro multicamara de conferencia con edicion de resumen.', 'USD', '3200.00', '1.00', '0.00', '0.00', NULL, '4.0', 2, NULL, 1, 12),
+(14, 11, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '5.0', 1, 20, NULL, NULL),
+(15, 12, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', 'Borrador', '9.0', 2, 80, 0, 0),
+(16, 13, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', 'Rechazada', '7.0', 2, NULL, NULL, NULL),
+(17, 14, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 10, NULL, NULL);
+ALTER TABLE `T_CotizacionServicio` AUTO_INCREMENT = 18;
 
 -- T_CotizacionServicioFecha
 INSERT INTO `T_CotizacionServicioFecha` (`PK_CSF_Cod`, `FK_Cot_Cod`, `FK_CotServ_Cod`, `CSF_Fecha`) VALUES
-(3, 7, 13, '2026-03-01 00:00:00'),
-(4, 7, 14, '2026-03-01 00:00:00'),
-(5, 3, 16, '2026-03-20 00:00:00'),
-(6, 3, 16, '2026-03-21 00:00:00'),
-(7, 3, 17, '2026-03-21 00:00:00'),
-(8, 3, 17, '2026-03-20 00:00:00'),
-(9, 3, 18, '2026-03-21 00:00:00');
-ALTER TABLE `T_CotizacionServicioFecha` AUTO_INCREMENT = 10;
+(1, 1, 1, '2026-01-10 00:00:00'),
+(2, 2, 2, '2026-01-24 00:00:00'),
+(3, 3, 3, '2026-03-20 00:00:00'),
+(4, 3, 3, '2026-03-21 00:00:00'),
+(5, 3, 4, '2026-03-20 00:00:00'),
+(6, 3, 4, '2026-03-21 00:00:00'),
+(7, 3, 5, '2026-03-21 00:00:00'),
+(8, 4, 6, '2026-02-12 00:00:00'),
+(9, 5, 7, '2026-02-18 00:00:00'),
+(10, 6, 8, '2026-02-22 00:00:00'),
+(11, 7, 9, '2026-03-01 00:00:00'),
+(12, 7, 10, '2026-03-01 00:00:00'),
+(13, 8, 11, '2026-02-26 00:00:00'),
+(14, 9, 12, '2026-02-28 00:00:00'),
+(15, 10, 13, '2026-02-08 00:00:00'),
+(16, 11, 14, '2026-03-08 00:00:00'),
+(17, 12, 15, '2026-03-15 00:00:00'),
+(18, 13, 16, '2026-03-22 00:00:00'),
+(19, 14, 17, '2026-03-29 00:00:00');
+ALTER TABLE `T_CotizacionServicioFecha` AUTO_INCREMENT = 20;
 
 -- T_Empleados
 INSERT INTO `T_Empleados` (`PK_Em_Cod`, `FK_U_Cod`, `Em_Autonomo`, `FK_Tipo_Emp_Cod`, `FK_Estado_Emp_Cod`) VALUES
@@ -1354,6 +1387,174 @@ INSERT INTO `T_Voucher` (`PK_Pa_Cod`, `Pa_Monto_Depositado`, `FK_MP_Cod`, `Pa_Im
 (2, 2183, 1, NULL, 1, 2, '2026-02-08 00:00:00', NULL, NULL, NULL);
 ALTER TABLE `T_Voucher` AUTO_INCREMENT = 3;
 
+
+-- Ajuste 2026-02-08: volumen comercial de cotizaciones
+-- Objetivo: 40 cotizaciones creadas en febrero 2026 (se agregan 28 sin tocar las existentes)
+INSERT INTO T_Cotizacion (PK_Cot_Cod, FK_Lead_Cod, Cot_TipoEvento, Cot_FechaEvento, Cot_Lugar, Cot_HorasEst, Cot_Dias, Cot_Mensaje, Cot_Fecha_Crea, Cot_IdTipoEvento, FK_Cli_Cod, FK_ECot_Cod, Cot_ViaticosMonto) VALUES
+(15, NULL, 'Boda', '2026-03-01 00:00:00', 'Lima', '8.0', 1, 'Cotizacion rechazada por presupuesto del cliente.', '2026-02-01 08:15:00', 1, 14, 4, '250.00'),
+(16, NULL, 'Cumpleanos', '2026-03-02 00:00:00', 'Arequipa', '5.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-02 09:15:00', 2, 15, 2, '120.00'),
+(17, NULL, 'Corporativo', '2026-03-03 00:00:00', 'Cusco', '6.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-03 10:15:00', 3, 16, 2, '0.00'),
+(18, NULL, 'Boda', '2026-03-04 00:00:00', 'Trujillo', '8.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-04 11:15:00', 1, 17, 2, '250.00'),
+(19, NULL, 'Cumpleanos', '2026-03-05 00:00:00', 'Piura', '5.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-05 12:15:00', 2, 18, 2, '120.00'),
+(20, NULL, 'Corporativo', '2026-03-06 00:00:00', 'Chiclayo', '6.0', 1, 'Cotizacion aceptada lista para convertir en pedido.', '2026-02-06 13:15:00', 3, 19, 3, '0.00'),
+(21, NULL, 'Boda', '2026-03-07 00:00:00', 'Callao', '8.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-07 14:15:00', 1, 20, 2, '250.00'),
+(22, NULL, 'Cumpleanos', '2026-03-08 00:00:00', 'Huancayo', '5.0', 1, 'Cotizacion rechazada por presupuesto del cliente.', '2026-02-08 15:15:00', 2, 21, 4, '120.00'),
+(23, NULL, 'Corporativo', '2026-03-09 00:00:00', 'Lima', '6.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-09 16:15:00', 3, 22, 2, '0.00'),
+(24, NULL, 'Boda', '2026-03-10 00:00:00', 'Arequipa', '8.0', 1, 'Cotizacion en borrador pendiente de validacion interna.', '2026-02-10 17:15:00', 1, 23, 1, '250.00'),
+(25, NULL, 'Cumpleanos', '2026-03-11 00:00:00', 'Cusco', '5.0', 1, 'Cotizacion aceptada lista para convertir en pedido.', '2026-02-11 08:15:00', 2, 24, 3, '120.00'),
+(26, NULL, 'Corporativo', '2026-03-12 00:00:00', 'Trujillo', '6.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-12 09:15:00', 3, 25, 2, '0.00'),
+(27, NULL, 'Boda', '2026-03-13 00:00:00', 'Piura', '8.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-13 10:15:00', 1, 26, 2, '250.00'),
+(28, NULL, 'Cumpleanos', '2026-03-14 00:00:00', 'Chiclayo', '5.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-14 11:15:00', 2, 27, 2, '120.00'),
+(29, NULL, 'Corporativo', '2026-03-15 00:00:00', 'Callao', '6.0', 1, 'Cotizacion rechazada por presupuesto del cliente.', '2026-02-15 12:15:00', 3, 28, 4, '0.00'),
+(30, NULL, 'Boda', '2026-03-16 00:00:00', 'Huancayo', '8.0', 1, 'Cotizacion aceptada lista para convertir en pedido.', '2026-02-16 13:15:00', 1, 29, 3, '250.00'),
+(31, NULL, 'Cumpleanos', '2026-03-17 00:00:00', 'Lima', '5.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-17 14:15:00', 2, 30, 2, '120.00'),
+(32, NULL, 'Corporativo', '2026-03-18 00:00:00', 'Arequipa', '6.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-18 15:15:00', 3, 31, 2, '0.00'),
+(33, NULL, 'Boda', '2026-03-19 00:00:00', 'Cusco', '8.0', 1, 'Cotizacion en borrador pendiente de validacion interna.', '2026-02-19 16:15:00', 1, 1, 1, '250.00'),
+(34, NULL, 'Cumpleanos', '2026-03-20 00:00:00', 'Trujillo', '5.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-20 17:15:00', 2, 2, 2, '120.00'),
+(35, NULL, 'Corporativo', '2026-03-21 00:00:00', 'Piura', '6.0', 1, 'Cotizacion aceptada lista para convertir en pedido.', '2026-02-21 08:15:00', 3, 3, 3, '0.00'),
+(36, NULL, 'Boda', '2026-03-22 00:00:00', 'Chiclayo', '8.0', 1, 'Cotizacion rechazada por presupuesto del cliente.', '2026-02-22 09:15:00', 1, 4, 4, '250.00'),
+(37, NULL, 'Cumpleanos', '2026-03-23 00:00:00', 'Callao', '5.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-23 10:15:00', 2, 5, 2, '120.00'),
+(38, NULL, 'Corporativo', '2026-03-24 00:00:00', 'Huancayo', '6.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-24 11:15:00', 3, 6, 2, '0.00'),
+(39, NULL, 'Boda', '2026-03-25 00:00:00', 'Lima', '8.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-25 12:15:00', 1, 7, 2, '250.00'),
+(40, NULL, 'Cumpleanos', '2026-03-26 00:00:00', 'Arequipa', '5.0', 1, 'Cotizacion aceptada lista para convertir en pedido.', '2026-02-26 13:15:00', 2, 8, 3, '120.00'),
+(41, NULL, 'Corporativo', '2026-03-27 00:00:00', 'Cusco', '6.0', 1, 'Cotizacion enviada en seguimiento comercial.', '2026-02-27 14:15:00', 3, 9, 2, '0.00'),
+(42, NULL, 'Boda', '2026-03-28 00:00:00', 'Trujillo', '8.0', 1, 'Cotizacion en borrador pendiente de validacion interna.', '2026-02-28 15:15:00', 1, 10, 1, '250.00')
+;
+ALTER TABLE T_Cotizacion AUTO_INCREMENT = 43;
+
+INSERT INTO T_CotizacionEvento (PK_CotE_Cod, FK_Cot_Cod, CotE_Fecha, CotE_Hora, CotE_Ubicacion, CotE_Direccion, CotE_Notas) VALUES
+(17, 15, '2026-03-01 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1001, Lima', 'Ceremonia principal'),
+(18, 16, '2026-03-02 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1002, Arequipa', 'Celebracion familiar'),
+(19, 17, '2026-03-03 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1003, Cusco', 'Cobertura corporativa'),
+(20, 18, '2026-03-04 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1004, Trujillo', 'Ceremonia principal'),
+(21, 19, '2026-03-05 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1005, Piura', 'Celebracion familiar'),
+(22, 20, '2026-03-06 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1006, Chiclayo', 'Cobertura corporativa'),
+(23, 21, '2026-03-07 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1007, Callao', 'Ceremonia principal'),
+(24, 22, '2026-03-08 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1008, Huancayo', 'Celebracion familiar'),
+(25, 23, '2026-03-09 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1009, Lima', 'Cobertura corporativa'),
+(26, 24, '2026-03-10 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1010, Arequipa', 'Ceremonia principal'),
+(27, 25, '2026-03-11 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1011, Cusco', 'Celebracion familiar'),
+(28, 26, '2026-03-12 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1012, Trujillo', 'Cobertura corporativa'),
+(29, 27, '2026-03-13 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1013, Piura', 'Ceremonia principal'),
+(30, 28, '2026-03-14 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1014, Chiclayo', 'Celebracion familiar'),
+(31, 29, '2026-03-15 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1015, Callao', 'Cobertura corporativa'),
+(32, 30, '2026-03-16 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1016, Huancayo', 'Ceremonia principal'),
+(33, 31, '2026-03-17 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1017, Lima', 'Celebracion familiar'),
+(34, 32, '2026-03-18 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1018, Arequipa', 'Cobertura corporativa'),
+(35, 33, '2026-03-19 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1019, Cusco', 'Ceremonia principal'),
+(36, 34, '2026-03-20 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1020, Trujillo', 'Celebracion familiar'),
+(37, 35, '2026-03-21 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1021, Piura', 'Cobertura corporativa'),
+(38, 36, '2026-03-22 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1022, Chiclayo', 'Ceremonia principal'),
+(39, 37, '2026-03-23 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1023, Callao', 'Celebracion familiar'),
+(40, 38, '2026-03-24 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1024, Huancayo', 'Cobertura corporativa'),
+(41, 39, '2026-03-25 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1025, Lima', 'Ceremonia principal'),
+(42, 40, '2026-03-26 00:00:00', '16:30:00', 'Casa familiar', 'Av. Principal 1026, Arequipa', 'Celebracion familiar'),
+(43, 41, '2026-03-27 00:00:00', '09:30:00', 'Centro Empresarial', 'Av. Principal 1027, Cusco', 'Cobertura corporativa'),
+(44, 42, '2026-03-28 00:00:00', '17:00:00', 'Salon de eventos', 'Av. Principal 1028, Trujillo', 'Ceremonia principal')
+;
+ALTER TABLE T_CotizacionEvento AUTO_INCREMENT = 45;
+
+INSERT INTO T_CotizacionServicio (PK_CotServ_Cod, FK_Cot_Cod, FK_ExS_Cod, CS_EventoId, CS_ServicioId, CS_Nombre, CS_Descripcion, CS_Moneda, CS_PrecioUnit, CS_Cantidad, CS_Descuento, CS_Recargo, CS_Notas, CS_Horas, CS_Staff, CS_FotosImpresas, CS_TrailerMin, CS_FilmMin) VALUES
+(18, 15, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(19, 16, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(20, 17, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(21, 18, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(22, 19, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(23, 20, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(24, 21, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(25, 22, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(26, 23, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(27, 24, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(28, 25, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(29, 26, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(30, 27, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(31, 28, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(32, 29, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(33, 30, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(34, 31, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(35, 32, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(36, 33, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(37, 34, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(38, 35, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(39, 36, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(40, 37, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(41, 38, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(42, 39, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0),
+(43, 40, 8, 2, 1, 'Fotografia Cumple Express', 'Servicio simple y economico: un fotografo, cobertura corta y entrega digital.', 'USD', '900.00', '1.00', '0.00', '0.00', NULL, '4.0', 1, 0, NULL, NULL),
+(44, 41, 15, 3, 1, 'Fotografia Corporativa Evento', 'Cobertura de conferencia o lanzamiento con enfoque editorial.', 'USD', '2300.00', '1.00', '0.00', '0.00', NULL, '6.0', 3, NULL, NULL, NULL),
+(45, 42, 1, 1, 1, 'Fotografia Boda Premium', 'Cobertura integral de boda con direccion de retratos y entrega digital.', 'USD', '1800.00', '1.00', '0.00', '0.00', NULL, '10.0', 2, 60, 0, 0)
+;
+ALTER TABLE T_CotizacionServicio AUTO_INCREMENT = 46;
+
+INSERT INTO T_CotizacionServicioFecha (PK_CSF_Cod, FK_Cot_Cod, FK_CotServ_Cod, CSF_Fecha) VALUES
+(20, 15, 18, '2026-03-01 00:00:00'),
+(21, 16, 19, '2026-03-02 00:00:00'),
+(22, 17, 20, '2026-03-03 00:00:00'),
+(23, 18, 21, '2026-03-04 00:00:00'),
+(24, 19, 22, '2026-03-05 00:00:00'),
+(25, 20, 23, '2026-03-06 00:00:00'),
+(26, 21, 24, '2026-03-07 00:00:00'),
+(27, 22, 25, '2026-03-08 00:00:00'),
+(28, 23, 26, '2026-03-09 00:00:00'),
+(29, 24, 27, '2026-03-10 00:00:00'),
+(30, 25, 28, '2026-03-11 00:00:00'),
+(31, 26, 29, '2026-03-12 00:00:00'),
+(32, 27, 30, '2026-03-13 00:00:00'),
+(33, 28, 31, '2026-03-14 00:00:00'),
+(34, 29, 32, '2026-03-15 00:00:00'),
+(35, 30, 33, '2026-03-16 00:00:00'),
+(36, 31, 34, '2026-03-17 00:00:00'),
+(37, 32, 35, '2026-03-18 00:00:00'),
+(38, 33, 36, '2026-03-19 00:00:00'),
+(39, 34, 37, '2026-03-20 00:00:00'),
+(40, 35, 38, '2026-03-21 00:00:00'),
+(41, 36, 39, '2026-03-22 00:00:00'),
+(42, 37, 40, '2026-03-23 00:00:00'),
+(43, 38, 41, '2026-03-24 00:00:00'),
+(44, 39, 42, '2026-03-25 00:00:00'),
+(45, 40, 43, '2026-03-26 00:00:00'),
+(46, 41, 44, '2026-03-27 00:00:00'),
+(47, 42, 45, '2026-03-28 00:00:00')
+;
+ALTER TABLE T_CotizacionServicioFecha AUTO_INCREMENT = 48;
+
+-- Ajuste 2026-02-08: consumo realista de SD/SSD por servicio
+UPDATE T_EventoServicioEquipo
+SET Cantidad = CASE
+  WHEN FK_TE_Cod = 14 AND FK_ExS_Cod IN (2,4,15,16,17,20) THEN 4
+  WHEN FK_TE_Cod = 14 THEN 2
+  WHEN FK_TE_Cod = 15 AND FK_ExS_Cod IN (4,16,17) THEN 2
+  WHEN FK_TE_Cod = 15 THEN 1
+  ELSE Cantidad
+END
+WHERE FK_TE_Cod IN (14,15);
+
+-- Ajuste 2026-02-08: ampliacion de inventario SD/SSD para evitar quiebres de stock en seleccion
+INSERT INTO T_Equipo (PK_Eq_Cod, Eq_Fecha_Ingreso, FK_IMo_Cod, FK_EE_Cod, Eq_Serie) VALUES
+(407, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-011'),
+(408, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-012'),
+(409, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-013'),
+(410, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-014'),
+(411, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-015'),
+(412, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-016'),
+(413, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-017'),
+(414, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-018'),
+(415, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-019'),
+(416, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-020'),
+(417, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-021'),
+(418, '2025-01-01 00:00:00', 50, 1, 'SD-ECO-128-022'),
+(419, '2025-01-01 00:00:00', 51, 1, 'SSD-ECO-T7-011'),
+(420, '2025-01-01 00:00:00', 51, 1, 'SSD-ECO-T7-012'),
+(421, '2025-01-01 00:00:00', 51, 1, 'SSD-ECO-T7-013'),
+(422, '2025-01-01 00:00:00', 51, 1, 'SSD-ECO-T7-014'),
+(423, '2025-01-01 00:00:00', 52, 1, 'SSD-ECO-MP-007'),
+(424, '2025-01-01 00:00:00', 52, 1, 'SSD-ECO-MP-008'),
+(425, '2025-01-01 00:00:00', 52, 1, 'SSD-ECO-MP-009'),
+(426, '2025-01-01 00:00:00', 52, 1, 'SSD-ECO-MP-010');
+ALTER TABLE T_Equipo AUTO_INCREMENT = 427;
 COMMIT;
 SET SQL_SAFE_UPDATES = @OLD_SQL_SAFE_UPDATES;
 SET FOREIGN_KEY_CHECKS = 1;
+
+
+

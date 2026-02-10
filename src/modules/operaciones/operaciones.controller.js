@@ -45,10 +45,20 @@ async function getDashboardCapacidad(req, res, next) {
   }
 }
 
+async function getDashboardHome(req, res, next) {
+  try {
+    const data = await service.getDashboardHome(req.query || {});
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getKpisOperativosMinimos,
   getAgendaOperativa,
   getDashboardResumen,
   getDashboardAlertas,
   getDashboardCapacidad,
+  getDashboardHome,
 };
