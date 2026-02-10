@@ -121,7 +121,22 @@ router.get("/dashboard/capacidad", deprecateDashboardEndpoint, ctrl.getDashboard
  *           minimum: 1
  *           maximum: 45
  *         required: false
- *         description: Cantidad de dias a proyectar para la agenda (default 14)
+ *         description: Cantidad de dias a proyectar para la agenda (default 1)
+ *       - in: query
+ *         name: horizonDays
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 45
+ *         required: false
+ *         description: Ventana de dias para alertas/resumen (default 1)
+ *       - in: query
+ *         name: baseDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: Fecha base fija para calcular "hoy/manana" y rangos (YYYY-MM-DD)
  *     responses:
  *       '200':
  *         description: OK

@@ -479,7 +479,7 @@ async function getResumenCobrosDelDia(fechaYmd) {
   };
 }
 
-async function getAlertaCotizacionesPorExpirarCount(horizonDays = 7) {
+async function getAlertaCotizacionesPorExpirarCount(horizonDays = 7, baseDateYmd = null) {
   const [rows] = await pool.query(
     `SELECT
        SUM(
@@ -516,15 +516,25 @@ async function getAlertaCotizacionesPorExpirarCount(horizonDays = 7) {
      FROM (
        SELECT
          c.PK_Cot_Cod AS cotizacionId,
-         DATEDIFF(c.Cot_FechaEvento, CURDATE()) AS diasParaEvento,
-         DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE()) AS diasParaVencimientoComercial
+         DATEDIFF(c.Cot_FechaEvento, COALESCE(DATE(?), CURDATE())) AS diasParaEvento,
+         DATEDIFF(
+           DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY),
+           COALESCE(DATE(?), CURDATE())
+         ) AS diasParaVencimientoComercial
        FROM T_Cotizacion c
        INNER JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
        LEFT JOIN T_Pedido p ON p.FK_Cot_Cod = c.PK_Cot_Cod
        WHERE p.PK_P_Cod IS NULL
          AND ec.ECot_Nombre IN ('Borrador', 'Enviada')
      ) base`,
-    [Number(horizonDays), Number(horizonDays), Number(horizonDays), Number(horizonDays)]
+    [
+      Number(horizonDays),
+      Number(horizonDays),
+      Number(horizonDays),
+      Number(horizonDays),
+      baseDateYmd,
+      baseDateYmd,
+    ]
   );
   return rows[0] || {
     totalPorEvento: 0,
@@ -534,21 +544,27 @@ async function getAlertaCotizacionesPorExpirarCount(horizonDays = 7) {
   };
 }
 
-async function listAlertaCotizacionesPorExpirar(limit = 25, horizonDays = 7) {
+async function listAlertaCotizacionesPorExpirar(limit = 25, horizonDays = 7, baseDateYmd = null) {
   const [rows] = await pool.query(
     `SELECT
        c.PK_Cot_Cod AS cotizacionId,
        DATE_FORMAT(c.Cot_Fecha_Crea, '%Y-%m-%d') AS fechaCreacion,
        DATE_FORMAT(c.Cot_FechaEvento, '%Y-%m-%d') AS fechaEvento,
        ec.ECot_Nombre AS estadoCotizacion,
-       DATEDIFF(c.Cot_FechaEvento, CURDATE()) AS diasParaEvento,
-       DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE()) AS diasParaVencimientoComercial,
+       DATEDIFF(c.Cot_FechaEvento, COALESCE(DATE(?), CURDATE())) AS diasParaEvento,
+       DATEDIFF(
+         DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY),
+         COALESCE(DATE(?), CURDATE())
+       ) AS diasParaVencimientoComercial,
        CASE
          WHEN (
-           DATEDIFF(c.Cot_FechaEvento, CURDATE()) <= ?
-           AND DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE()) <= ?
+           DATEDIFF(c.Cot_FechaEvento, COALESCE(DATE(?), CURDATE())) <= ?
+           AND DATEDIFF(
+             DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY),
+             COALESCE(DATE(?), CURDATE())
+           ) <= ?
          ) THEN 'evento_y_antiguedad'
-         WHEN DATEDIFF(c.Cot_FechaEvento, CURDATE()) <= ? THEN 'evento'
+         WHEN DATEDIFF(c.Cot_FechaEvento, COALESCE(DATE(?), CURDATE())) <= ? THEN 'evento'
          ELSE 'antiguedad'
        END AS motivoRiesgo
      FROM T_Cotizacion c
@@ -557,29 +573,47 @@ async function listAlertaCotizacionesPorExpirar(limit = 25, horizonDays = 7) {
      WHERE p.PK_P_Cod IS NULL
        AND ec.ECot_Nombre IN ('Borrador', 'Enviada')
        AND (
-         (c.Cot_FechaEvento IS NOT NULL AND DATEDIFF(c.Cot_FechaEvento, CURDATE()) <= ?)
-         OR DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE()) <= ?
+         (
+           c.Cot_FechaEvento IS NOT NULL
+           AND DATEDIFF(c.Cot_FechaEvento, COALESCE(DATE(?), CURDATE())) <= ?
+         )
+         OR DATEDIFF(
+           DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY),
+           COALESCE(DATE(?), CURDATE())
+         ) <= ?
        )
      ORDER BY
        LEAST(
-         COALESCE(DATEDIFF(c.Cot_FechaEvento, CURDATE()), 9999),
-         DATEDIFF(DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY), CURDATE())
+         COALESCE(DATEDIFF(c.Cot_FechaEvento, COALESCE(DATE(?), CURDATE())), 9999),
+         DATEDIFF(
+           DATE_ADD(DATE(c.Cot_Fecha_Crea), INTERVAL 90 DAY),
+           COALESCE(DATE(?), CURDATE())
+         )
        ) ASC,
        c.PK_Cot_Cod ASC
      LIMIT ?`,
     [
+      baseDateYmd,
+      baseDateYmd,
+      baseDateYmd,
       Number(horizonDays),
+      baseDateYmd,
       Number(horizonDays),
+      baseDateYmd,
       Number(horizonDays),
+      baseDateYmd,
       Number(horizonDays),
+      baseDateYmd,
       Number(horizonDays),
+      baseDateYmd,
+      baseDateYmd,
       Number(limit),
     ]
   );
   return rows;
 }
 
-async function getAlertaPedidosEnRiesgoCount(horizonDays = 7) {
+async function getAlertaPedidosEnRiesgoCount(horizonDays = 7, baseDateYmd = null) {
   const [rows] = await pool.query(
     `SELECT
        SUM(
@@ -591,14 +625,14 @@ async function getAlertaPedidosEnRiesgoCount(horizonDays = 7) {
        SUM(
          CASE
            WHEN base.fechaReferencia IS NOT NULL
-             AND DATEDIFF(base.fechaReferencia, CURDATE()) < 0
+             AND DATEDIFF(base.fechaReferencia, COALESCE(DATE(?), CURDATE())) < 0
            THEN 1 ELSE 0
          END
        ) AS totalVencidos,
        SUM(
          CASE
            WHEN base.fechaReferencia IS NOT NULL
-             AND DATEDIFF(base.fechaReferencia, CURDATE()) BETWEEN 0 AND ?
+             AND DATEDIFF(base.fechaReferencia, COALESCE(DATE(?), CURDATE())) BETWEEN 0 AND ?
            THEN 1 ELSE 0
          END
        ) AS totalPorVencer,
@@ -607,7 +641,7 @@ async function getAlertaPedidosEnRiesgoCount(horizonDays = 7) {
            WHEN base.fechaReferencia IS NULL
              OR (
                base.fechaReferencia IS NOT NULL
-               AND DATEDIFF(base.fechaReferencia, CURDATE()) <= ?
+               AND DATEDIFF(base.fechaReferencia, COALESCE(DATE(?), CURDATE())) <= ?
              )
            THEN 1 ELSE 0
          END
@@ -625,7 +659,7 @@ async function getAlertaPedidosEnRiesgoCount(horizonDays = 7) {
        LEFT JOIN T_Proyecto pr ON pr.FK_P_Cod = p.PK_P_Cod
        WHERE pr.PK_Pro_Cod IS NULL
      ) base`,
-    [Number(horizonDays), Number(horizonDays)]
+    [baseDateYmd, baseDateYmd, Number(horizonDays), baseDateYmd, Number(horizonDays)]
   );
   return rows[0] || {
     totalSinFechaEvento: 0,
@@ -635,13 +669,16 @@ async function getAlertaPedidosEnRiesgoCount(horizonDays = 7) {
   };
 }
 
-async function listAlertaPedidosEnRiesgo(limit = 25, horizonDays = 7) {
+async function listAlertaPedidosEnRiesgo(limit = 25, horizonDays = 7, baseDateYmd = null) {
   const [rows] = await pool.query(
     `SELECT
        p.PK_P_Cod AS pedidoId,
        p.P_Nombre_Pedido AS pedido,
        DATE_FORMAT(COALESCE(ev.primerFecha, p.P_FechaEvento), '%Y-%m-%d') AS fechaReferencia,
-       DATEDIFF(COALESCE(ev.primerFecha, p.P_FechaEvento), CURDATE()) AS diasParaEvento,
+       DATEDIFF(
+         COALESCE(ev.primerFecha, p.P_FechaEvento),
+         COALESCE(DATE(?), CURDATE())
+       ) AS diasParaEvento,
        ep.EP_Nombre AS estadoPedido
      FROM T_Pedido p
      LEFT JOIN (
@@ -653,10 +690,13 @@ async function listAlertaPedidosEnRiesgo(limit = 25, horizonDays = 7) {
      LEFT JOIN T_Proyecto pr ON pr.FK_P_Cod = p.PK_P_Cod
      WHERE pr.PK_Pro_Cod IS NULL
        AND COALESCE(ev.primerFecha, p.P_FechaEvento) IS NOT NULL
-       AND DATEDIFF(COALESCE(ev.primerFecha, p.P_FechaEvento), CURDATE()) <= ?
+       AND DATEDIFF(
+         COALESCE(ev.primerFecha, p.P_FechaEvento),
+         COALESCE(DATE(?), CURDATE())
+       ) <= ?
      ORDER BY diasParaEvento ASC, p.PK_P_Cod ASC
      LIMIT ?`,
-    [Number(horizonDays), Number(limit)]
+    [baseDateYmd, baseDateYmd, Number(horizonDays), Number(limit)]
   );
   return rows;
 }

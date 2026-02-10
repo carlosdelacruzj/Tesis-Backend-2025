@@ -8,8 +8,8 @@ function formatYmd(date) {
   return `${year}-${month}-${day}`;
 }
 
-function buildTargetDates() {
-  const now = new Date();
+function buildTargetDates(baseDateYmd = null) {
+  const now = baseDateYmd ? ymdToLocalDate(baseDateYmd) : new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const tomorrow = new Date(today);
   tomorrow.setDate(tomorrow.getDate() + 1);
@@ -35,7 +35,8 @@ function assert(cond, message, status = 400) {
 }
 
 function parseDateRange(query = {}) {
-  const { from, to } = query;
+  const from = query.from ?? query.fromYmd;
+  const to = query.to ?? query.toYmd;
   const today = new Date();
   const startDefault = new Date(today.getFullYear(), today.getMonth(), 1);
   const endDefault = new Date(today.getFullYear(), today.getMonth() + 1, 0);
@@ -59,8 +60,20 @@ function parsePositiveInt(value, fallback, min = 1, max = 90) {
   return normalized;
 }
 
-function buildRollingRange(days = 14) {
-  const now = new Date();
+function parseBaseDate(value) {
+  if (value == null || value === "") return null;
+  const ymd = String(value).trim();
+  assert(ISO_DATE.test(ymd), "Parametro 'baseDate' debe ser YYYY-MM-DD");
+  return ymd;
+}
+
+function ymdToLocalDate(ymd) {
+  const [year, month, day] = String(ymd).split("-").map(Number);
+  return new Date(year, month - 1, day);
+}
+
+function buildRollingRange(days = 14, baseDateYmd = null) {
+  const now = baseDateYmd ? ymdToLocalDate(baseDateYmd) : new Date();
   const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   const end = new Date(start);
   end.setDate(end.getDate() + Math.max(Number(days) - 1, 0));
@@ -544,9 +557,10 @@ async function getAgendaOperativa(query = {}) {
   };
 }
 
-async function getDashboardResumen() {
-  const { hoy, manana } = buildTargetDates();
-  const horizonDays = 7;
+async function getDashboardResumen(options = {}) {
+  const baseDateYmd = parseBaseDate(options.baseDate);
+  const { hoy, manana } = buildTargetDates(baseDateYmd);
+  const horizonDays = parsePositiveInt(options.horizonDays, 1, 1, 45);
 
   const [
     cotizacionesPorEstado,
@@ -576,8 +590,8 @@ async function getDashboardResumen() {
     repo.getAlertaDevolucionesPendientesCount(),
     repo.getAlertaDiasSuspendidosPorReprogramarCount(),
     repo.getAlertaProyectoListoSinLinkFinalCount(),
-    repo.getAlertaCotizacionesPorExpirarCount(horizonDays),
-    repo.getAlertaPedidosEnRiesgoCount(horizonDays),
+    repo.getAlertaCotizacionesPorExpirarCount(horizonDays, baseDateYmd),
+    repo.getAlertaPedidosEnRiesgoCount(horizonDays, baseDateYmd),
   ]);
 
   const embudo = {
@@ -678,8 +692,9 @@ async function getDashboardResumen() {
   };
 }
 
-async function getDashboardAlertas() {
-  const horizonDays = 7;
+async function getDashboardAlertas(options = {}) {
+  const baseDateYmd = parseBaseDate(options.baseDate);
+  const horizonDays = parsePositiveInt(options.horizonDays, 1, 1, 45);
   const [
     listoSinLinkFinalCount,
     listoSinLinkFinalItems,
@@ -698,10 +713,10 @@ async function getDashboardAlertas() {
     repo.listAlertaDevolucionesPendientes(),
     repo.getAlertaDiasSuspendidosPorReprogramarCount(),
     repo.listAlertaDiasSuspendidosPorReprogramar(),
-    repo.getAlertaCotizacionesPorExpirarCount(horizonDays),
-    repo.listAlertaCotizacionesPorExpirar(25, horizonDays),
-    repo.getAlertaPedidosEnRiesgoCount(horizonDays),
-    repo.listAlertaPedidosEnRiesgo(25, horizonDays),
+    repo.getAlertaCotizacionesPorExpirarCount(horizonDays, baseDateYmd),
+    repo.listAlertaCotizacionesPorExpirar(25, horizonDays, baseDateYmd),
+    repo.getAlertaPedidosEnRiesgoCount(horizonDays, baseDateYmd),
+    repo.listAlertaPedidosEnRiesgo(25, horizonDays, baseDateYmd),
   ]);
 
   const totalAlertas =
@@ -810,14 +825,29 @@ async function getDashboardCapacidad(query = {}) {
 }
 
 async function getDashboardHome(query = {}) {
-  const agendaDays = parsePositiveInt(query.agendaDays, 14, 1, 45);
-  const range = buildRollingRange(agendaDays);
-  const { hoy } = buildTargetDates();
-  const todayRange = { fromYmd: hoy, toYmd: hoy };
+  const baseDateYmd = parseBaseDate(query.baseDate);
+  const strictDay = String(query.strictDay ?? "1").trim() !== "0";
+  const agendaDays = strictDay
+    ? 1
+    : parsePositiveInt(query.agendaDays, 1, 1, 45);
+  const horizonDays = strictDay
+    ? 1
+    : parsePositiveInt(query.horizonDays, 1, 1, 45);
+  const { hoy } = buildTargetDates(baseDateYmd);
+  const todayRange = { from: hoy, to: hoy, fromYmd: hoy, toYmd: hoy };
+  const rollingRange = buildRollingRange(agendaDays, baseDateYmd);
+  const range = strictDay
+    ? todayRange
+    : {
+        from: rollingRange.fromYmd,
+        to: rollingRange.toYmd,
+        fromYmd: rollingRange.fromYmd,
+        toYmd: rollingRange.toYmd,
+      };
 
   const [resumen, alertas, capacidad, agenda, agendaHoy, cobrosHoy] = await Promise.all([
-    getDashboardResumen(),
-    getDashboardAlertas(),
+    getDashboardResumen({ horizonDays, baseDate: baseDateYmd }),
+    getDashboardAlertas({ horizonDays, baseDate: baseDateYmd }),
     getDashboardCapacidad(range),
     getAgendaOperativa({ ...range, includeDetalles: "1" }),
     getAgendaOperativa({ ...todayRange, includeDetalles: "1" }),
@@ -851,11 +881,18 @@ async function getDashboardHome(query = {}) {
     (acc, x) => acc + Number(x.totalEquiposPendientes || 0),
     0
   );
-  const eventosHoy = Number(agendaHoy?.agenda?.pedidoEventos?.length || 0);
+  const eventosHoy = Number(
+    new Set(
+      (agendaHoy?.agenda?.proyectoDias || [])
+        .map((x) => Number(x.proyectoId))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    ).size
+  );
 
   return {
     generatedAt: new Date().toISOString(),
     range,
+    strictDay,
     operacionDia: {
       fecha: hoy,
       tarjetas: {

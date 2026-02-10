@@ -18,18 +18,18 @@ async function getAgendaOperativa(req, res, next) {
   }
 }
 
-async function getDashboardResumen(_req, res, next) {
+async function getDashboardResumen(req, res, next) {
   try {
-    const data = await service.getDashboardResumen();
+    const data = await service.getDashboardResumen(req.query || {});
     res.status(200).json(data);
   } catch (err) {
     next(err);
   }
 }
 
-async function getDashboardAlertas(_req, res, next) {
+async function getDashboardAlertas(req, res, next) {
   try {
-    const data = await service.getDashboardAlertas();
+    const data = await service.getDashboardAlertas(req.query || {});
     res.status(200).json(data);
   } catch (err) {
     next(err);
