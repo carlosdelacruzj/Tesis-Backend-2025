@@ -1,0 +1,12 @@
+INSERT INTO `T_Pedido` (`PK_P_Cod`, `FK_EP_Cod`, `FK_Cli_Cod`, `FK_ESP_Cod`, `P_Fecha_Creacion`, `P_Observaciones`, `FK_Em_Cod`, `P_Nombre_Pedido`, `FK_Cot_Cod`, `P_FechaEvento`, `P_HorasEst`, `P_Dias`, `P_IdTipoEvento`, `P_ViaticosMonto`, `P_Mensaje`, `P_Lugar`) VALUES
+(1, 3, 3, 2, '2026-02-08 00:00:00.000', 'Origen: Cotizacion #7', 1, 'Boda - 01-03-2026 - Cusco', 7, '2026-03-01 00:00:00.000', '8.0', 1, 1, '800.00', 'Caso vigente normal. Viaticos aceptados.', 'Cusco'),
+(2, 2, 3, 2, '2026-02-08 00:00:00.000', 'Origen: Cotizacion #3', 1, 'Corporativo - 20-03-2026 - Lima', 3, '2026-03-20 00:00:00.000', '6.0', 2, 3, '0.00', 'Cotizacion enviada. Trabajo en dos dias.', 'Lima'),
+(3, 2, 4, 3, '2026-02-09 00:00:00.000', 'Origen: Cotizacion #4', 1, 'Cumpleanos - 13-02-2026 - Arequipa', 4, '2026-02-12 00:00:00.000', '5.0', 1, 2, '250.00', 'Cotizacion en borrador para cierre rapido.', 'Arequipa'),
+(4, 2, 5, 3, '2026-02-09 00:00:00.000', 'Origen: Cotizacion #5', 1, 'Boda - 14-02-2026 - Trujillo', 5, '2026-02-18 00:00:00.000', '8.0', 1, 1, '300.00', 'Cotizacion enviada con paquete premium.', 'Trujillo'),
+(5, 2, 7, 2, '2026-02-09 00:00:00.000', 'Origen: Cotizacion #8', 1, 'Cumpleanos - 17-02-2026 - Lima', 8, '2026-02-26 00:00:00.000', '4.0', 1, 2, '120.00', 'Cotizacion enviada con cobertura express.', 'Lima'),
+(6, 2, 10, 2, '2026-02-09 00:00:00.000', 'Origen: Cotizacion #11', 1, 'Cumpleanos - 20-02-2026 - Arequipa', 11, '2026-03-08 00:00:00.000', '5.0', 1, 2, '200.00', 'Cotizacion enviada con video corto adicional.', 'Arequipa'),
+(7, 2, 22, 2, '2026-02-09 00:00:00.000', 'Origen: Cotizacion #23', 1, 'Corporativo - 09-03-2026 - Lima', 23, '2026-03-09 00:00:00.000', '6.0', 1, 3, '0.00', 'Cotizacion enviada en seguimiento comercial.', 'Lima'),
+(8, 2, 30, 2, '2026-02-09 00:00:00.000', 'Origen: Cotizacion #31', 1, 'Cumpleanos - 17-03-2026 - Lima', 31, '2026-03-17 00:00:00.000', '5.0', 1, 2, '120.00', 'Cotizacion enviada en seguimiento comercial.', 'Lima'),
+(9, 1, 2, 1, '2026-02-09 00:00:00.000', 'Origen: Cotizacion #34', 1, 'Cumpleanos - 20-03-2026 - Trujillo', 34, '2026-03-20 00:00:00.000', '5.0', 1, 2, '120.00', 'Cotizacion enviada en seguimiento comercial.', 'Trujillo'),
+(10, 1, 7, 1, '2026-02-09 00:00:00.000', 'Origen: Cotizacion #39', 1, 'Boda - 25-03-2026 - Lima', 39, '2026-03-25 00:00:00.000', '8.0', 1, 1, '250.00', 'Cotizacion enviada en seguimiento comercial.', 'Lima');
+ALTER TABLE `T_Pedido` AUTO_INCREMENT = 11;

@@ -830,6 +830,43 @@ async function cancelProyectoDia(diaId, payload = {}) {
   }
 }
 
+async function getProyectoDiaCancelContext(diaId) {
+  const [rows] = await pool.query(
+    `SELECT
+       pd.PK_PD_Cod AS diaId,
+       pr.FK_P_Cod AS pedidoId,
+       pd.PD_MontoTotal AS montoTotal,
+       pd.PD_NC_VoucherId AS ncVoucherId
+     FROM T_ProyectoDia pd
+     JOIN T_Proyecto pr ON pr.PK_Pro_Cod = pd.FK_Pro_Cod
+     WHERE pd.PK_PD_Cod = ?
+     LIMIT 1`,
+    [Number(diaId)]
+  );
+  return rows?.[0] || null;
+}
+
+async function setProyectoDiaNcVoucher(diaId, voucherId) {
+  const [result] = await pool.query(
+    `UPDATE T_ProyectoDia
+     SET PD_NC_VoucherId = ?, updated_at = ?
+     WHERE PK_PD_Cod = ?`,
+    [Number(voucherId), getLimaDateTimeString(), Number(diaId)]
+  );
+  return { affectedRows: result.affectedRows };
+}
+
+async function getMetodoPagoIdByNombre(nombre) {
+  const [rows] = await pool.query(
+    `SELECT PK_MP_Cod AS id
+     FROM T_Metodo_Pago
+     WHERE LOWER(MP_Nombre) = LOWER(?)
+     LIMIT 1`,
+    [String(nombre || "").trim()]
+  );
+  return rows?.[0]?.id != null ? Number(rows[0].id) : null;
+}
+
 async function getDisponibilidad({
   fechaInicio,
   fechaFin,
@@ -1299,6 +1336,9 @@ module.exports = {
   listEstadoProyectoDia,
   updateProyectoDiaEstado,
   cancelProyectoDia,
+  getProyectoDiaCancelContext,
+  setProyectoDiaNcVoucher,
+  getMetodoPagoIdByNombre,
   getProyectoInfoByDiaId,
   getProyectoInfoByProyectoId,
   getProyectoDiaFechaById,

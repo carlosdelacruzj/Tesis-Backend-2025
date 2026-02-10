@@ -1,4 +1,5 @@
-﻿const repo = require("./proyecto.repository");
+const repo = require("./proyecto.repository");
+const pagosService = require("../pagos/pagos.service");
 const {
   ESTADOS_DEVOLUCION,
   ESTADOS_EQUIPO_OBJETIVO,
@@ -599,12 +600,64 @@ async function cancelarDiaProyecto(diaId, payload = {}) {
     throw err;
   }
 
+  let voucherId = null;
+  if (responsable === "INTERNO") {
+    const ctx = await repo.getProyectoDiaCancelContext(did);
+    if (!ctx || !Number(ctx.pedidoId)) {
+      const err = new Error("No se pudo resolver el pedido del dia cancelado");
+      err.status = 500;
+      throw err;
+    }
+    if (ctx.ncVoucherId != null) {
+      const err = new Error("El dia ya tiene una nota de credito vinculada");
+      err.status = 409;
+      throw err;
+    }
+
+    const montoTotal = Number(ctx.montoTotal ?? 0);
+    if (!Number.isFinite(montoTotal) || montoTotal <= 0) {
+      const err = new Error("El monto total del dia es invalido para generar nota de credito");
+      err.status = 400;
+      throw err;
+    }
+
+    const metodoPagoId = await repo.getMetodoPagoIdByNombre("Transferencia");
+    if (!metodoPagoId) {
+      const err = new Error("No se encontro el metodo de pago 'Transferencia'");
+      err.status = 500;
+      throw err;
+    }
+
+    const out = await pagosService.createVoucher({
+      pedidoId: Number(ctx.pedidoId),
+      monto: Number((-montoTotal).toFixed(2)),
+      metodoPagoId,
+      estadoVoucherId: undefined,
+      fecha: undefined,
+      file: undefined,
+    });
+    voucherId = out?.voucherId != null ? Number(out.voucherId) : null;
+    if (!voucherId) {
+      const err = new Error("No se pudo generar voucher de nota de credito");
+      err.status = 500;
+      throw err;
+    }
+
+    const linked = await repo.setProyectoDiaNcVoucher(did, voucherId);
+    if (!linked || linked.affectedRows === 0) {
+      const err = new Error("No se pudo vincular la nota de credito al dia");
+      err.status = 500;
+      throw err;
+    }
+  }
+
   return {
     status: "Dia cancelado",
     diaId: did,
     responsable,
     motivo,
     ncRequerida,
+    voucherId,
   };
 }
 

@@ -85,7 +85,7 @@ async function syncEstadoPagoPedido(pedidoId) {
   const resumenRows = await repo.getResumenByPedido(pedidoId);
   const resumenRaw = resumenRows?.[0];
   if (!resumenRaw) {
-    const e = new Error(`No se encontró resumen de pago para pedido ${pedidoId}`);
+    const e = new Error(`No se encontrï¿½ resumen de pago para pedido ${pedidoId}`);
     e.status = 404;
     throw e;
   }
@@ -184,7 +184,7 @@ async function createVoucher({
   fecha,
 }) {
   const id = assertIdPositivo(pedidoId, "pedidoId");
-  assertNumber(monto, "monto");
+  const montoNum = assertNumber(monto, "monto");
   assertIdPositivo(metodoPagoId, "metodoPagoId");
   let estadoVoucherIdFinal = estadoVoucherId;
   if (estadoVoucherIdFinal == null || estadoVoucherIdFinal === "") {
@@ -197,7 +197,7 @@ async function createVoucher({
   // Detectar si es el primer pago antes de insertar (MontoAbonado previo == 0)
   const resumenPrev = await repo.getResumenByPedido(id);
   const montoAbonadoPrev = Number(resumenPrev?.[0]?.MontoAbonado ?? 0);
-  const esPrimerPago = montoAbonadoPrev <= 0;
+  const esPrimerPago = montoNum > 0 && montoAbonadoPrev <= 0;
 
   // Si no hay archivo, persistimos nulos en columnas de imagen
   const imagen = file?.buffer ?? null;
@@ -207,7 +207,7 @@ async function createVoucher({
   const fechaNormalizada = parseFecha(fecha);
 
   const insertResult = await repo.insertVoucher({
-    monto: Number(monto),
+    monto: Number(montoNum),
     metodoPagoId: Number(metodoPagoId),
     estadoVoucherId: Number(estadoVoucherIdFinal),
     imagen, // Buffer o null
