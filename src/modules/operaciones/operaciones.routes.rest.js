@@ -145,6 +145,29 @@ router.get("/dashboard/home", ctrl.getDashboardHome);
 
 /**
  * @swagger
+ * /operaciones/dashboard/operativo-dia:
+ *   get:
+ *     tags: [operaciones]
+ *     summary: Dashboard operativo diario estricto (solo fecha objetivo)
+ *     description: |
+ *       Endpoint diario para la vista operativa de hoy.
+ *       No devuelve ventanas de rango; siempre calcula solo para la fecha objetivo.
+ *     parameters:
+ *       - in: query
+ *         name: baseDate
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: false
+ *         description: Fecha base fija (YYYY-MM-DD). Si no se envia, usa hoy local del servidor.
+ *     responses:
+ *       '200':
+ *         description: OK
+ */
+router.get("/dashboard/operativo-dia", ctrl.getDashboardOperativoDiario);
+
+/**
+ * @swagger
  * /operaciones/agenda:
  *   get:
  *     tags: [operaciones]

@@ -305,6 +305,78 @@ function buildColaPendientesHoy(agendaHoyAccionable = []) {
   return cola.slice(0, 20);
 }
 
+function buildOcupacionHoy(proyectoDias = [], capacidadHoy = null) {
+  const empleadosMap = new Map();
+  const equiposMap = new Map();
+
+  for (const dia of proyectoDias || []) {
+    for (const emp of dia.empleados || []) {
+      const empleadoId = Number(emp.empleadoId);
+      if (!Number.isFinite(empleadoId) || empleadoId <= 0) continue;
+      if (!empleadosMap.has(empleadoId)) {
+        empleadosMap.set(empleadoId, {
+          empleadoId,
+          empleadoNombre: emp.empleadoNombre || null,
+          proyectos: new Set(),
+          dias: new Set(),
+        });
+      }
+      const row = empleadosMap.get(empleadoId);
+      row.proyectos.add(Number(dia.proyectoId));
+      row.dias.add(Number(dia.diaId));
+    }
+
+    for (const eq of dia.equipos || []) {
+      const equipoId = Number(eq.equipoId);
+      if (!Number.isFinite(equipoId) || equipoId <= 0) continue;
+      if (!equiposMap.has(equipoId)) {
+        equiposMap.set(equipoId, {
+          equipoId,
+          equipoSerie: eq.equipoSerie || null,
+          modelo: eq.modelo || null,
+          tipoEquipo: eq.tipoEquipo || null,
+          proyectos: new Set(),
+          dias: new Set(),
+          pendientesDevolucion: 0,
+        });
+      }
+      const row = equiposMap.get(equipoId);
+      row.proyectos.add(Number(dia.proyectoId));
+      row.dias.add(Number(dia.diaId));
+      if (!eq.devuelto) row.pendientesDevolucion += 1;
+    }
+  }
+
+  const personas = Array.from(empleadosMap.values()).map((r) => ({
+    empleadoId: r.empleadoId,
+    empleadoNombre: r.empleadoNombre,
+    totalProyectos: r.proyectos.size,
+    totalDias: r.dias.size,
+  }));
+  const equipos = Array.from(equiposMap.values()).map((r) => ({
+    equipoId: r.equipoId,
+    equipoSerie: r.equipoSerie,
+    modelo: r.modelo,
+    tipoEquipo: r.tipoEquipo,
+    totalProyectos: r.proyectos.size,
+    totalDias: r.dias.size,
+    pendientesDevolucion: r.pendientesDevolucion,
+  }));
+
+  return {
+    resumen: {
+      personasOcupadas: personas.length,
+      equiposOcupados: equipos.length,
+      capacidadStaffTotal: Number(capacidadHoy?.staff?.capacidadTotal || 0),
+      capacidadEquipoTotal: Number(capacidadHoy?.equipo?.capacidadTotal || 0),
+      porcentajeStaffOcupado: Number(capacidadHoy?.staff?.saturacionPct || 0),
+      porcentajeEquipoOcupado: Number(capacidadHoy?.equipo?.saturacionPct || 0),
+    },
+    personas,
+    equipos,
+  };
+}
+
 async function buildProyectosDelDia(fechaYmd) {
   const [resumen, porEstadoDia, proyectos] = await Promise.all([
     repo.getProyectosDiaResumen(fechaYmd),
@@ -950,6 +1022,137 @@ async function getDashboardHome(query = {}) {
   };
 }
 
+async function getDashboardOperativoDiario(query = {}) {
+  const baseDateYmd = parseBaseDate(query.baseDate);
+  const { hoy } = buildTargetDates(baseDateYmd);
+  const todayRange = { from: hoy, to: hoy, fromYmd: hoy, toYmd: hoy };
+
+  const [agendaHoy, capacidadHoyPack, cobrosHoy] = await Promise.all([
+    getAgendaOperativa({ ...todayRange, includeDetalles: "1" }),
+    getDashboardCapacidad(todayRange),
+    repo.getResumenCobrosDelDia(hoy),
+  ]);
+
+  const proyectoDiasHoy = agendaHoy?.agenda?.proyectoDias || [];
+  const capacidadHoy =
+    (capacidadHoyPack?.capacidadPorDia || []).find((d) => d.fecha === hoy) || null;
+  const agendaHoyAccionable = buildAgendaHoyAccionable(proyectoDiasHoy);
+
+  const eventosHoy = Number(
+    new Set(
+      proyectoDiasHoy
+        .map((x) => Number(x.proyectoId))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    ).size
+  );
+
+  const eventosEnCursoHoy = Number(
+    new Set(
+      agendaHoyAccionable
+        .filter((x) => String(x.estadoDia || "").toLowerCase() === "en curso")
+        .map((x) => Number(x.proyectoId))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    ).size
+  );
+
+  const eventosPendientesInicioHoy = Number(
+    new Set(
+      agendaHoyAccionable
+        .filter((x) => String(x.estadoDia || "").toLowerCase() === "pendiente")
+        .map((x) => Number(x.proyectoId))
+        .filter((id) => Number.isFinite(id) && id > 0)
+    ).size
+  );
+
+  const colaPendientesHoy = agendaHoyAccionable
+    .filter(
+      (x) =>
+        String(x.estadoDia || "").toLowerCase() !== "en curso" &&
+        Number(x.totalEmpleados || 0) === 0 &&
+        Number(x.totalEquipos || 0) === 0
+    )
+    .map((x) => ({
+      tipo: "pendiente_inicio_sin_asignaciones",
+      prioridad: "alta",
+      proyectoId: x.proyectoId,
+      diaId: x.diaId,
+      pedidoId: x.pedidoId,
+      mensaje: `Proyecto pendiente sin staff/equipo: ${x.proyecto}`,
+    }));
+
+  const ocupacionHoy = buildOcupacionHoy(proyectoDiasHoy, capacidadHoy);
+
+  return {
+    generatedAt: new Date().toISOString(),
+    fecha: hoy,
+    range: todayRange,
+    strictDay: true,
+    cards: {
+      eventosHoy,
+      eventosEnCursoHoy,
+      eventosPendientesInicioHoy,
+      serviciosProgramadosHoy: Number(agendaHoyAccionable.length || 0),
+    },
+    resumenHoy: {
+      totalProyectosConDiaHoy: eventosHoy,
+      totalProyectoDiasHoy: Number(proyectoDiasHoy.length || 0),
+      estadoDia: {
+        pendiente: agendaHoyAccionable.filter(
+          (x) => String(x.estadoDia || "").toLowerCase() === "pendiente"
+        ).length,
+        enCurso: agendaHoyAccionable.filter(
+          (x) => String(x.estadoDia || "").toLowerCase() === "en curso"
+        ).length,
+        terminado: agendaHoyAccionable.filter(
+          (x) => String(x.estadoDia || "").toLowerCase() === "terminado"
+        ).length,
+        suspendido: agendaHoyAccionable.filter(
+          (x) => String(x.estadoDia || "").toLowerCase() === "suspendido"
+        ).length,
+        cancelado: agendaHoyAccionable.filter(
+          (x) => String(x.estadoDia || "").toLowerCase() === "cancelado"
+        ).length,
+      },
+      cobrosHoy: {
+        pedidosPendientePago: Number(cobrosHoy.pedidosPendientePago || 0),
+        pedidosParcialPago: Number(cobrosHoy.pedidosParcialPago || 0),
+        pedidosPagado: Number(cobrosHoy.pedidosPagado || 0),
+        pedidosConSaldo: Number(cobrosHoy.pedidosConSaldo || 0),
+      },
+    },
+    agendaHoy: {
+      total: agendaHoyAccionable.length,
+      items: agendaHoyAccionable,
+    },
+    colaPendientesHoy: {
+      total: colaPendientesHoy.length,
+      items: colaPendientesHoy,
+    },
+    ocupacionHoy,
+    capacidadHoy:
+      capacidadHoy || {
+        fecha: hoy,
+        staff: {
+          capacidadTotal: 0,
+          usado: 0,
+          libre: 0,
+          saturacionPct: 0,
+          asignaciones: 0,
+          sobreasignado: false,
+        },
+        equipo: {
+          capacidadTotal: 0,
+          usado: 0,
+          libre: 0,
+          saturacionPct: 0,
+          asignaciones: 0,
+          pendientesDevolucion: 0,
+          sobreasignado: false,
+        },
+      },
+  };
+}
+
 module.exports = {
   getKpisOperativosMinimos,
   getAgendaOperativa,
@@ -957,4 +1160,5 @@ module.exports = {
   getDashboardAlertas,
   getDashboardCapacidad,
   getDashboardHome,
+  getDashboardOperativoDiario,
 };

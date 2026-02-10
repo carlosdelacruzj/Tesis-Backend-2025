@@ -54,6 +54,15 @@ async function getDashboardHome(req, res, next) {
   }
 }
 
+async function getDashboardOperativoDiario(req, res, next) {
+  try {
+    const data = await service.getDashboardOperativoDiario(req.query || {});
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getKpisOperativosMinimos,
   getAgendaOperativa,
@@ -61,4 +70,5 @@ module.exports = {
   getDashboardAlertas,
   getDashboardCapacidad,
   getDashboardHome,
+  getDashboardOperativoDiario,
 };
