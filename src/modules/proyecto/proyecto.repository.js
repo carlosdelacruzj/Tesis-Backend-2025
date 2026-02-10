@@ -106,6 +106,17 @@ async function countDiasNoTerminados(proyectoId, estadoTerminadoId) {
   return Number(rows?.[0]?.cnt || 0);
 }
 
+async function countDiasNoCancelados(proyectoId, estadoCanceladoId) {
+  const [rows] = await pool.query(
+    `SELECT COUNT(*) AS cnt
+     FROM T_ProyectoDia
+     WHERE FK_Pro_Cod = ?
+       AND (FK_EPD_Cod IS NULL OR FK_EPD_Cod <> ?)`,
+    [Number(proyectoId), Number(estadoCanceladoId)]
+  );
+  return Number(rows?.[0]?.cnt || 0);
+}
+
 async function countEquiposNoDevueltos(proyectoId) {
   const [rows] = await pool.query(
     `SELECT COUNT(*) AS cnt
@@ -830,6 +841,138 @@ async function cancelProyectoDia(diaId, payload = {}) {
   }
 }
 
+async function getProyectoCancelacionMasivaContext(proyectoId) {
+  const [rows] = await pool.query(
+    `SELECT
+       pr.PK_Pro_Cod AS proyectoId,
+       pr.Pro_Nombre AS proyectoNombre,
+       pr.Pro_Estado AS proyectoEstadoId,
+       pr.FK_P_Cod AS pedidoId,
+       p.FK_EP_Cod AS pedidoEstadoId,
+       COUNT(pd.PK_PD_Cod) AS totalDias,
+       SUM(CASE WHEN LOWER(COALESCE(epd.EPD_Nombre, '')) = 'pendiente' THEN 1 ELSE 0 END) AS diasPendientes,
+       SUM(CASE WHEN LOWER(COALESCE(epd.EPD_Nombre, '')) = 'en curso' THEN 1 ELSE 0 END) AS diasEnCurso,
+       SUM(CASE WHEN LOWER(COALESCE(epd.EPD_Nombre, '')) = 'cancelado' THEN 1 ELSE 0 END) AS diasCancelados,
+       SUM(CASE WHEN LOWER(COALESCE(epd.EPD_Nombre, '')) = 'terminado' THEN 1 ELSE 0 END) AS diasTerminados,
+       SUM(
+         CASE
+           WHEN LOWER(COALESCE(epd.EPD_Nombre, '')) IN ('pendiente', 'en curso', 'cancelado')
+             THEN 0
+           ELSE 1
+         END
+       ) AS diasNoPermitidos
+     FROM T_Proyecto pr
+     LEFT JOIN T_Pedido p
+       ON p.PK_P_Cod = pr.FK_P_Cod
+     LEFT JOIN T_ProyectoDia pd
+       ON pd.FK_Pro_Cod = pr.PK_Pro_Cod
+     LEFT JOIN T_Estado_Proyecto_Dia epd
+       ON epd.PK_EPD_Cod = pd.FK_EPD_Cod
+     WHERE pr.PK_Pro_Cod = ?
+     GROUP BY pr.PK_Pro_Cod, pr.Pro_Nombre, pr.Pro_Estado, pr.FK_P_Cod, p.FK_EP_Cod
+     LIMIT 1`,
+    [Number(proyectoId)]
+  );
+  return rows?.[0] || null;
+}
+
+async function cancelProyectoDiasMasivo(proyectoId, payload = {}) {
+  const {
+    estadoCanceladoId,
+    responsable,
+    motivo,
+    notas = null,
+    cancelFecha = getLimaDateTimeString(),
+    ncRequerida = 0,
+  } = payload;
+
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rowsProyecto] = await conn.query(
+      `SELECT PK_Pro_Cod AS proyectoId
+       FROM T_Proyecto
+       WHERE PK_Pro_Cod = ?
+       LIMIT 1`,
+      [Number(proyectoId)]
+    );
+    if (!rowsProyecto.length) {
+      const err = new Error("Proyecto no encontrado");
+      err.status = 404;
+      throw err;
+    }
+
+    const [rowsDias] = await conn.query(
+      `SELECT
+         PK_PD_Cod AS diaId,
+         COALESCE(PD_MontoTotal, 0) AS montoTotal
+       FROM T_ProyectoDia
+       WHERE FK_Pro_Cod = ?
+         AND (FK_EPD_Cod IS NULL OR FK_EPD_Cod <> ?)
+       FOR UPDATE`,
+      [Number(proyectoId), Number(estadoCanceladoId)]
+    );
+
+    const diaIds = (rowsDias || []).map((r) => Number(r.diaId));
+    const montoTotal = Number(
+      (rowsDias || []).reduce((acc, r) => acc + Number(r.montoTotal || 0), 0).toFixed(2)
+    );
+
+    let affectedRows = 0;
+    if (diaIds.length) {
+      const [result] = await conn.query(
+        `UPDATE T_ProyectoDia
+         SET FK_EPD_Cod = ?,
+             PD_CancelResponsable = ?,
+             PD_CancelMotivo = ?,
+             PD_CancelNotas = ?,
+             PD_CancelFecha = ?,
+             PD_NC_Requerida = ?,
+             updated_at = ?
+         WHERE PK_PD_Cod IN (?)`,
+        [
+          Number(estadoCanceladoId),
+          String(responsable),
+          String(motivo),
+          notas,
+          cancelFecha,
+          Number(ncRequerida) ? 1 : 0,
+          getLimaDateTimeString(),
+          diaIds,
+        ]
+      );
+      affectedRows = Number(result.affectedRows || 0);
+    }
+
+    await conn.commit();
+    return {
+      affectedRows,
+      diaIds,
+      montoTotal,
+    };
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
+}
+
+async function setProyectoDiasNcVoucherByIds(diaIds = [], voucherId) {
+  if (!Array.isArray(diaIds) || diaIds.length === 0) {
+    return { affectedRows: 0 };
+  }
+
+  const [result] = await pool.query(
+    `UPDATE T_ProyectoDia
+     SET PD_NC_VoucherId = ?, updated_at = ?
+     WHERE PK_PD_Cod IN (?)`,
+    [Number(voucherId), getLimaDateTimeString(), diaIds.map((id) => Number(id))]
+  );
+  return { affectedRows: Number(result.affectedRows || 0) };
+}
+
 async function getProyectoDiaCancelContext(diaId) {
   const [rows] = await pool.query(
     `SELECT
@@ -1336,13 +1479,17 @@ module.exports = {
   listEstadoProyectoDia,
   updateProyectoDiaEstado,
   cancelProyectoDia,
+  getProyectoCancelacionMasivaContext,
+  cancelProyectoDiasMasivo,
   getProyectoDiaCancelContext,
   setProyectoDiaNcVoucher,
+  setProyectoDiasNcVoucherByIds,
   getMetodoPagoIdByNombre,
   getProyectoInfoByDiaId,
   getProyectoInfoByProyectoId,
   getProyectoDiaFechaById,
   countDiasNoTerminados,
+  countDiasNoCancelados,
   countEquiposNoDevueltos,
   upsertProyectoAsignaciones,
   createProyectoDiaIncidencia,

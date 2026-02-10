@@ -314,6 +314,38 @@ router.post("/dias/:diaId(\\d+)/cancelar", ctrl.postProyectoDiaCancelar);
 
 /**
  * @swagger
+ * /proyecto/{proyectoId}/cancelar-global:
+ *   post:
+ *     tags: [proyecto]
+ *     summary: Cancelar globalmente un proyecto (dias + proyecto + pedido)
+ *     description: |
+ *       Solo permitido cuando no existe ningun dia Terminado y todos los dias estan en
+ *       Pendiente, En curso o Cancelado. Si responsable = INTERNO se genera una sola NC
+ *       por el monto total de los dias cancelados en la operacion.
+ *     parameters:
+ *       - in: path
+ *         name: proyectoId
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [responsable, motivo]
+ *             properties:
+ *               responsable: { type: string, enum: [CLIENTE, INTERNO] }
+ *               motivo:
+ *                 type: string
+ *                 enum: [DESISTE_EVENTO, FUERZA_MAYOR_CLIENTE, OTRO_CLIENTE, FUERZA_MAYOR_INTERNA, OTRO_INTERNO]
+ *               notas: { type: string, nullable: true }
+ *     responses: { '200': { description: OK } }
+ */
+router.post("/:proyectoId(\\d+)/cancelar-global", ctrl.postProyectoCancelarGlobal);
+
+/**
+ * @swagger
  * /proyecto/{id}/postproduccion:
  *   patch:
  *     tags: [proyecto]

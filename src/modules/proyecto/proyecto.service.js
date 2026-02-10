@@ -548,6 +548,30 @@ async function updateProyectoDiaEstado(diaId, estadoDiaId) {
 }
 
 async function cancelarDiaProyecto(diaId, payload = {}) {
+  async function getEstadoProyectoIdFlexible(...nombres) {
+    let lastError = null;
+    for (const nombre of nombres) {
+      try {
+        return await repo.getEstadoProyectoIdByNombre(nombre);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
+  async function getEstadoPedidoIdFlexible(...nombres) {
+    let lastError = null;
+    for (const nombre of nombres) {
+      try {
+        return await repo.getEstadoPedidoIdByNombre(nombre);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
   const did = ensurePositiveInt(diaId, "diaId");
 
   const responsable = String(payload?.responsable || "")
@@ -651,6 +675,35 @@ async function cancelarDiaProyecto(diaId, payload = {}) {
     }
   }
 
+  let proyectoCancelado = false;
+  let pedidoCancelado = false;
+  const info = await repo.getProyectoInfoByDiaId(did);
+  if (info?.proyectoId) {
+    const diasNoCancelados = await repo.countDiasNoCancelados(
+      info.proyectoId,
+      estadoCanceladoId
+    );
+
+    if (diasNoCancelados === 0) {
+      const [estadoProyCanceladoId, estadoPedCanceladoId] = await Promise.all([
+        getEstadoProyectoIdFlexible("Cancelado"),
+        getEstadoPedidoIdFlexible("Cancelado"),
+      ]);
+
+      if (Number(info.proyectoEstadoId || 0) !== estadoProyCanceladoId) {
+        await repo.patchProyectoById(info.proyectoId, { estadoId: estadoProyCanceladoId });
+      }
+      proyectoCancelado = true;
+
+      if (info.pedidoId) {
+        if (Number(info.pedidoEstadoId || 0) !== estadoPedCanceladoId) {
+          await repo.updatePedidoEstadoById(info.pedidoId, estadoPedCanceladoId);
+        }
+        pedidoCancelado = true;
+      }
+    }
+  }
+
   return {
     status: "Dia cancelado",
     diaId: did,
@@ -658,6 +711,175 @@ async function cancelarDiaProyecto(diaId, payload = {}) {
     motivo,
     ncRequerida,
     voucherId,
+    proyectoCancelado,
+    pedidoCancelado,
+  };
+}
+
+async function cancelarProyectoGlobal(proyectoId, payload = {}) {
+  async function getEstadoProyectoIdFlexible(...nombres) {
+    let lastError = null;
+    for (const nombre of nombres) {
+      try {
+        return await repo.getEstadoProyectoIdByNombre(nombre);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
+  async function getEstadoPedidoIdFlexible(...nombres) {
+    let lastError = null;
+    for (const nombre of nombres) {
+      try {
+        return await repo.getEstadoPedidoIdByNombre(nombre);
+      } catch (err) {
+        lastError = err;
+      }
+    }
+    throw lastError;
+  }
+
+  const pid = ensurePositiveInt(proyectoId, "proyectoId");
+
+  const responsable = String(payload?.responsable || "")
+    .trim()
+    .toUpperCase();
+  if (!CANCEL_RESPONSABLES.has(responsable)) {
+    const err = new Error("responsable invalido. Valores permitidos: CLIENTE, INTERNO");
+    err.status = 400;
+    throw err;
+  }
+
+  const motivo = String(payload?.motivo || "")
+    .trim()
+    .toUpperCase();
+  const motivosValidos = CANCEL_MOTIVOS_POR_RESPONSABLE[responsable];
+  if (!motivosValidos || !motivosValidos.has(motivo)) {
+    const err = new Error(`motivo invalido para responsable ${responsable}`);
+    err.status = 400;
+    throw err;
+  }
+
+  const notas = toCleanText(payload?.notas, 500);
+  if (CANCEL_MOTIVOS_OTRO.has(motivo) && (!notas || notas.length < 8)) {
+    const err = new Error("notas debe tener al menos 8 caracteres para motivos OTRO_*");
+    err.status = 400;
+    throw err;
+  }
+
+  const ctx = await repo.getProyectoCancelacionMasivaContext(pid);
+  if (!ctx) {
+    const err = new Error("Proyecto no encontrado");
+    err.status = 404;
+    throw err;
+  }
+
+  const totalDias = Number(ctx.totalDias || 0);
+  if (totalDias <= 0) {
+    const err = new Error("El proyecto no tiene dias para cancelar");
+    err.status = 400;
+    throw err;
+  }
+
+  if (Number(ctx.diasTerminados || 0) > 0) {
+    const err = new Error(
+      "No se puede hacer cancelacion global: existe al menos un dia Terminado"
+    );
+    err.status = 409;
+    throw err;
+  }
+
+  if (Number(ctx.diasNoPermitidos || 0) > 0) {
+    const err = new Error(
+      "No se puede hacer cancelacion global: solo se permite cuando los dias estan en Pendiente, En curso o Cancelado"
+    );
+    err.status = 409;
+    throw err;
+  }
+
+  let estadoCanceladoDiaId = null;
+  try {
+    estadoCanceladoDiaId = await repo.getEstadoProyectoDiaIdByNombre("Cancelado");
+  } catch (_err) {
+    const err = new Error("No se encontro el estado de dia 'Cancelado'");
+    err.status = 500;
+    throw err;
+  }
+
+  const ncRequerida = responsable === "INTERNO" ? 1 : 0;
+  const cancelRes = await repo.cancelProyectoDiasMasivo(pid, {
+    estadoCanceladoId: estadoCanceladoDiaId,
+    responsable,
+    motivo,
+    notas,
+    ncRequerida,
+  });
+
+  let voucherId = null;
+  if (responsable === "INTERNO" && Number(cancelRes.montoTotal || 0) > 0) {
+    const pedidoId = Number(ctx.pedidoId || 0);
+    if (!pedidoId) {
+      const err = new Error("No se pudo resolver el pedido del proyecto");
+      err.status = 500;
+      throw err;
+    }
+
+    const metodoPagoId = await repo.getMetodoPagoIdByNombre("Transferencia");
+    if (!metodoPagoId) {
+      const err = new Error("No se encontro el metodo de pago 'Transferencia'");
+      err.status = 500;
+      throw err;
+    }
+
+    const out = await pagosService.createVoucher({
+      pedidoId,
+      monto: Number((-Number(cancelRes.montoTotal)).toFixed(2)),
+      metodoPagoId,
+      estadoVoucherId: undefined,
+      fecha: undefined,
+      file: undefined,
+    });
+    voucherId = out?.voucherId != null ? Number(out.voucherId) : null;
+    if (!voucherId) {
+      const err = new Error("No se pudo generar voucher de nota de credito");
+      err.status = 500;
+      throw err;
+    }
+
+    if (Array.isArray(cancelRes.diaIds) && cancelRes.diaIds.length > 0) {
+      await repo.setProyectoDiasNcVoucherByIds(cancelRes.diaIds, voucherId);
+    }
+  }
+
+  const [estadoProyectoCanceladoId, estadoPedidoCanceladoId] = await Promise.all([
+    getEstadoProyectoIdFlexible("Cancelado"),
+    getEstadoPedidoIdFlexible("Cancelado"),
+  ]);
+
+  if (Number(ctx.proyectoEstadoId || 0) !== estadoProyectoCanceladoId) {
+    await repo.patchProyectoById(pid, { estadoId: estadoProyectoCanceladoId });
+  }
+
+  if (ctx.pedidoId && Number(ctx.pedidoEstadoId || 0) !== estadoPedidoCanceladoId) {
+    await repo.updatePedidoEstadoById(Number(ctx.pedidoId), estadoPedidoCanceladoId);
+  }
+
+  return {
+    status: "Proyecto cancelado globalmente",
+    proyectoId: pid,
+    pedidoId: ctx.pedidoId != null ? Number(ctx.pedidoId) : null,
+    responsable,
+    motivo,
+    ncRequerida,
+    voucherId,
+    diasTotales: totalDias,
+    diasCanceladosOperacion: Number(cancelRes.affectedRows || 0),
+    diasYaCancelados: Number(ctx.diasCancelados || 0),
+    montoNcTotal: Number(cancelRes.montoTotal || 0),
+    proyectoCancelado: true,
+    pedidoCancelado: ctx.pedidoId != null,
   };
 }
 
@@ -1159,6 +1381,7 @@ module.exports = {
   listEstadosProyectoDia,
   updateProyectoDiaEstado,
   cancelarDiaProyecto,
+  cancelarProyectoGlobal,
   disponibilidadAsignaciones,
   upsertProyectoAsignaciones,
   createProyectoDiaIncidencia,
