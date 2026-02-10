@@ -263,10 +263,22 @@ async function findProyectoById(id) {
   delete proyecto.respaldoNotas;
   delete proyecto.entregaFinalEnlace;
   delete proyecto.entregaFinalFecha;
+  const diasNormalizados = (data?.dias || []).map((d) => ({
+    ...d,
+    cancelResponsable: d?.cancelResponsable ?? d?.PD_CancelResponsable ?? null,
+    cancelMotivo: d?.cancelMotivo ?? d?.PD_CancelMotivo ?? null,
+    cancelNotas: d?.cancelNotas ?? d?.PD_CancelNotas ?? null,
+    cancelFecha: d?.cancelFecha ?? d?.PD_CancelFecha ?? null,
+    ncRequerida: Number(d?.ncRequerida ?? d?.PD_NC_Requerida ?? 0),
+    ncVoucherId: d?.ncVoucherId ?? d?.PD_NC_VoucherId ?? null,
+    montoBase: d?.montoBase ?? d?.PD_MontoBase ?? null,
+    igv: d?.igv ?? d?.PD_Igv ?? null,
+    montoTotal: d?.montoTotal ?? d?.PD_MontoTotal ?? null,
+  }));
   return {
     proyecto,
     postproduccion,
-    dias: data?.dias || [],
+    dias: diasNormalizados,
     bloquesDia: data?.bloquesDia || [],
     serviciosDia: data?.serviciosDia || [],
     empleadosDia: data?.empleadosDia || [],
