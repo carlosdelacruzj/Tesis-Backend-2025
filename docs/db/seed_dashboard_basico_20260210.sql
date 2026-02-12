@@ -56,6 +56,26 @@ DELETE FROM `T_Estado_Cotizacion`;
 DELETE FROM `T_Estado_Cliente`;
 DELETE FROM `T_Estado_voucher`;
 
+-- Reinicio de AUTO_INCREMENT en tablas operativas (seed sin datos operativos)
+ALTER TABLE `T_Contrato` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Voucher` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Cotizacion` AUTO_INCREMENT = 1;
+ALTER TABLE `T_CotizacionEvento` AUTO_INCREMENT = 1;
+ALTER TABLE `T_CotizacionServicio` AUTO_INCREMENT = 1;
+ALTER TABLE `T_CotizacionServicioFecha` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Pedido` AUTO_INCREMENT = 1;
+ALTER TABLE `T_PedidoEvento` AUTO_INCREMENT = 1;
+ALTER TABLE `T_PedidoServicio` AUTO_INCREMENT = 1;
+ALTER TABLE `T_PedidoServicioFecha` AUTO_INCREMENT = 1;
+ALTER TABLE `T_Proyecto` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDevolucionJob` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDia` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaBloque` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaServicio` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaEmpleado` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaEquipo` AUTO_INCREMENT = 1;
+ALTER TABLE `T_ProyectoDiaIncidencia` AUTO_INCREMENT = 1;
+
 -- T_Cliente
 INSERT INTO `T_Cliente` (`PK_Cli_Cod`, `FK_U_Cod`, `Cli_Tipo_Cliente`, `FK_ECli_Cod`, `Cli_RazonSocial`) VALUES
 (1, 1, 1, 1, NULL),
