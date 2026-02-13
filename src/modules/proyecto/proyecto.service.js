@@ -820,6 +820,22 @@ async function cancelarProyectoGlobal(proyectoId, payload = {}) {
     throw err;
   }
 
+  // Validar estados finales antes de aplicar cancelacion para evitar cambios parciales
+  let estadoProyectoCanceladoId = null;
+  let estadoPedidoCanceladoId = null;
+  try {
+    [estadoProyectoCanceladoId, estadoPedidoCanceladoId] = await Promise.all([
+      getEstadoProyectoIdFlexible("Cancelado"),
+      getEstadoPedidoIdFlexible("Cancelado"),
+    ]);
+  } catch (_err) {
+    const err = new Error(
+      "No se encontraron los estados 'Cancelado' requeridos para proyecto/pedido"
+    );
+    err.status = 500;
+    throw err;
+  }
+
   const ncRequerida = responsable === "INTERNO" ? 1 : 0;
   const cancelRes = await repo.cancelProyectoDiasMasivo(pid, {
     estadoCanceladoId: estadoCanceladoDiaId,
@@ -827,6 +843,9 @@ async function cancelarProyectoGlobal(proyectoId, payload = {}) {
     motivo,
     notas,
     ncRequerida,
+    estadoProyectoCanceladoId,
+    estadoPedidoCanceladoId,
+    pedidoId: ctx.pedidoId != null ? Number(ctx.pedidoId) : null,
   });
 
   let voucherId = null;
@@ -863,19 +882,6 @@ async function cancelarProyectoGlobal(proyectoId, payload = {}) {
     if (Array.isArray(cancelRes.diaIds) && cancelRes.diaIds.length > 0) {
       await repo.setProyectoDiasNcVoucherByIds(cancelRes.diaIds, voucherId);
     }
-  }
-
-  const [estadoProyectoCanceladoId, estadoPedidoCanceladoId] = await Promise.all([
-    getEstadoProyectoIdFlexible("Cancelado"),
-    getEstadoPedidoIdFlexible("Cancelado"),
-  ]);
-
-  if (Number(ctx.proyectoEstadoId || 0) !== estadoProyectoCanceladoId) {
-    await repo.patchProyectoById(pid, { estadoId: estadoProyectoCanceladoId });
-  }
-
-  if (ctx.pedidoId && Number(ctx.pedidoEstadoId || 0) !== estadoPedidoCanceladoId) {
-    await repo.updatePedidoEstadoById(Number(ctx.pedidoId), estadoPedidoCanceladoId);
   }
 
   return {

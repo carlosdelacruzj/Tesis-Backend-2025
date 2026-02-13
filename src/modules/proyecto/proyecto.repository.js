@@ -884,6 +884,9 @@ async function cancelProyectoDiasMasivo(proyectoId, payload = {}) {
     notas = null,
     cancelFecha = getLimaDateTimeString(),
     ncRequerida = 0,
+    estadoProyectoCanceladoId = null,
+    estadoPedidoCanceladoId = null,
+    pedidoId = null,
   } = payload;
 
   const conn = await pool.getConnection();
@@ -943,6 +946,26 @@ async function cancelProyectoDiasMasivo(proyectoId, payload = {}) {
         ]
       );
       affectedRows = Number(result.affectedRows || 0);
+    }
+
+    // Cambiar estado del proyecto dentro de la misma transaccion
+    if (estadoProyectoCanceladoId != null) {
+      await conn.query(
+        `UPDATE T_Proyecto
+         SET Pro_Estado = ?, updated_at = ?
+         WHERE PK_Pro_Cod = ?`,
+        [Number(estadoProyectoCanceladoId), getLimaDateTimeString(), Number(proyectoId)]
+      );
+    }
+
+    // Cambiar estado del pedido dentro de la misma transaccion
+    if (pedidoId != null && estadoPedidoCanceladoId != null) {
+      await conn.query(
+        `UPDATE T_Pedido
+         SET FK_EP_Cod = ?
+         WHERE PK_P_Cod = ?`,
+        [Number(estadoPedidoCanceladoId), Number(pedidoId)]
+      );
     }
 
     await conn.commit();

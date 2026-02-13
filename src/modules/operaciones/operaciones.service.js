@@ -999,6 +999,7 @@ async function getDashboardHome(query = {}) {
         pedidosPendientePago: Number(cobrosHoy.pedidosPendientePago || 0),
         pedidosParcialPago: Number(cobrosHoy.pedidosParcialPago || 0),
         pedidosPagado: Number(cobrosHoy.pedidosPagado || 0),
+        pedidosCerradoPago: Number(cobrosHoy.pedidosCerradoPago || 0),
         pedidosConSaldo: Number(cobrosHoy.pedidosConSaldo || 0),
       },
       agendaHoy: {
@@ -1117,6 +1118,7 @@ async function getDashboardOperativoDiario(query = {}) {
         pedidosPendientePago: Number(cobrosHoy.pedidosPendientePago || 0),
         pedidosParcialPago: Number(cobrosHoy.pedidosParcialPago || 0),
         pedidosPagado: Number(cobrosHoy.pedidosPagado || 0),
+        pedidosCerradoPago: Number(cobrosHoy.pedidosCerradoPago || 0),
         pedidosConSaldo: Number(cobrosHoy.pedidosConSaldo || 0),
       },
     },

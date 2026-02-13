@@ -1,4 +1,5 @@
 const repo = require("./pagos.repository");
+const pool = require("../../db");
 const { getLimaISODate } = require("../../utils/dates");
 const { calcIgv, round2 } = require("../../utils/igv");
 
@@ -83,11 +84,11 @@ function applyIgvToResumen(resumen) {
   };
 }
 
-async function syncEstadoPagoPedido(pedidoId) {
-  const resumenRows = await repo.getResumenByPedido(pedidoId);
+async function syncEstadoPagoPedido(pedidoId, executor) {
+  const resumenRows = await repo.getResumenByPedido(pedidoId, executor);
   let cierreFinanciero = null;
   try {
-    cierreFinanciero = await repo.getPedidoCierreFinancieroTipo(pedidoId);
+    cierreFinanciero = await repo.getPedidoCierreFinancieroTipo(pedidoId, executor);
   } catch (err) {
     if (err?.code !== "ER_BAD_FIELD_ERROR" && err?.errno !== 1054) throw err;
   }
@@ -99,15 +100,23 @@ async function syncEstadoPagoPedido(pedidoId) {
   }
 
   const resumen = applyIgvToResumen(resumenRaw);
-  const costoTotal = toNumber(resumen.CostoTotal);
+  const costoTotal =
+    resumenRaw?.CostoTotalOriginal != null
+      ? toNumber(resumenRaw.CostoTotalOriginal)
+      : toNumber(resumen.CostoTotal);
+  const costoTotalNeto =
+    resumenRaw?.CostoTotalNeto != null
+      ? toNumber(resumenRaw.CostoTotalNeto)
+      : toNumber(resumen.CostoTotal);
   const montoAbonado = toNumber(resumen.MontoAbonado);
-  const saldoPendiente = toNumber(resumen.SaldoPendiente ?? costoTotal - montoAbonado);
+  const saldoPendiente = round2(Math.max(costoTotalNeto - montoAbonado, 0));
+  const montoPorDevolver = round2(Math.max(montoAbonado - costoTotalNeto, 0));
 
   const [pendienteId, parcialId, pagadoId, cerradoId] = await Promise.all([
-    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PENDIENTE),
-    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PARCIAL),
-    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PAGADO),
-    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_CERRADO),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PENDIENTE, executor),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PARCIAL, executor),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PAGADO, executor),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_CERRADO, executor),
   ]);
 
   let estadoPagoId = pendienteId;
@@ -116,16 +125,23 @@ async function syncEstadoPagoPedido(pedidoId) {
     CIERRE_FINANCIERO_RETENCION_CANCEL_CLIENTE
   ) {
     estadoPagoId = cerradoId;
-  } else if (saldoPendiente <= 0) estadoPagoId = pagadoId;
-  else if (montoAbonado > 0) estadoPagoId = parcialId;
+  } else if (costoTotalNeto <= 0 || montoPorDevolver > 0) {
+    estadoPagoId = cerradoId;
+  } else if (saldoPendiente <= 0) {
+    estadoPagoId = pagadoId;
+  } else if (montoAbonado > 0) {
+    estadoPagoId = parcialId;
+  }
 
-  await repo.updatePedidoEstadoPago(pedidoId, estadoPagoId);
+  await repo.updatePedidoEstadoPago(pedidoId, estadoPagoId, executor);
 
   return {
     estadoPagoId,
     costoTotal,
+    costoTotalNeto,
     montoAbonado,
     saldoPendiente,
+    montoPorDevolver,
   };
 }
 
@@ -169,7 +185,33 @@ async function getResumen(pedidoId) {
   const rows = await repo.getResumenByPedido(id);
   // El SP retorna 1 fila; si no, devolvemos ceros para no romper el front
   const base = rows?.[0] ?? { CostoTotal: 0, MontoAbonado: 0, SaldoPendiente: 0 };
-  return applyIgvToResumen(base);
+  const normalized = applyIgvToResumen(base);
+  const montoAbonado = toNumber(base?.MontoAbonado);
+
+  // Para el endpoint de resumen exponemos:
+  // - CostoTotal como total original del pedido
+  // - CostoTotalNeto como total luego de NC
+  // Si el SP no trae CostoTotalOriginal/CostoTotalNeto, inferimos:
+  //   original = CostoBase + Igv, neto = CostoTotal.
+  const totalOriginal =
+    base?.CostoTotalOriginal != null
+      ? toNumber(base.CostoTotalOriginal)
+      : base?.CostoBase != null || base?.Igv != null
+      ? round2(toNumber(base.CostoBase) + toNumber(base.Igv))
+      : toNumber(normalized?.CostoTotal);
+
+  const totalNeto =
+    base?.CostoTotalNeto != null
+      ? toNumber(base.CostoTotalNeto)
+      : toNumber(base?.CostoTotal ?? normalized?.CostoTotal);
+
+  return {
+    ...normalized,
+    CostoTotal: round2(totalOriginal),
+    CostoTotalNeto: round2(totalNeto),
+    SaldoPendiente: round2(Math.max(totalNeto - montoAbonado, 0)),
+    MontoPorDevolver: round2(Math.max(montoAbonado - totalNeto, 0)),
+  };
 }
 
 async function listVouchers(pedidoId) {
@@ -204,62 +246,83 @@ async function createVoucher({
   const id = assertIdPositivo(pedidoId, "pedidoId");
   const montoNum = assertNumber(monto, "monto");
   assertIdPositivo(metodoPagoId, "metodoPagoId");
-  let estadoVoucherIdFinal = estadoVoucherId;
-  if (estadoVoucherIdFinal == null || estadoVoucherIdFinal === "") {
-    estadoVoucherIdFinal = await repo.getEstadoVoucherIdByNombre(
-      ESTADO_VOUCHER_APROBADO
-    );
-  }
-  assertIdPositivo(estadoVoucherIdFinal, "estadoVoucherId");
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
 
-  // Detectar si es el primer pago antes de insertar (MontoAbonado previo == 0)
-  const resumenPrev = await repo.getResumenByPedido(id);
-  const montoAbonadoPrev = Number(resumenPrev?.[0]?.MontoAbonado ?? 0);
-  const esPrimerPago = montoNum > 0 && montoAbonadoPrev <= 0;
-
-  // Si no hay archivo, persistimos nulos en columnas de imagen
-  const imagen = file?.buffer ?? null;
-  const mime = file?.mimetype ?? null;
-  const nombre = file?.originalname ?? null;
-  const size = file?.size ?? null;
-  const fechaNormalizada = parseFecha(fecha);
-
-  const insertResult = await repo.insertVoucher({
-    monto: Number(montoNum),
-    metodoPagoId: Number(metodoPagoId),
-    estadoVoucherId: Number(estadoVoucherIdFinal),
-    imagen, // Buffer o null
-    pedidoId: Number(pedidoId),
-    fecha: fechaNormalizada === undefined ? getLimaISODate() : fechaNormalizada,
-    mime, // string o null
-    nombre, // string o null
-    size, // number o null
-  });
-  const voucherId =
-    insertResult?.[0]?.idVoucher ??
-    insertResult?.idVoucher ??
-    insertResult?.[0]?.ID ??
-    insertResult?.ID ??
-    null;
-
-  // Si es el primer pago, pasamos el pedido a estado "Contratado" solo si estaba en "Cotizado"
-  if (esPrimerPago) {
-    try {
-      const [cotizadoId, contratadoId] = await Promise.all([
-        repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_COTIZADO),
-        repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_CONTRATADO),
-      ]);
-      await repo.updatePedidoEstadoContratadoByIds(id, contratadoId, cotizadoId);
-    } catch (err) {
-      // No bloqueamos el flujo de pago si falla el cambio de estado, pero registramos error
-      // eslint-disable-next-line no-console
-      console.error("[pagos] No se pudo actualizar estado de pedido a Contratado:", err.message);
+    let estadoVoucherIdFinal = estadoVoucherId;
+    if (estadoVoucherIdFinal == null || estadoVoucherIdFinal === "") {
+      estadoVoucherIdFinal = await repo.getEstadoVoucherIdByNombre(
+        ESTADO_VOUCHER_APROBADO,
+        conn
+      );
     }
+    assertIdPositivo(estadoVoucherIdFinal, "estadoVoucherId");
+
+    // Detectar si es el primer pago antes de insertar (MontoAbonado previo == 0)
+    const resumenPrev = await repo.getResumenByPedido(id, conn);
+    const montoAbonadoPrev = Number(resumenPrev?.[0]?.MontoAbonado ?? 0);
+    const esPrimerPago = montoNum > 0 && montoAbonadoPrev <= 0;
+
+    // Si no hay archivo, persistimos nulos en columnas de imagen
+    const imagen = file?.buffer ?? null;
+    const mime = file?.mimetype ?? null;
+    const nombre = file?.originalname ?? null;
+    const size = file?.size ?? null;
+    const fechaNormalizada = parseFecha(fecha);
+
+    const insertResult = await repo.insertVoucher({
+      monto: Number(montoNum),
+      metodoPagoId: Number(metodoPagoId),
+      estadoVoucherId: Number(estadoVoucherIdFinal),
+      imagen, // Buffer o null
+      pedidoId: Number(pedidoId),
+      fecha: fechaNormalizada === undefined ? getLimaISODate() : fechaNormalizada,
+      mime, // string o null
+      nombre, // string o null
+      size, // number o null
+    }, conn);
+    const voucherId =
+      insertResult?.[0]?.idVoucher ??
+      insertResult?.idVoucher ??
+      insertResult?.[0]?.ID ??
+      insertResult?.ID ??
+      null;
+
+    // Si es el primer pago, pasamos el pedido a estado "Contratado" solo si estaba en "Cotizado"
+    if (esPrimerPago) {
+      try {
+        const [cotizadoId, contratadoId] = await Promise.all([
+          repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_COTIZADO, conn),
+          repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_CONTRATADO, conn),
+        ]);
+        await repo.updatePedidoEstadoContratadoByIds(
+          id,
+          contratadoId,
+          cotizadoId,
+          conn
+        );
+      } catch (err) {
+        // No bloqueamos el flujo de pago si falla el cambio de estado, pero registramos error
+        // eslint-disable-next-line no-console
+        console.error("[pagos] No se pudo actualizar estado de pedido a Contratado:", err.message);
+      }
+    }
+
+    await syncEstadoPagoPedido(id, conn);
+    await conn.commit();
+
+    return { Status: "Voucher registrado", voucherId };
+  } catch (err) {
+    try {
+      await conn.rollback();
+    } catch (_rollbackErr) {
+      // No-op: preservamos el error original de negocio/BD
+    }
+    throw err;
+  } finally {
+    conn.release();
   }
-
-  await syncEstadoPagoPedido(id);
-
-  return { Status: "Voucher registrado", voucherId };
 }
 
 async function getVoucherImage(id) {

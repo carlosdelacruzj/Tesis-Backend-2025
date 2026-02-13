@@ -8,7 +8,7 @@
  *       properties:
  *         pedido:
  *           type: object
- *           required: [empleadoId, fechaCreacion, estadoPedidoId, estadoPagoId]
+ *           required: [empleadoId, fechaCreacion, estadoPedidoId]
  *           properties:
  *             clienteId:
  *               type: integer
@@ -41,9 +41,6 @@
  *               type: string
  *               example: "Observaciones del pedido"
  *             estadoPedidoId:
- *               type: integer
- *               example: 1
- *             estadoPagoId:
  *               type: integer
  *               example: 1
  *             idTipoEvento:
@@ -249,9 +246,6 @@
  *               type: string
  *               example: "Observaciones del pedido"
  *             estadoPedidoId:
- *               type: integer
- *               example: 1
- *             estadoPagoId:
  *               type: integer
  *               example: 1
  *             idTipoEvento:

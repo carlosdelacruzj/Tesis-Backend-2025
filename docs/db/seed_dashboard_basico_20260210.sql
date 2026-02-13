@@ -75,6 +75,7 @@ ALTER TABLE `T_ProyectoDiaServicio` AUTO_INCREMENT = 1;
 ALTER TABLE `T_ProyectoDiaEmpleado` AUTO_INCREMENT = 1;
 ALTER TABLE `T_ProyectoDiaEquipo` AUTO_INCREMENT = 1;
 ALTER TABLE `T_ProyectoDiaIncidencia` AUTO_INCREMENT = 1;
+ALTER TABLE `T_PortafolioImagen` AUTO_INCREMENT = 1;
 
 -- T_Cliente
 INSERT INTO `T_Cliente` (`PK_Cli_Cod`, `FK_U_Cod`, `Cli_Tipo_Cliente`, `FK_ECli_Cod`, `Cli_RazonSocial`) VALUES
@@ -612,8 +613,9 @@ INSERT INTO `T_Estado_Pago` (`PK_ESP_Cod`, `ESP_Nombre`) VALUES
 (2, 'Parcial'),
 (3, 'Pagado'),
 (4, 'Vencido'),
-(5, 'Anulado');
-ALTER TABLE `T_Estado_Pago` AUTO_INCREMENT = 6;
+(5, 'Anulado'),
+(6, 'Cerrado');
+ALTER TABLE `T_Estado_Pago` AUTO_INCREMENT = 7;
 
 
 -- T_Estado_Pedido
@@ -634,8 +636,9 @@ INSERT INTO `T_Estado_Proyecto` (`PK_EPro_Cod`, `EPro_Nombre`, `EPro_Orden`, `Ac
 (2, 'En ejecucion', 2, 1),
 (3, 'En postproduccion', 3, 1),
 (4, 'Listo para entrega', 4, 1),
-(5, 'Entregado', 5, 1);
-ALTER TABLE `T_Estado_Proyecto` AUTO_INCREMENT = 6;
+(5, 'Entregado', 5, 1),
+(6, 'Cancelado', 6, 1);
+ALTER TABLE `T_Estado_Proyecto` AUTO_INCREMENT = 7;
 
 
 -- T_Estado_Proyecto_Dia
@@ -883,9 +886,25 @@ ALTER TABLE `T_EventoServicioStaff` AUTO_INCREMENT = 34;
 -- T_Eventos
 INSERT INTO `T_Eventos` (`PK_E_Cod`, `E_Nombre`, `E_IconUrl`, `E_MostrarPortafolio`) VALUES
 (1, 'Boda', 'assets/images/boda.jpg', 1),
-(2, 'Cumpleanos', 'assets/images/cumpleanos.jpg', 1),
+(2, 'Cumpleaños', 'assets/images/cumpleanos.jpg', 1),
 (3, 'Corporativo', 'assets/images/corporativo.jpg', 1);
 ALTER TABLE `T_Eventos` AUTO_INCREMENT = 4;
+
+
+-- T_PortafolioImagen
+INSERT INTO `T_PortafolioImagen` (`PK_PI_Cod`, `FK_E_Cod`, `PI_Url`, `PI_Titulo`, `PI_Descripcion`, `PI_Orden`, `PI_Fecha_Creacion`) VALUES
+(1, 3, '/uploads/portafolio/pf_1770864274899_970584086.jpg', 'Evento Huawei 1', 'Evento Fin de Ano Huawei, Diciembre 2025', 1, '2026-02-11 21:44:34'),
+(2, 3, '/uploads/portafolio/pf_1770864274899_801243601.jpg', 'Evento Huawei 2', 'Evento de Fin de Ano Huawei, Diciembre 2025', 2, '2026-02-11 21:44:34'),
+(3, 3, '/uploads/portafolio/pf_1770864274902_352093987.jpg', 'Evento Huawei 3', 'Evento de Fin de Ano Huawei, Diciembre 2025', 3, '2026-02-11 21:44:34'),
+(4, 3, '/uploads/portafolio/pf_1770864274905_246157725.jpg', 'Evento Huawei 4', 'Evento de Fin de Ano Huawei, Diciembre 2025', 4, '2026-02-11 21:44:35'),
+(5, 2, '/uploads/portafolio/pf_1770864274907_947979402.jpg', 'Cumpleanos Mary 1', 'Cumpleanos Mary, Marzo 2023', 5, '2026-02-11 21:44:35'),
+(6, 2, '/uploads/portafolio/pf_1770864274911_272481863.jpg', 'Cumpleanos Alexandra 1', 'Cumpleanos Alexandra, Julio 2025', 6, '2026-02-11 21:44:35'),
+(7, 1, '/uploads/portafolio/pf_1770864274913_490338420.avif', 'Boda Pedro y Maria 1', 'Boda Pedro y Maria 1, Junio 2023', 7, '2026-02-11 21:44:35'),
+(8, 1, '/uploads/portafolio/pf_1770864274914_551006044.png', 'Boda Gladys y Pablo 1', 'Boda Gladys y Pablo 1, Enero 2026', 8, '2026-02-11 21:44:35'),
+(9, 1, '/uploads/portafolio/pf_1770864274914_893239508.png', 'Boda George y Elizabeth 1', 'Boda George y Elizabeth 1, Septiembre 2023', 9, '2026-02-11 21:44:35'),
+(10, 1, '/uploads/portafolio/pf_1770864274915_674476000.jpg', 'Boda Miguel y Andrea 1', 'Boda Miguel y Andrea 1, Marzo 2024', 10, '2026-02-11 21:44:35'),
+(11, 1, '/uploads/portafolio/pf_1770864274917_636860719.jpg', 'Boda Melissa y Diego', 'Boda Melissa y Diego, Diciembre 2025', 11, '2026-02-11 21:44:35');
+ALTER TABLE `T_PortafolioImagen` AUTO_INCREMENT = 12;
 
 
 -- T_Marca

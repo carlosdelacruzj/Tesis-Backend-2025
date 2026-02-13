@@ -460,6 +460,7 @@ async function getResumenCobrosDelDia(fechaYmd) {
        SUM(CASE WHEN esp.ESP_Nombre = 'Pendiente' THEN 1 ELSE 0 END) AS pedidosPendientePago,
        SUM(CASE WHEN esp.ESP_Nombre = 'Parcial' THEN 1 ELSE 0 END) AS pedidosParcialPago,
        SUM(CASE WHEN esp.ESP_Nombre = 'Pagado' THEN 1 ELSE 0 END) AS pedidosPagado,
+       SUM(CASE WHEN esp.ESP_Nombre = 'Cerrado' THEN 1 ELSE 0 END) AS pedidosCerradoPago,
        SUM(CASE WHEN esp.ESP_Nombre IN ('Pendiente', 'Parcial') THEN 1 ELSE 0 END) AS pedidosConSaldo
      FROM T_Pedido p
      LEFT JOIN T_Estado_Pago esp ON esp.PK_ESP_Cod = p.FK_ESP_Cod
@@ -475,6 +476,7 @@ async function getResumenCobrosDelDia(fechaYmd) {
     pedidosPendientePago: 0,
     pedidosParcialPago: 0,
     pedidosPagado: 0,
+    pedidosCerradoPago: 0,
     pedidosConSaldo: 0,
   };
 }

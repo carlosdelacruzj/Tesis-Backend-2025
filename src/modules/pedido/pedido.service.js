@@ -1,4 +1,4 @@
-// services/pedido.service.js
+﻿// services/pedido.service.js
 const repo = require("./pedido.repository");
 const eventoServicioRepo = require("../eventos_servicios/eventos_servicios.repository");
 const path = require("path");
@@ -31,7 +31,7 @@ function assertRequired(v, f) {
 function assertPositiveNumber(v, f) {
   const n = Number(v);
   if (!Number.isFinite(n) || n <= 0) {
-    const e = new Error(`El campo '${f}' debe ser un número positivo`);
+    const e = new Error(`El campo '${f}' debe ser un nÃºmero positivo`);
     e.status = 400;
     throw e;
   }
@@ -41,7 +41,7 @@ function assertOptionalNonNegativeNumber(v, f) {
   if (v == null) return null;
   const n = Number(v);
   if (!Number.isFinite(n) || n < 0) {
-    const e = new Error(`El campo '${f}' debe ser un número valido`);
+    const e = new Error(`El campo '${f}' debe ser un nÃºmero valido`);
     e.status = 400;
     throw e;
   }
@@ -126,12 +126,12 @@ function validatePayload(payload) {
     "cotizacionId inválido"
   );
   assert(Number.isInteger(pedido.estadoPedidoId), "estadoPedidoId inválido");
-  assert(Number.isInteger(pedido.estadoPagoId), "estadoPagoId inválido");
+  assert(
+    pedido.estadoPagoId == null,
+    "estadoPagoId no es editable; se asigna automaticamente"
+  );
   if (pedido.dias != null) {
-    assert(
-      Number.isInteger(pedido.dias) && pedido.dias > 0,
-      'dias invalido'
-    );
+    assert(Number.isInteger(pedido.dias) && pedido.dias > 0, "dias invalido");
   }
   if (pedido.horasEstimadas != null) {
     assertOptionalNonNegativeNumber(pedido.horasEstimadas, "horasEstimadas");
@@ -166,10 +166,7 @@ function validatePayload(payload) {
   });
 
   // items
-  assert(
-    Array.isArray(items) && items.length > 0,
-    "Debe enviar al menos 1 item"
-  );
+  assert(Array.isArray(items) && items.length > 0, "Debe enviar al menos 1 item");
   items.forEach((it, i) => {
     assert(
       typeof it.nombre === "string" && it.nombre.trim(),
@@ -181,8 +178,7 @@ function validatePayload(payload) {
     );
   });
 
-  // === Validaciones de longitudes para evitar truncados en MySQL ===
-  // Eventos
+  // Validaciones de longitudes para evitar truncados en MySQL
   eventos.forEach((e, i) => {
     if (e.ubicacion && e.ubicacion.length > 100)
       throw Object.assign(
@@ -200,7 +196,7 @@ function validatePayload(payload) {
         { status: 422 }
       );
   });
-  // Items
+
   items.forEach((it, i) => {
     if (it.nombre && it.nombre.length > 120)
       throw Object.assign(
@@ -228,11 +224,10 @@ function validateUpdatePayload(payload) {
   assert(payload && typeof payload === "object", "Body requerido");
 
   const pedido = payload?.pedido;
-  const ev = payload?.eventos; // <— alias, NO “eventos”
-  const its = payload?.items; // <— alias, NO “items”
+  const ev = payload?.eventos;
+  const its = payload?.items;
   const sfs = payload?.serviciosFechas;
 
-  // pedido
   assert(pedido && Number.isInteger(pedido.id), "pedido.id requerido");
 
   if (pedido.empleadoId != null)
@@ -246,12 +241,12 @@ function validateUpdatePayload(payload) {
   if (pedido.estadoPedidoId != null)
     assert(Number.isInteger(pedido.estadoPedidoId), "estadoPedidoId inválido");
   if (pedido.estadoPagoId != null)
-  if (pedido.dias != null)
-    assert(
-      Number.isInteger(pedido.dias) && pedido.dias > 0,
-      'dias invalido'
+    throw Object.assign(
+      new Error("estadoPagoId no es editable; se calcula por flujo de pagos"),
+      { status: 422 }
     );
-    assert(Number.isInteger(pedido.estadoPagoId), "estadoPagoId inválido");
+  if (pedido.dias != null)
+    assert(Number.isInteger(pedido.dias) && pedido.dias > 0, "dias invalido");
   if (pedido.horasEstimadas != null)
     assertOptionalNonNegativeNumber(pedido.horasEstimadas, "horasEstimadas");
   if (pedido.viaticosMonto != null)
@@ -272,7 +267,6 @@ function validateUpdatePayload(payload) {
     );
   }
 
-  // eventos (opcional)
   if (ev !== undefined) {
     if (ev !== null) {
       assert(Array.isArray(ev), "eventos debe ser array");
@@ -303,10 +297,8 @@ function validateUpdatePayload(payload) {
           );
       });
     }
-    // ev === null => “no tocar” coleccion (válido)
   }
 
-  // items (opcional)
   if (its !== undefined) {
     if (its !== null) {
       assert(Array.isArray(its), "items debe ser array");
@@ -340,7 +332,6 @@ function validateUpdatePayload(payload) {
           );
       });
     }
-    // its === null => “no tocar” coleccion (válido)
   }
 
   if (sfs !== undefined) {
@@ -411,7 +402,7 @@ async function createNewPedido(payload) {
       mensaje: (payload.pedido.mensaje || "").trim() || null,
     },
     eventos: payload.eventos.map((e, idx) => ({
-      clientEventKey: e.clientEventKey ?? idx + 1, // fallback a índice base 1
+      clientEventKey: e.clientEventKey ?? idx + 1, // fallback a Ã­ndice base 1
       fecha: e.fecha,
       hora: toHms(e.hora || null),
       ubicacion: (e.ubicacion || "").trim() || null,
@@ -449,7 +440,7 @@ async function createNewPedido(payload) {
     console.dir({ payloadNormalizado: norm }, { depth: null });
   }
 
-  // Orquestar transacción en repo
+  // Orquestar transacciÃ³n en repo
   const result = await repo.createComposite(norm);
   return { status: "Registro exitoso", ...result };
 }
@@ -478,7 +469,6 @@ async function updatePedidoById(payload) {
       empleadoId: pedido.empleadoId ?? null,
       fechaCreacion: pedido.fechaCreacion ?? null,
       estadoPedidoId: pedido.estadoPedidoId ?? null,
-      estadoPagoId: pedido.estadoPagoId ?? null,
       nombrePedido: pedido.nombrePedido ?? null,
       observaciones: (pedido.observaciones ?? "").trim() || null,
       cotizacionId: pedido.cotizacionId ?? null,
@@ -538,7 +528,7 @@ async function updatePedidoById(payload) {
 
   // Importante: llama al repo nuevo (no al SP legacy)
   const result = await repo.updateCompositeById(pedidoId, norm);
-  return { status: "Actualización exitosa", ...result };
+  return { status: "ActualizaciÃ³n exitosa", ...result };
 }
 
 // Requerimientos (personal/equipos) por pedido basados en T_EventoServicio
@@ -650,7 +640,7 @@ function money2(value) {
 
 function sumTotal(items = []) {
   return (items || []).reduce((acc, it) => {
-    // si existe subtotal en BD úsalo
+    // si existe subtotal en BD Ãºsalo
     const subtotal = Number(it?.subtotal);
     if (Number.isFinite(subtotal)) return acc + subtotal;
 
@@ -686,16 +676,16 @@ function mapPedidoToContratoTemplateData(detail, body = {}, extra = {}) {
   const hasFoto = fotoItems.length > 0;
   const hasVideo = videoItems.length > 0;
 
-  // ===== título + texto dinámico =====
+  // ===== tÃ­tulo + texto dinÃ¡mico =====
   let tituloContrato = "CONTRATO";
-  let textoServicioContrato = "tomas fotográficas y video";
+  let textoServicioContrato = "tomas fotogrÃ¡ficas y video";
 
   if (hasFoto && hasVideo) {
-    tituloContrato = "CONTRATO DE FOTOGRAFÍA Y VIDEO";
-    textoServicioContrato = "tomas fotográficas y video";
+    tituloContrato = "CONTRATO DE FOTOGRAFÃA Y VIDEO";
+    textoServicioContrato = "tomas fotogrÃ¡ficas y video";
   } else if (hasFoto) {
-    tituloContrato = "CONTRATO DE FOTOGRAFÍA";
-    textoServicioContrato = "tomas fotográficas";
+    tituloContrato = "CONTRATO DE FOTOGRAFÃA";
+    textoServicioContrato = "tomas fotogrÃ¡ficas";
   } else if (hasVideo) {
     tituloContrato = "CONTRATO DE VIDEO";
     textoServicioContrato = "tomas de video";
@@ -723,7 +713,7 @@ function mapPedidoToContratoTemplateData(detail, body = {}, extra = {}) {
 
   // ===== Agenda =====
   const agenda = (eventos.length ? eventos : [null]).map((e) => {
-    if (!e) return { item: "Fecha / hora / ubicación por confirmar." };
+    if (!e) return { item: "Fecha / hora / ubicaciÃ³n por confirmar." };
 
     const fecha = formatDateDMY(e?.fecha);
     const hora = normalizeText(e?.hora);
@@ -734,10 +724,10 @@ function mapPedidoToContratoTemplateData(detail, body = {}, extra = {}) {
       fecha && `Fecha: ${fecha}`,
       hora && `Hora: ${hora.slice(0, 5)}`,
       ubi && `Lugar: ${ubi}`,
-      dir && `Dirección: ${dir}`,
+      dir && `DirecciÃ³n: ${dir}`,
     ].filter(Boolean);
 
-    return { item: parts.join(" | ") || "Fecha / hora / ubicación por confirmar." };
+    return { item: parts.join(" | ") || "Fecha / hora / ubicaciÃ³n por confirmar." };
   });
 
   // ===== Entregables =====
@@ -750,7 +740,7 @@ function mapPedidoToContratoTemplateData(detail, body = {}, extra = {}) {
     if (!it) return { item: "Entregables por confirmar." };
     const nombre = normalizeText(it?.nombre) || "Servicio";
     const desc = normalizeText(it?.descripcion);
-    return { item: desc ? `${nombre} — ${desc}` : nombre };
+    return { item: desc ? `${nombre} â€” ${desc}` : nombre };
   });
 
   // ===== Montos =====
@@ -775,7 +765,7 @@ function mapPedidoToContratoTemplateData(detail, body = {}, extra = {}) {
     agenda,
     entregables,
 
-    // ✅ el contrato SOLO ve el total final (ya con viáticos si aplicó)
+    // âœ… el contrato SOLO ve el total final (ya con viÃ¡ticos si aplicÃ³)
     montoTotal: money2(total),
     montoAdelanto: money2(adelanto),
     montoSaldo: money2(saldo),
@@ -807,7 +797,7 @@ async function streamContratoPdf({ id, res, body, query } = {}) {
 
 
   // Ruta EXACTA dentro del proyecto (portable)
-  // service está en src/modules/pedido, así que subimos a src y bajamos a pdf/templates
+  // service estÃ¡ en src/modules/pedido, asÃ­ que subimos a src y bajamos a pdf/templates
   const templatePath = path.join(__dirname, "../../pdf/templates/contrato.docx");
 
   const data = mapPedidoToContratoTemplateData(detail, body, { viaticosToAdd });
@@ -837,3 +827,4 @@ module.exports = {
   getRequerimientos,
   streamContratoPdf,
 };
+

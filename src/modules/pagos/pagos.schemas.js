@@ -24,19 +24,38 @@
  *     ResumenPago:
  *       type: object
  *       properties:
+ *         CostoBase:
+ *           type: number
+ *           format: double
+ *         Igv:
+ *           type: number
+ *           format: double
  *         CostoTotal:
  *           type: number
  *           format: double
+ *           description: Total original del pedido (antes de notas de credito)
+ *         CostoTotalNeto:
+ *           type: number
+ *           format: double
+ *           description: Total luego de descontar notas de credito
  *         MontoAbonado:
  *           type: number
  *           format: double
  *         SaldoPendiente:
  *           type: number
  *           format: double
+ *         MontoPorDevolver:
+ *           type: number
+ *           format: double
+ *           description: Monto abonado en exceso respecto al total neto (requiere devolucion)
  *       example:
- *         CostoTotal: 2500
- *         MontoAbonado: 1000
- *         SaldoPendiente: 1500
+ *         CostoBase: 6100
+ *         Igv: 1098
+ *         CostoTotal: 7198
+ *         CostoTotalNeto: 0
+ *         MontoAbonado: 3599
+ *         SaldoPendiente: 0
+ *         MontoPorDevolver: 3599
  *
  *     MetodoPago:
  *       type: object

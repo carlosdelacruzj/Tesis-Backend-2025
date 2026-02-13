@@ -1,6 +1,7 @@
 // pedido.repository.js
 const pool = require("../../db");
 const { formatCodigo } = require("../../utils/codigo");
+const ESTADO_PAGO_PENDIENTE = "Pendiente";
 
 // ------------------------------
 // Helpers de formato
@@ -75,6 +76,23 @@ async function replaceServiciosFechasInTx(conn, pedidoId, rows = []) {
       [values]
     );
   }
+}
+
+async function getEstadoPagoIdByNombre(nombre, conn = pool) {
+  const [rows] = await conn.query(
+    `SELECT PK_ESP_Cod AS id
+     FROM T_Estado_Pago
+     WHERE LOWER(ESP_Nombre) = LOWER(?)
+     LIMIT 1`,
+    [String(nombre || "").trim()]
+  );
+  const id = rows?.[0]?.id;
+  if (!id) {
+    const e = new Error(`No se encontro estado de pago: ${nombre}`);
+    e.status = 500;
+    throw e;
+  }
+  return Number(id);
 }
 
 // ------------------------------
@@ -233,6 +251,10 @@ async function createComposite({ pedido, eventos, items, serviciosFechas }) {
     }
 
     // 2) Insertar T_Pedido
+    const estadoPagoPendienteId = await getEstadoPagoIdByNombre(
+      ESTADO_PAGO_PENDIENTE,
+      conn
+    );
     const [rPedido] = await conn.query(
       `
       INSERT INTO T_Pedido
@@ -243,7 +265,7 @@ async function createComposite({ pedido, eventos, items, serviciosFechas }) {
       [
         pedido.estadoPedidoId,
         clienteId,
-        pedido.estadoPagoId,
+        estadoPagoPendienteId,
         pedido.cotizacionId,
         pedido.fechaCreacion,
         pedido.observaciones,
@@ -443,10 +465,6 @@ async function updateCompositeById(
     if (pedido?.estadoPedidoId != null) {
       updFields.push("FK_EP_Cod = ?");
       updParams.push(pedido.estadoPedidoId);
-    }
-    if (pedido?.estadoPagoId != null) {
-      updFields.push("FK_ESP_Cod = ?");
-      updParams.push(pedido.estadoPagoId);
     }
     if (pedido?.fechaCreacion) {
       updFields.push("P_Fecha_Creacion = ?");

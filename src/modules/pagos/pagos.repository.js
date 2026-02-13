@@ -1,8 +1,8 @@
 const pool = require("../../db");
 const { getLimaDateTimeString } = require("../../utils/dates");
 
-async function runCall(sql, params = []) {
-  const [rows] = await pool.query(sql, params);
+async function runCall(sql, params = [], executor = pool) {
+  const [rows] = await executor.query(sql, params);
   return Array.isArray(rows) && Array.isArray(rows[0]) ? rows[0] : rows;
 }
 
@@ -13,11 +13,18 @@ const nombreCache = {
   estadoPedido: new Map(),
 };
 
-async function getIdByNombre({ table, idCol, nameCol, nombre, cache }) {
+async function getIdByNombre({
+  table,
+  idCol,
+  nameCol,
+  nombre,
+  cache,
+  executor = pool,
+}) {
   const key = String(nombre || "").trim().toLowerCase();
   if (!key) throw new Error(`Nombre requerido para ${table}`);
   if (cache.has(key)) return cache.get(key);
-  const [rows] = await pool.query(
+  const [rows] = await executor.query(
     `SELECT ${idCol} AS id FROM ${table} WHERE LOWER(${nameCol}) = LOWER(?) LIMIT 1`,
     [nombre]
   );
@@ -29,43 +36,47 @@ async function getIdByNombre({ table, idCol, nameCol, nombre, cache }) {
   return Number(id);
 }
 
-async function getMetodoPagoIdByNombre(nombre) {
+async function getMetodoPagoIdByNombre(nombre, executor = pool) {
   return getIdByNombre({
     table: "T_Metodo_Pago",
     idCol: "PK_MP_Cod",
     nameCol: "MP_Nombre",
     nombre,
     cache: nombreCache.metodoPago,
+    executor,
   });
 }
 
-async function getEstadoVoucherIdByNombre(nombre) {
+async function getEstadoVoucherIdByNombre(nombre, executor = pool) {
   return getIdByNombre({
     table: "T_Estado_voucher",
     idCol: "PK_EV_Cod",
     nameCol: "EV_Nombre",
     nombre,
     cache: nombreCache.estadoVoucher,
+    executor,
   });
 }
 
-async function getEstadoPagoIdByNombre(nombre) {
+async function getEstadoPagoIdByNombre(nombre, executor = pool) {
   return getIdByNombre({
     table: "T_Estado_Pago",
     idCol: "PK_ESP_Cod",
     nameCol: "ESP_Nombre",
     nombre,
     cache: nombreCache.estadoPago,
+    executor,
   });
 }
 
-async function getEstadoPedidoIdByNombre(nombre) {
+async function getEstadoPedidoIdByNombre(nombre, executor = pool) {
   return getIdByNombre({
     table: "T_Estado_Pedido",
     idCol: "PK_EP_Cod",
     nameCol: "EP_Nombre",
     nombre,
     cache: nombreCache.estadoPedido,
+    executor,
   });
 }
 
@@ -84,11 +95,11 @@ async function listCerrados() {
 }
 
 // === Resumen y vouchers por pedido ===
-async function getResumenByPedido(pedidoId) {
-  return runCall("CALL sp_pedido_pago_resumen(?)", [Number(pedidoId)]);
+async function getResumenByPedido(pedidoId, executor = pool) {
+  return runCall("CALL sp_pedido_pago_resumen(?)", [Number(pedidoId)], executor);
 }
-async function getPedidoCierreFinancieroTipo(pedidoId) {
-  const [rows] = await pool.query(
+async function getPedidoCierreFinancieroTipo(pedidoId, executor = pool) {
+  const [rows] = await executor.query(
     `SELECT P_CierreFinancieroTipo AS cierreFinancieroTipo
      FROM T_Pedido
      WHERE PK_P_Cod = ?`,
@@ -118,8 +129,8 @@ async function listEstadosPago() {
   return rows;
 }
 
-async function updatePedidoEstadoPago(pedidoId, estadoPagoId) {
-  const [result] = await pool.query(
+async function updatePedidoEstadoPago(pedidoId, estadoPagoId, executor = pool) {
+  const [result] = await executor.query(
     "UPDATE T_Pedido SET FK_ESP_Cod = ? WHERE PK_P_Cod = ?",
     [Number(estadoPagoId), Number(pedidoId)]
   );
@@ -177,7 +188,7 @@ async function insertVoucher({
   mime,
   nombre,
   size,
-}) {
+}, executor = pool) {
   return runCall("CALL sp_voucher_crear(?,?,?,?,?,?,?,?,?)", [
     monto,
     metodoPagoId,
@@ -188,7 +199,7 @@ async function insertVoucher({
     mime,
     nombre,
     size,
-  ]);
+  ], executor);
 }
 async function getVoucherById(id) {
   const [rows] = await pool.execute(
@@ -292,9 +303,10 @@ async function updateVoucher({
 async function updatePedidoEstadoContratadoByIds(
   pedidoId,
   contratadoId,
-  cotizadoId
+  cotizadoId,
+  executor = pool
 ) {
-  const [result] = await pool.query(
+  const [result] = await executor.query(
     "UPDATE T_Pedido SET FK_EP_Cod = ? WHERE PK_P_Cod = ? AND FK_EP_Cod = ?",
     [Number(contratadoId), Number(pedidoId), Number(cotizadoId)]
   );
