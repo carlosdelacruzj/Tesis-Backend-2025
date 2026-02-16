@@ -97,14 +97,65 @@ async function create({ nombre, apellido, correo, celular, documento, tipoDocume
 }
 
 async function updateById({ idEmpleado, celular, correo, direccion, estado }) {
-  // Firma del SP (según legacy): (ID, Celular, Correo, Direccion, Estado)
-  await runCall("CALL sp_empleado_actualizar(?,?,?,?,?)", [
-    Number(idEmpleado),
-    t(celular),
-    t(correo),
-    t(direccion),
-    estado != null ? Number(estado) : null,
-  ]);
+  const conn = await pool.getConnection();
+  try {
+    await conn.beginTransaction();
+
+    const [rowsEmp] = await conn.query(
+      `SELECT FK_U_Cod AS usuarioId
+       FROM T_Empleados
+       WHERE PK_Em_Cod = ?
+       LIMIT 1`,
+      [Number(idEmpleado)]
+    );
+    const usuarioId = rowsEmp?.[0]?.usuarioId;
+    if (!usuarioId) {
+      const err = new Error("Empleado no encontrado");
+      err.status = 404;
+      throw err;
+    }
+
+    const setsUsuario = [];
+    const paramsUsuario = [];
+    if (celular !== undefined) {
+      setsUsuario.push("U_Celular = ?");
+      paramsUsuario.push(t(celular));
+    }
+    if (correo !== undefined) {
+      setsUsuario.push("U_Correo = ?");
+      paramsUsuario.push(t(correo));
+    }
+    if (direccion !== undefined) {
+      setsUsuario.push("U_Direccion = ?");
+      paramsUsuario.push(t(direccion));
+    }
+
+    if (setsUsuario.length) {
+      paramsUsuario.push(Number(usuarioId));
+      await conn.query(
+        `UPDATE T_Usuario
+         SET ${setsUsuario.join(", ")}
+         WHERE PK_U_Cod = ?`,
+        paramsUsuario
+      );
+    }
+
+    if (estado != null) {
+      await conn.query(
+        `UPDATE T_Empleados
+         SET FK_Estado_Emp_Cod = ?
+         WHERE PK_Em_Cod = ?`,
+        [Number(estado), Number(idEmpleado)]
+      );
+    }
+
+    await conn.commit();
+  } catch (err) {
+    await conn.rollback();
+    throw err;
+  } finally {
+    conn.release();
+  }
 }
 
 module.exports = {
@@ -116,3 +167,4 @@ module.exports = {
   updateById,
   getEstadoEmpleadoIdByNombre,
 };
+

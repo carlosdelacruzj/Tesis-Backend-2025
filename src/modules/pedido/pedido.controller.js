@@ -47,6 +47,15 @@ async function getLastEstadoPedido(_req, res, next) {
   }
 }
 
+async function getDisponibilidadDiaria(req, res, next) {
+  try {
+    const data = await service.getDisponibilidadDiaria(req.query || {});
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function createPedido(req, res, next) {
   try {
     const result = await service.createNewPedido(req.body);
@@ -96,6 +105,7 @@ module.exports = {
   getPedidoById,
   getRequerimientos,
   getLastEstadoPedido,
+  getDisponibilidadDiaria,
   createPedido,
   updatePedido,
   downloadContratoPdf,

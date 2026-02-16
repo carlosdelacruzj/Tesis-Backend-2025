@@ -39,7 +39,7 @@ async function updatePasswordByCorreo(correo, hash, fechaUpd) {
   const [result] = await pool.query(
     `
       UPDATE T_Usuario
-      SET U_Contrasena = ?, U_Fecha_Upd = ?
+      SET U_Contrasena = ?, U_Fecha_Upd = COALESCE(?, NOW())
       WHERE LOWER(U_Correo) = ?
     `,
     [hash, fechaUpd, email]

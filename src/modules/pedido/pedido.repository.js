@@ -214,6 +214,201 @@ async function getLastEstado() {
   return result[0] || null;
 }
 
+function normalizeKey(value) {
+  return String(value || "")
+    .trim()
+    .toLowerCase();
+}
+
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
+async function getDisponibilidadDiaria(fecha, { pedidoIdExcluir = null } = {}) {
+  const estadosReserva = ["contratado", "en ejecucion", "en ejecución"];
+  const estadosPlaceholders = estadosReserva.map(() => "?").join(",");
+  const filtrosPedido =
+    pedidoIdExcluir == null ? "" : " AND p.PK_P_Cod <> ? ";
+  const paramsReservaBase = [fecha, ...estadosReserva];
+  const paramsReserva = pedidoIdExcluir == null
+    ? paramsReservaBase
+    : [...paramsReservaBase, Number(pedidoIdExcluir)];
+
+  const [rowsPersonalTotal] = await pool.query(
+    `SELECT
+       te.PK_Tipo_Emp_Cod AS rolId,
+       te.TiEm_Cargo AS rolNombre,
+       CASE
+         WHEN UPPER(TRIM(COALESCE(em.Em_Autonomo, 'NO'))) IN
+           ('SI', 'SÍ', '1', 'TRUE', 'AUTONOMO', 'AUTÓNOMO', 'FREELANCE')
+         THEN 1
+         ELSE 0
+       END AS esFreelance,
+       COUNT(*) AS total
+     FROM T_Empleados em
+     JOIN T_Tipo_Empleado te
+       ON te.PK_Tipo_Emp_Cod = em.FK_Tipo_Emp_Cod
+     LEFT JOIN T_Estado_Empleado ee
+       ON ee.PK_Estado_Emp_Cod = em.FK_Estado_Emp_Cod
+     WHERE COALESCE(te.TiEm_OperativoCampo, 0) = 1
+       AND (
+         ee.PK_Estado_Emp_Cod IS NULL
+       OR LOWER(TRIM(ee.EsEm_Nombre)) = 'activo'
+       )
+     GROUP BY te.PK_Tipo_Emp_Cod, te.TiEm_Cargo, esFreelance
+     ORDER BY te.TiEm_Cargo, esFreelance`
+  );
+
+  const [rowsPersonalReservado] = await pool.query(
+    `SELECT
+       LOWER(TRIM(ess.Staff_Rol)) AS roleKey,
+       MIN(TRIM(ess.Staff_Rol)) AS rolNombre,
+       SUM(COALESCE(ess.Staff_Cantidad, 0) * COALESCE(ps.PS_Cantidad, 1)) AS reservado
+     FROM T_PedidoServicioFecha psf
+     JOIN T_PedidoServicio ps
+       ON ps.PK_PS_Cod = psf.FK_PedServ_Cod
+     JOIN T_Pedido p
+       ON p.PK_P_Cod = psf.FK_P_Cod
+     JOIN T_Estado_Pedido ep
+       ON ep.PK_EP_Cod = p.FK_EP_Cod
+     JOIN T_EventoServicioStaff ess
+       ON ess.FK_ExS_Cod = ps.FK_ExS_Cod
+     WHERE psf.PSF_Fecha = ?
+       AND LOWER(TRIM(ep.EP_Nombre)) IN (${estadosPlaceholders})
+       ${filtrosPedido}
+     GROUP BY LOWER(TRIM(ess.Staff_Rol))
+     ORDER BY rolNombre`,
+    paramsReserva
+  );
+
+  const [rowsEquiposTotal] = await pool.query(
+    `SELECT
+       te.PK_TE_Cod AS tipoEquipoId,
+       te.TE_Nombre AS tipoEquipoNombre,
+       COUNT(*) AS total
+     FROM T_Equipo eq
+     JOIN T_Modelo mo
+       ON mo.PK_IMo_Cod = eq.FK_IMo_Cod
+     JOIN T_Tipo_Equipo te
+       ON te.PK_TE_Cod = mo.FK_TE_Cod
+     JOIN T_Estado_Equipo ee
+       ON ee.PK_EE_Cod = eq.FK_EE_Cod
+     WHERE LOWER(TRIM(ee.EE_Nombre)) = 'disponible'
+     GROUP BY te.PK_TE_Cod, te.TE_Nombre
+     ORDER BY te.TE_Nombre`
+  );
+
+  const [rowsEquiposReservado] = await pool.query(
+    `SELECT
+       te.PK_TE_Cod AS tipoEquipoId,
+       te.TE_Nombre AS tipoEquipoNombre,
+       SUM(COALESCE(ese.Cantidad, 0) * COALESCE(ps.PS_Cantidad, 1)) AS reservado
+     FROM T_PedidoServicioFecha psf
+     JOIN T_PedidoServicio ps
+       ON ps.PK_PS_Cod = psf.FK_PedServ_Cod
+     JOIN T_Pedido p
+       ON p.PK_P_Cod = psf.FK_P_Cod
+     JOIN T_Estado_Pedido ep
+       ON ep.PK_EP_Cod = p.FK_EP_Cod
+     JOIN T_EventoServicioEquipo ese
+       ON ese.FK_ExS_Cod = ps.FK_ExS_Cod
+     JOIN T_Tipo_Equipo te
+       ON te.PK_TE_Cod = ese.FK_TE_Cod
+     WHERE psf.PSF_Fecha = ?
+       AND LOWER(TRIM(ep.EP_Nombre)) IN (${estadosPlaceholders})
+       ${filtrosPedido}
+     GROUP BY te.PK_TE_Cod, te.TE_Nombre
+     ORDER BY te.TE_Nombre`,
+    paramsReserva
+  );
+
+  const personalMap = new Map();
+  for (const row of rowsPersonalTotal || []) {
+    const key = normalizeKey(row.rolNombre);
+    const target = personalMap.get(key) || {
+      rolId: row.rolId != null ? Number(row.rolId) : null,
+      rolNombre: row.rolNombre ?? null,
+      interno: { total: 0, reservado: 0, disponible: 0 },
+      freelance: { total: 0, reservado: 0, disponible: 0 },
+      total: 0,
+      reservado: 0,
+      disponible: 0,
+    };
+    if (Number(row.esFreelance) === 1) target.freelance.total += toNumber(row.total);
+    else target.interno.total += toNumber(row.total);
+    personalMap.set(key, target);
+  }
+
+  for (const row of rowsPersonalReservado || []) {
+    const key = normalizeKey(row.rolNombre || row.roleKey);
+    const target = personalMap.get(key) || {
+      rolId: null,
+      rolNombre: row.rolNombre || null,
+      interno: { total: 0, reservado: 0, disponible: 0 },
+      freelance: { total: 0, reservado: 0, disponible: 0 },
+      total: 0,
+      reservado: 0,
+      disponible: 0,
+    };
+    target.reservado = toNumber(row.reservado);
+
+    // Regla de asignacion: primero consume capacidad interna, luego freelance.
+    const reservadoInterno = Math.min(target.interno.total, target.reservado);
+    const saldoReserva = Math.max(target.reservado - reservadoInterno, 0);
+    const reservadoFreelance = Math.min(target.freelance.total, saldoReserva);
+
+    target.interno.reservado = reservadoInterno;
+    target.freelance.reservado = reservadoFreelance;
+    personalMap.set(key, target);
+  }
+
+  for (const row of personalMap.values()) {
+    row.interno.disponible = row.interno.total - row.interno.reservado;
+    row.freelance.disponible = row.freelance.total - row.freelance.reservado;
+
+    row.total = row.interno.total + row.freelance.total;
+    row.reservado = row.interno.reservado + row.freelance.reservado;
+    row.disponible = row.interno.disponible + row.freelance.disponible;
+  }
+
+  const equiposMap = new Map();
+  for (const row of rowsEquiposTotal || []) {
+    equiposMap.set(Number(row.tipoEquipoId), {
+      tipoEquipoId: row.tipoEquipoId != null ? Number(row.tipoEquipoId) : null,
+      tipoEquipoNombre: row.tipoEquipoNombre ?? null,
+      total: toNumber(row.total),
+      reservado: 0,
+      disponible: 0,
+    });
+  }
+  for (const row of rowsEquiposReservado || []) {
+    const key = Number(row.tipoEquipoId);
+    const target = equiposMap.get(key) || {
+      tipoEquipoId: Number.isFinite(key) ? key : null,
+      tipoEquipoNombre: row.tipoEquipoNombre || null,
+      total: 0,
+      reservado: 0,
+      disponible: 0,
+    };
+    target.reservado = toNumber(row.reservado);
+    target.disponible = target.total - target.reservado;
+    equiposMap.set(key, target);
+  }
+  for (const row of equiposMap.values()) {
+    row.disponible = row.total - row.reservado;
+  }
+
+  const personal = [...personalMap.values()].sort((a, b) =>
+    String(a.rolNombre || "").localeCompare(String(b.rolNombre || ""), "es")
+  );
+  const equipos = [...equiposMap.values()].sort((a, b) =>
+    String(a.tipoEquipoNombre || "").localeCompare(String(b.tipoEquipoNombre || ""), "es")
+  );
+
+  return { personal, equipos };
+}
+
 // ------------------------------
 // Flujo NUEVO app-céntrico (create compuesto)
 // ------------------------------
@@ -797,6 +992,7 @@ module.exports = {
   getIndex,
   getById,
   getLastEstado,
+  getDisponibilidadDiaria,
   // flujo nuevo
   createComposite,
   updateCompositeById,

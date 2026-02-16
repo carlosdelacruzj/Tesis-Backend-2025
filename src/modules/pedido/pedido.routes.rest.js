@@ -27,6 +27,122 @@ router.get("/index", ctrl.getIndexPedido);
 
 /**
  * @swagger
+ * /pedido/disponibilidad/diaria:
+ *   get:
+ *     tags: [pedido]
+ *     summary: Disponibilidad diaria por rol de personal y tipo de equipo
+ *     description: |
+ *       Calcula capacidad global disponible para una fecha:
+ *       total - reservado en pedidos en estado Contratado/En ejecucion.
+ *     parameters:
+ *       - in: query
+ *         name: fecha
+ *         required: true
+ *         schema: { type: string, format: date }
+ *         description: Fecha a evaluar (YYYY-MM-DD).
+ *       - in: query
+ *         name: pedidoIdExcluir
+ *         required: false
+ *         schema: { type: integer }
+ *         description: Pedido a excluir del calculo (util al editar un pedido existente).
+ *     responses:
+ *       '200':
+ *         description: OK
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 fecha: { type: string, format: date }
+ *                 resumen:
+ *                   type: object
+ *                   properties:
+ *                     personal:
+ *                       type: object
+ *                       properties:
+ *                         total: { type: number }
+ *                         reservado: { type: number }
+ *                         disponible: { type: number }
+ *                         interno:
+ *                           type: object
+ *                           properties:
+ *                             total: { type: number }
+ *                             reservado: { type: number }
+ *                             disponible: { type: number }
+ *                         freelance:
+ *                           type: object
+ *                           properties:
+ *                             total: { type: number }
+ *                             reservado: { type: number }
+ *                             disponible: { type: number }
+ *                     equipos:
+ *                       type: object
+ *                       properties:
+ *                         total: { type: number }
+ *                         reservado: { type: number }
+ *                         disponible: { type: number }
+ *                 personalPorRol:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       rolId: { type: integer, nullable: true }
+ *                       rolNombre: { type: string, nullable: true }
+ *                       total: { type: number }
+ *                       reservado: { type: number }
+ *                       disponible: { type: number }
+ *                       interno:
+ *                         type: object
+ *                         properties:
+ *                           total: { type: number }
+ *                           reservado: { type: number }
+ *                           disponible: { type: number }
+ *                       freelance:
+ *                         type: object
+ *                         properties:
+ *                           total: { type: number }
+ *                           reservado: { type: number }
+ *                           disponible: { type: number }
+ *                 equiposPorTipo:
+ *                   type: array
+ *                   items:
+ *                     type: object
+ *                     properties:
+ *                       tipoEquipoId: { type: integer, nullable: true }
+ *                       tipoEquipoNombre: { type: string, nullable: true }
+ *                       total: { type: number }
+ *                       reservado: { type: number }
+ *                       disponible: { type: number }
+ *                 disponibilidadDia:
+ *                   type: object
+ *                   properties:
+ *                     nivel:
+ *                       type: string
+ *                       enum: [ALTA, LIMITADA, CRITICA]
+ *                     requiereApoyoExterno:
+ *                       type: boolean
+ *                     motivos:
+ *                       type: array
+ *                       items: { type: string }
+ *                     riesgos:
+ *                       type: object
+ *                       properties:
+ *                         personalCriticoInterno:
+ *                           type: string
+ *                           enum: [OK, AJUSTADO, INSUFICIENTE]
+ *                         equiposCriticosInternos:
+ *                           type: string
+ *                           enum: [OK, AJUSTADO, INSUFICIENTE]
+ *                         equiposSecundariosInternos:
+ *                           type: string
+ *                           enum: [OK, AJUSTADO, INSUFICIENTE]
+ *       '400':
+ *         description: Fecha invalida
+ */
+router.get("/disponibilidad/diaria", ctrl.getDisponibilidadDiaria);
+
+/**
+ * @swagger
  * /pedido/{id}/requerimientos:
  *   get:
  *     tags: [pedido]

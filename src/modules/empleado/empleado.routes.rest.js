@@ -141,4 +141,32 @@ router.post("/", ctrl.create);
  */
 router.put("/:id", ctrl.update);
 
+/**
+ * @swagger
+ * /empleados/{id}/estado:
+ *   patch:
+ *     tags: [empleado]
+ *     summary: Cambiar estado de empleado (activo/inactivo)
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [estado]
+ *             properties:
+ *               estado: { type: integer, description: "ID de T_Estado_Empleado" }
+ *     responses:
+ *       '200':
+ *         description: Estado actualizado
+ *       '400':
+ *         description: Parametros invalidos
+ */
+router.patch("/:id/estado", ctrl.patchEstado);
+
 module.exports = router;

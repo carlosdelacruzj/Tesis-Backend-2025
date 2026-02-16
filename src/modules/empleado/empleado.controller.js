@@ -50,6 +50,14 @@ async function update(req, res, next) {
   } catch (err) { next(err); }
 }
 
+// PATCH /empleados/:id/estado
+async function patchEstado(req, res, next) {
+  try {
+    const result = await service.changeEstado(req.params.id, req.body?.estado);
+    res.status(200).json(result);
+  } catch (err) { next(err); }
+}
+
 module.exports = {
   getAll,
   getOperativos,
@@ -57,4 +65,5 @@ module.exports = {
   getById,
   create,
   update,
+  patchEstado,
 };

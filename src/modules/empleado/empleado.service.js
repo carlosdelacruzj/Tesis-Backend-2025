@@ -2,6 +2,7 @@
 const repo = require("./empleado.repository");
 const authRepo = require("../auth/auth.repository");
 const { buildInitialPassword, hashPassword } = require("../../utils/password");
+const { getLimaDateTimeString } = require("../../utils/dates");
 
 function assertString(v, field) {
   if (typeof v !== "string" || !v.trim()) {
@@ -105,7 +106,11 @@ async function create(payload) {
 
   const plainPassword = buildInitialPassword(payload.nombre, payload.apellido);
   const contrasenaHash = hashPassword(plainPassword);
-  const updated = await authRepo.updatePasswordByCorreo(payload.correo, contrasenaHash);
+  const updated = await authRepo.updatePasswordByCorreo(
+    payload.correo,
+    contrasenaHash,
+    getLimaDateTimeString()
+  );
   if (!updated) {
     const err = new Error("No se pudo establecer la contraseña del empleado");
     err.status = 500;
@@ -140,6 +145,25 @@ async function update(payload) {
   return { Status: "Actualizacion exitosa" };
 }
 
+async function changeEstado(idEmpleado, estado) {
+  const idNum = Number(idEmpleado);
+  if (!Number.isInteger(idNum) || idNum <= 0) {
+    const err = new Error("idEmpleado es requerido");
+    err.status = 400;
+    throw err;
+  }
+
+  const estadoNum = Number(estado);
+  if (!Number.isInteger(estadoNum) || estadoNum <= 0) {
+    const err = new Error("estado es requerido y debe ser entero positivo");
+    err.status = 400;
+    throw err;
+  }
+
+  await repo.updateById({ idEmpleado: idNum, estado: estadoNum });
+  return { Status: "Actualizacion de estado exitosa" };
+}
+
 module.exports = {
   list,
   listOperativos,
@@ -147,4 +171,5 @@ module.exports = {
   findById,
   create,
   update,
+  changeEstado,
 };

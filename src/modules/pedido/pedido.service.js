@@ -380,6 +380,194 @@ async function findLastEstadoPedido() {
   return repo.getLastEstado();
 }
 
+function normalizeTextNoAccents(value) {
+  return String(value || "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+}
+
+function isAssistantRole(rolNombre) {
+  const txt = normalizeTextNoAccents(rolNombre);
+  return txt.includes("asistente");
+}
+
+function isCriticalEquipment(tipoNombre) {
+  const txt = normalizeTextNoAccents(tipoNombre);
+  return txt.includes("camara") || txt.includes("lente");
+}
+
+function classifyRiskByRatio(total, disponible, { low = 0.2, medium = 0.4 } = {}) {
+  const t = Number(total || 0);
+  const d = Number(disponible || 0);
+  if (t <= 0 || d <= 0) return "INSUFICIENTE";
+  const ratio = d / t;
+  if (ratio <= low) return "INSUFICIENTE";
+  if (ratio <= medium) return "AJUSTADO";
+  return "OK";
+}
+
+function buildDisponibilidadDia({ personal, equipos }) {
+  const motivos = [];
+  const rolesCriticos = (personal || []).filter((r) => !isAssistantRole(r?.rolNombre));
+  const equiposCriticos = (equipos || []).filter((e) => isCriticalEquipment(e?.tipoEquipoNombre));
+  const equiposSecundarios = (equipos || []).filter((e) => !isCriticalEquipment(e?.tipoEquipoNombre));
+
+  for (const rol of rolesCriticos) {
+    if (Number(rol?.interno?.disponible || 0) <= 0) {
+      motivos.push(
+        `Sin disponibilidad interna en rol critico: ${rol?.rolNombre || "Sin nombre"}`
+      );
+    }
+  }
+  for (const eq of equiposCriticos) {
+    if (Number(eq?.disponible || 0) <= 0) {
+      motivos.push(
+        `Sin disponibilidad en equipo critico: ${eq?.tipoEquipoNombre || "Sin nombre"}`
+      );
+    }
+  }
+
+  const totalPersonalCriticoInterno = rolesCriticos.reduce(
+    (acc, r) => acc + Number(r?.interno?.total || 0),
+    0
+  );
+  const disponiblePersonalCriticoInterno = rolesCriticos.reduce(
+    (acc, r) => acc + Number(r?.interno?.disponible || 0),
+    0
+  );
+  const totalEquiposCriticos = equiposCriticos.reduce((acc, r) => acc + Number(r?.total || 0), 0);
+  const disponibleEquiposCriticos = equiposCriticos.reduce(
+    (acc, r) => acc + Number(r?.disponible || 0),
+    0
+  );
+  const totalEquiposSecundarios = equiposSecundarios.reduce(
+    (acc, r) => acc + Number(r?.total || 0),
+    0
+  );
+  const disponibleEquiposSecundarios = equiposSecundarios.reduce(
+    (acc, r) => acc + Number(r?.disponible || 0),
+    0
+  );
+
+  const riesgoPersonalCriticoInterno = classifyRiskByRatio(
+    totalPersonalCriticoInterno,
+    disponiblePersonalCriticoInterno,
+    { low: 0.15, medium: 0.35 }
+  );
+  const riesgoEquiposCriticosInternos = classifyRiskByRatio(
+    totalEquiposCriticos,
+    disponibleEquiposCriticos,
+    { low: 0.15, medium: 0.35 }
+  );
+  const riesgoEquiposSecundariosInternos = classifyRiskByRatio(
+    totalEquiposSecundarios,
+    disponibleEquiposSecundarios,
+    { low: 0.1, medium: 0.3 }
+  );
+
+  let nivel = "ALTA";
+  if (motivos.length > 0) {
+    nivel = "CRITICA";
+  } else if (
+    riesgoPersonalCriticoInterno === "AJUSTADO" ||
+    riesgoEquiposCriticosInternos === "AJUSTADO" ||
+    riesgoEquiposSecundariosInternos !== "OK"
+  ) {
+    nivel = "LIMITADA";
+  }
+
+  if (nivel === "LIMITADA" && riesgoEquiposSecundariosInternos !== "OK") {
+    motivos.push("Equipos secundarios con baja holgura operativa");
+  }
+  if (nivel === "LIMITADA" && riesgoPersonalCriticoInterno === "AJUSTADO") {
+    motivos.push("Personal interno critico con capacidad ajustada");
+  }
+  if (nivel === "LIMITADA" && riesgoEquiposCriticosInternos === "AJUSTADO") {
+    motivos.push("Equipos criticos con capacidad ajustada");
+  }
+
+  return {
+    nivel,
+    requiereApoyoExterno: nivel === "CRITICA",
+    motivos,
+    riesgos: {
+      personalCriticoInterno: riesgoPersonalCriticoInterno,
+      equiposCriticosInternos: riesgoEquiposCriticosInternos,
+      equiposSecundariosInternos: riesgoEquiposSecundariosInternos,
+    },
+  };
+}
+
+async function getDisponibilidadDiaria(query = {}) {
+  const fecha = String(query?.fecha || "").trim();
+  if (!ISO_DATE.test(fecha)) {
+    const e = new Error("fecha es requerida y debe tener formato YYYY-MM-DD");
+    e.status = 400;
+    throw e;
+  }
+
+  const pedidoIdExcluirRaw = query?.pedidoIdExcluir;
+  const pedidoIdExcluir =
+    pedidoIdExcluirRaw == null || String(pedidoIdExcluirRaw).trim() === ""
+      ? null
+      : assertPositiveNumber(pedidoIdExcluirRaw, "pedidoIdExcluir");
+
+  const { personal, equipos } = await repo.getDisponibilidadDiaria(fecha, {
+    pedidoIdExcluir,
+  });
+
+  const resumen = {
+    personal: {
+      total: personal.reduce((acc, r) => acc + Number(r.total || 0), 0),
+      reservado: personal.reduce((acc, r) => acc + Number(r.reservado || 0), 0),
+      disponible: personal.reduce((acc, r) => acc + Number(r.disponible || 0), 0),
+      interno: {
+        total: personal.reduce(
+          (acc, r) => acc + Number(r?.interno?.total || 0),
+          0
+        ),
+        reservado: personal.reduce(
+          (acc, r) => acc + Number(r?.interno?.reservado || 0),
+          0
+        ),
+        disponible: personal.reduce(
+          (acc, r) => acc + Number(r?.interno?.disponible || 0),
+          0
+        ),
+      },
+      freelance: {
+        total: personal.reduce(
+          (acc, r) => acc + Number(r?.freelance?.total || 0),
+          0
+        ),
+        reservado: personal.reduce(
+          (acc, r) => acc + Number(r?.freelance?.reservado || 0),
+          0
+        ),
+        disponible: personal.reduce(
+          (acc, r) => acc + Number(r?.freelance?.disponible || 0),
+          0
+        ),
+      },
+    },
+    equipos: {
+      total: equipos.reduce((acc, r) => acc + Number(r.total || 0), 0),
+      reservado: equipos.reduce((acc, r) => acc + Number(r.reservado || 0), 0),
+      disponible: equipos.reduce((acc, r) => acc + Number(r.disponible || 0), 0),
+    },
+  };
+
+  return {
+    fecha,
+    resumen,
+    personalPorRol: personal,
+    equiposPorTipo: equipos,
+    disponibilidadDia: buildDisponibilidadDia({ personal, equipos }),
+  };
+}
+
 async function createNewPedido(payload) {
   validatePayload(payload);
 
@@ -822,6 +1010,7 @@ module.exports = {
   listIndexPedidos,
   findPedidoById,
   findLastEstadoPedido,
+  getDisponibilidadDiaria,
   createNewPedido,
   updatePedidoById,
   getRequerimientos,
