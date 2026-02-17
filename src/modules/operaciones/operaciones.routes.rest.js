@@ -170,6 +170,63 @@ router.get("/dashboard/operativo-dia", ctrl.getDashboardOperativoDiario);
 
 /**
  * @swagger
+ * /operaciones/calendario/mensual:
+ *   get:
+ *     tags: [operaciones]
+ *     summary: Calendario mensual de proyectos (vista simple por celda)
+ *     description: |
+ *       Devuelve solo proyectos por dia para render mensual:
+ *       - proyectoNombre
+ *       - estadoDia
+ *       - hora (primer bloque)
+ *     parameters:
+ *       - in: query
+ *         name: year
+ *         schema:
+ *           type: integer
+ *         required: false
+ *         description: Anio calendario (YYYY). Default: anio actual.
+ *       - in: query
+ *         name: month
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 12
+ *         required: false
+ *         description: Mes calendario. Default: mes actual.
+ *     responses:
+ *       '200':
+ *         description: OK
+ */
+router.get("/calendario/mensual", ctrl.getCalendarioMensual);
+
+/**
+ * @swagger
+ * /operaciones/calendario/dia:
+ *   get:
+ *     tags: [operaciones]
+ *     summary: Detalle diario de calendario de proyectos
+ *     description: |
+ *       Devuelve detalle por proyecto del dia seleccionado:
+ *       - estado
+ *       - locaciones (bloques)
+ *       - servicios del dia
+ *     parameters:
+ *       - in: query
+ *         name: fecha
+ *         schema:
+ *           type: string
+ *           format: date
+ *         required: true
+ *         description: Fecha objetivo (YYYY-MM-DD).
+ *     responses:
+ *       '200':
+ *         description: OK
+ */
+router.get("/calendario/dia", ctrl.getCalendarioDia);
+
+/**
+ * @swagger
  * /operaciones/agenda:
  *   get:
  *     tags: [operaciones]

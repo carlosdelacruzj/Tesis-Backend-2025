@@ -404,6 +404,33 @@ router.delete("/:id(\\d+)", ctrl.deleteProyecto);
 
 /**
  * @swagger
+ * /proyecto/{id}/nombre:
+ *   patch:
+ *     tags: [proyecto]
+ *     summary: Actualizar solo el nombre del proyecto
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema: { type: integer }
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [proyectoNombre]
+ *             properties:
+ *               proyectoNombre: { type: string }
+ *     responses:
+ *       '200': { description: Nombre actualizado }
+ *       '400': { description: proyectoNombre requerido }
+ *       '404': { description: Proyecto no encontrado o sin cambios }
+ */
+router.patch("/:id(\\d+)/nombre", ctrl.patchProyectoNombre);
+
+/**
+ * @swagger
  * /proyecto/{id}:
  *   patch:
  *     tags: [proyecto]

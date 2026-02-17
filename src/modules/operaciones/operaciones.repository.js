@@ -426,6 +426,23 @@ async function listAgendaEquiposByDiaIds(diaIds) {
   return rows;
 }
 
+async function listAgendaServiciosByDiaIds(diaIds) {
+  if (!Array.isArray(diaIds) || diaIds.length === 0) return [];
+  const placeholders = diaIds.map(() => "?").join(",");
+  const [rows] = await pool.query(
+    `SELECT
+       pds.FK_PD_Cod AS diaId,
+       ps.PK_PS_Cod AS servicioId,
+       ps.PS_Nombre AS servicioNombre
+     FROM T_ProyectoDiaServicio pds
+     INNER JOIN T_PedidoServicio ps ON ps.PK_PS_Cod = pds.FK_PS_Cod
+     WHERE pds.FK_PD_Cod IN (${placeholders})
+     ORDER BY pds.FK_PD_Cod ASC, ps.PS_Nombre ASC, ps.PK_PS_Cod ASC`,
+    diaIds
+  );
+  return rows;
+}
+
 async function listAgendaPedidosEventos(fromYmd, toYmd) {
   const [rows] = await pool.query(
     `SELECT
@@ -837,6 +854,7 @@ module.exports = {
   listAgendaBloquesByDiaIds,
   listAgendaEmpleadosByDiaIds,
   listAgendaEquiposByDiaIds,
+  listAgendaServiciosByDiaIds,
   listAgendaPedidosEventos,
   getResumenCobrosDelDia,
   getAlertaCotizacionesPorExpirarCount,

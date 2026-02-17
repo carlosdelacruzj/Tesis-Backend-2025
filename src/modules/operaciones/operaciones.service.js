@@ -50,6 +50,26 @@ function parseDateRange(query = {}) {
   return { fromYmd, toYmd };
 }
 
+function parseYearMonthRange(query = {}) {
+  const now = new Date();
+  const yearRaw = query.year ?? now.getFullYear();
+  const monthRaw = query.month ?? now.getMonth() + 1;
+
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  assert(Number.isInteger(year) && year >= 2000 && year <= 2100, "Parametro 'year' invalido");
+  assert(Number.isInteger(month) && month >= 1 && month <= 12, "Parametro 'month' invalido");
+
+  const start = new Date(year, month - 1, 1);
+  const end = new Date(year, month, 0);
+  return {
+    year,
+    month,
+    fromYmd: formatYmd(start),
+    toYmd: formatYmd(end),
+  };
+}
+
 function parsePositiveInt(value, fallback, min = 1, max = 90) {
   if (value == null || value === "") return fallback;
   const n = Number(value);
@@ -181,6 +201,22 @@ function attachEquiposToDias(dias, equipos) {
   }));
 }
 
+function attachServiciosToDias(dias, servicios) {
+  const map = new Map();
+  for (const s of servicios || []) {
+    const key = Number(s.diaId);
+    if (!map.has(key)) map.set(key, []);
+    map.get(key).push({
+      servicioId: Number(s.servicioId),
+      nombre: s.servicioNombre,
+    });
+  }
+  return (dias || []).map((d) => ({
+    ...d,
+    servicios: map.get(Number(d.diaId)) || [],
+  }));
+}
+
 function iterateYmdRange(fromYmd, toYmd) {
   const out = [];
   const from = new Date(`${fromYmd}T00:00:00`);
@@ -230,6 +266,24 @@ function getHoraInicioDia(dia) {
     .filter(Boolean)
     .sort();
   return horas[0] || null;
+}
+
+function getLocacionesDeBloques(bloques = []) {
+  const seen = new Set();
+  const out = [];
+  for (const b of bloques || []) {
+    const ubicacion = b?.ubicacion ? String(b.ubicacion).trim() : "";
+    const direccion = b?.direccion ? String(b.direccion).trim() : "";
+    const key = `${ubicacion}|${direccion}`;
+    if (!ubicacion && !direccion) continue;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push({
+      ubicacion: ubicacion || null,
+      direccion: direccion || null,
+    });
+  }
+  return out;
 }
 
 function buildAgendaHoyAccionable(proyectoDias = []) {
@@ -626,6 +680,107 @@ async function getAgendaOperativa(query = {}) {
       proyectoDias: proyectoDiasAdaptados,
       pedidoEventos,
     },
+  };
+}
+
+async function getCalendarioMensual(query = {}) {
+  const { year, month, fromYmd, toYmd } = parseYearMonthRange(query);
+
+  const proyectoDiasRaw = await repo.listAgendaProyectoDias(fromYmd, toYmd);
+  const diaIds = (proyectoDiasRaw || []).map((d) => Number(d.diaId));
+  const bloques = await repo.listAgendaBloquesByDiaIds(diaIds);
+  const proyectoDias = attachBloquesToDias(proyectoDiasRaw, bloques);
+
+  const byFecha = new Map();
+  for (const d of proyectoDias || []) {
+    const fecha = d.fecha;
+    if (!byFecha.has(fecha)) byFecha.set(fecha, []);
+    byFecha.get(fecha).push({
+      diaId: Number(d.diaId),
+      proyectoId: Number(d.proyectoId),
+      proyectoNombre: d.proyecto,
+      estadoDia: d.estadoDia || null,
+      hora: getHoraInicioDia(d),
+    });
+  }
+
+  for (const [, items] of byFecha.entries()) {
+    items.sort((a, b) => {
+      const byHora = String(a.hora || "99:99:99").localeCompare(String(b.hora || "99:99:99"));
+      if (byHora !== 0) return byHora;
+      return String(a.proyectoNombre || "").localeCompare(String(b.proyectoNombre || ""));
+    });
+  }
+
+  const dias = iterateYmdRange(fromYmd, toYmd).map((fecha) => {
+    const items = byFecha.get(fecha) || [];
+    return {
+      fecha,
+      totalItems: items.length,
+      items,
+    };
+  });
+
+  return {
+    generatedAt: new Date().toISOString(),
+    month: {
+      year,
+      month,
+      from: fromYmd,
+      to: toYmd,
+    },
+    resumen: {
+      totalProyectoDiasMes: (proyectoDias || []).length,
+      totalProyectosUnicosMes: new Set(
+        (proyectoDias || []).map((d) => Number(d.proyectoId)).filter((x) => Number.isFinite(x))
+      ).size,
+      diasConActividad: dias.filter((d) => d.totalItems > 0).length,
+    },
+    dias,
+  };
+}
+
+async function getCalendarioDia(query = {}) {
+  const fecha = String(query.fecha || "").trim();
+  assert(fecha, "Parametro 'fecha' es requerido");
+  assert(ISO_DATE.test(fecha), "Parametro 'fecha' debe ser YYYY-MM-DD");
+
+  const proyectoDiasRaw = await repo.listAgendaProyectoDias(fecha, fecha);
+  const diaIds = (proyectoDiasRaw || []).map((d) => Number(d.diaId));
+  const [bloques, servicios] = await Promise.all([
+    repo.listAgendaBloquesByDiaIds(diaIds),
+    repo.listAgendaServiciosByDiaIds(diaIds),
+  ]);
+
+  const withBloques = attachBloquesToDias(proyectoDiasRaw, bloques);
+  const withServicios = attachServiciosToDias(withBloques, servicios);
+
+  const items = (withServicios || [])
+    .map((d) => ({
+      diaId: Number(d.diaId),
+      proyectoId: Number(d.proyectoId),
+      proyectoNombre: d.proyecto,
+      estadoProyecto: d.estadoProyecto || null,
+      estadoDia: d.estadoDia || null,
+      horaInicio: getHoraInicioDia(d),
+      bloques: (d.bloques || []).map((b) => ({
+        hora: b.hora || null,
+        ubicacion: b.ubicacion || null,
+        direccion: b.direccion || null,
+      })),
+      locaciones: getLocacionesDeBloques(d.bloques || []),
+      servicios: (d.servicios || []).map((s) => ({
+        servicioId: Number(s.servicioId),
+        nombre: s.nombre || null,
+      })),
+    }))
+    .sort((a, b) => String(a.horaInicio || "99:99:99").localeCompare(String(b.horaInicio || "99:99:99")));
+
+  return {
+    generatedAt: new Date().toISOString(),
+    fecha,
+    totalItems: items.length,
+    items,
   };
 }
 
@@ -1158,6 +1313,8 @@ async function getDashboardOperativoDiario(query = {}) {
 module.exports = {
   getKpisOperativosMinimos,
   getAgendaOperativa,
+  getCalendarioMensual,
+  getCalendarioDia,
   getDashboardResumen,
   getDashboardAlertas,
   getDashboardCapacidad,

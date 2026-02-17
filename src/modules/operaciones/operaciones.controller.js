@@ -18,6 +18,24 @@ async function getAgendaOperativa(req, res, next) {
   }
 }
 
+async function getCalendarioMensual(req, res, next) {
+  try {
+    const data = await service.getCalendarioMensual(req.query || {});
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getCalendarioDia(req, res, next) {
+  try {
+    const data = await service.getCalendarioDia(req.query || {});
+    res.status(200).json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 async function getDashboardResumen(req, res, next) {
   try {
     const data = await service.getDashboardResumen(req.query || {});
@@ -66,6 +84,8 @@ async function getDashboardOperativoDiario(req, res, next) {
 module.exports = {
   getKpisOperativosMinimos,
   getAgendaOperativa,
+  getCalendarioMensual,
+  getCalendarioDia,
   getDashboardResumen,
   getDashboardAlertas,
   getDashboardCapacidad,

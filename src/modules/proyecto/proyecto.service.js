@@ -390,6 +390,23 @@ async function patchProyecto(id, payload = {}) {
   return { status: "Actualización parcial exitosa", proyectoId: pid };
 }
 
+async function patchProyectoNombre(id, payload = {}) {
+  const pid = ensurePositiveInt(id, "id");
+  const proyectoNombre = String(payload?.proyectoNombre ?? "").trim();
+  if (!proyectoNombre) {
+    const err = new Error("proyectoNombre es requerido");
+    err.status = 400;
+    throw err;
+  }
+  const result = await repo.patchProyectoById(pid, { proyectoNombre });
+  if (!result || result.affectedRows === 0) {
+    const err = new Error("Proyecto no encontrado o sin cambios");
+    err.status = 404;
+    throw err;
+  }
+  return { status: "Nombre actualizado", proyectoId: pid, proyectoNombre };
+}
+
 async function patchProyectoPostproduccion(id, payload = {}) {
   async function getEstadoProyectoIdFlexible(...nombres) {
     let lastError = null;
@@ -1447,6 +1464,7 @@ module.exports = {
   updateProyecto,
   deleteProyecto,
   patchProyecto,
+  patchProyectoNombre,
   patchProyectoPostproduccion,
   listEstadosProyecto,
   listEstadosProyectoDia,

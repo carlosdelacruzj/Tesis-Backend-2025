@@ -49,6 +49,14 @@ async function patchProyecto(req, res, next) {
     next(e);
   }
 }
+async function patchProyectoNombre(req, res, next) {
+  try {
+    const r = await service.patchProyectoNombre(req.params.id, req.body);
+    res.status(200).json(r);
+  } catch (e) {
+    next(e);
+  }
+}
 async function patchProyectoPostproduccion(req, res, next) {
   try {
     const r = await service.patchProyectoPostproduccion(req.params.id, req.body);
@@ -190,6 +198,7 @@ module.exports = {
   putProyecto,
   deleteProyecto,
   patchProyecto,
+  patchProyectoNombre,
   patchProyectoPostproduccion,
   getEstados,
   getEstadosDia,
