@@ -1,9 +1,11 @@
 // src/modules/inventario/tipo-equipo/tipo-equipo.routes.rest.js
 const { Router } = require("express");
 const ctrl = require("./tipo-equipo.controller");
+const requireProfile = require("../../../middlewares/require-profile");
 require("./tipo-equipo.schema");
 
 const router = Router();
+router.use(requireProfile("ADMIN"));
 
 /**
  * @swagger

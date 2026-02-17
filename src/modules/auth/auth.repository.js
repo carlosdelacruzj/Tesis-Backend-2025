@@ -32,6 +32,29 @@ async function findByCorreo(correo) {
   return Array.isArray(rows) && rows.length > 0 ? rows[0] : null;
 }
 
+async function findPerfilesByUsuarioId(usuarioId) {
+  if (!usuarioId) return [];
+
+  const [rows] = await pool.query(
+    `
+      SELECT
+        p.PK_Perf_Cod AS perfilId,
+        p.Per_Codigo  AS perfilCodigo,
+        p.Per_Nombre  AS perfilNombre,
+        up.UP_Principal AS principal
+      FROM T_UsuarioPerfil up
+      INNER JOIN T_Perfil p ON p.PK_Perf_Cod = up.FK_Perf_Cod
+      WHERE up.FK_U_Cod = ?
+        AND COALESCE(up.UP_Activo, 1) = 1
+        AND COALESCE(p.Per_Activo, 1) = 1
+      ORDER BY up.UP_Principal DESC, p.Per_Codigo ASC
+    `,
+    [usuarioId]
+  );
+
+  return Array.isArray(rows) ? rows : [];
+}
+
 async function updatePasswordByCorreo(correo, hash, fechaUpd) {
   const email = normalizeEmail(correo);
   if (!email) return 0;
@@ -50,5 +73,6 @@ async function updatePasswordByCorreo(correo, hash, fechaUpd) {
 
 module.exports = {
   findByCorreo,
+  findPerfilesByUsuarioId,
   updatePasswordByCorreo,
 };

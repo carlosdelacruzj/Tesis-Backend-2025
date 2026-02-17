@@ -1,7 +1,9 @@
 const { Router } = require("express");
 const ctrl = require("./operaciones.controller");
+const requireProfile = require("../../middlewares/require-profile");
 
 const router = Router();
+router.use(requireProfile("ADMIN", "OPERACIONES"));
 const DASHBOARD_HOME_PATH = "/api/v1/operaciones/dashboard/home";
 const DASHBOARD_SUNSET = "Wed, 30 Apr 2026 00:00:00 GMT";
 

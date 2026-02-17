@@ -1,9 +1,11 @@
 // src/modules/inventario/modelo/modelo.routes.rest.js
 const { Router } = require("express");
 const ctrl = require("./modelo.controller");
+const requireProfile = require("../../../middlewares/require-profile");
 require("./modelo.schema");
 
 const router = Router();
+router.use(requireProfile("ADMIN"));
 
 /**
  * @swagger

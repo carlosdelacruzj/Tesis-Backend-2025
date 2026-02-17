@@ -1,8 +1,10 @@
 // modules/cotizacion/cotizacion.routes.rest.js
 const { Router } = require("express");
 const ctrl = require("./cotizacion.controller");
+const requireProfile = require("../../middlewares/require-profile");
 
 const router = Router();
+router.use(requireProfile("ADMIN", "VENTAS"));
 
 /**
  * Este router NO agrega prefijos.

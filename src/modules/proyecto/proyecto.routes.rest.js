@@ -1,7 +1,10 @@
 // src/modules/proyecto/proyecto.routes.rest.js
 const { Router } = require("express");
 const ctrl = require("./proyecto.controller");
+const requireProfile = require("../../middlewares/require-profile");
 const router = Router();
+
+router.use(requireProfile("ADMIN", "OPERACIONES"));
 
 /**
  * @swagger

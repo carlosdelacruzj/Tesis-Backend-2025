@@ -40,6 +40,7 @@ router.use(
   require("../modules/tipo_documento/tipo_documento.routes.rest")
 );
 router.use("/operaciones", require("../modules/operaciones/operaciones.routes.rest"));
+router.use("/acceso", require("../modules/acceso/acceso.routes.rest"));
 
 
 module.exports = router;

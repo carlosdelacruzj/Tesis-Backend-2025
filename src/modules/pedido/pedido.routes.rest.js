@@ -2,6 +2,9 @@
 const express = require("express");
 const router = express.Router();
 const ctrl = require("./pedido.controller");
+const requireProfile = require("../../middlewares/require-profile");
+
+router.use(requireProfile("ADMIN", "VENTAS"));
 
 /**
  * @swagger

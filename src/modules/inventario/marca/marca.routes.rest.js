@@ -1,9 +1,11 @@
 // src/modules/inventario/marca/marca.routes.rest.js
 const { Router } = require("express");
 const ctrl = require("./marca.controller");
+const requireProfile = require("../../../middlewares/require-profile");
 require("./marca.schema");
 
 const router = Router();
+router.use(requireProfile("ADMIN"));
 
 /**
  * @swagger

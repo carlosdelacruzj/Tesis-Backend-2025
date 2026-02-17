@@ -1,7 +1,10 @@
 // src/modules/empleado/empleado.routes.rest.js
 const { Router } = require("express");
 const ctrl = require("./empleado.controller");
+const requireProfile = require("../../middlewares/require-profile");
 const router = Router();
+
+router.use(requireProfile("ADMIN"));
 
 /**
  * @swagger

@@ -12,6 +12,7 @@ const app = express();
 const pool = require("./db");
 const logger = require("./utils/logger");
 const authMiddleware = require("./middlewares/auth");
+const requireProfile = require("./middlewares/require-profile");
 const errorHandler = require("./middlewares/error-handler");
 const basicAuth = require("./middlewares/basic-auth");
 const proyectoService = require("./modules/proyecto/proyecto.service");
@@ -156,9 +157,21 @@ app.use("/api/v1", require("./routes"));
 
 // ───────────── Alias SIN versión (si tu front los usa) ─────────────
 const cotCtrl = require("./modules/cotizacion/cotizacion.controller");
-app.post("/api/cotizacion/:id(\\d+)/pdf", cotCtrl.downloadPdf);
-app.post("/api/cotizacion/:id(\\d+)/pedido", cotCtrl.migrarAPedido);
-app.post("/api/cotizacion/:id(\\d+)/estado", cotCtrl.updateEstado);
+app.post(
+  "/api/cotizacion/:id(\\d+)/pdf",
+  requireProfile("ADMIN", "VENTAS"),
+  cotCtrl.downloadPdf
+);
+app.post(
+  "/api/cotizacion/:id(\\d+)/pedido",
+  requireProfile("ADMIN", "VENTAS"),
+  cotCtrl.migrarAPedido
+);
+app.post(
+  "/api/cotizacion/:id(\\d+)/estado",
+  requireProfile("ADMIN", "VENTAS"),
+  cotCtrl.updateEstado
+);
 
 // ───────────── 404 & errores ─────────────
 app.use((req, res) => {

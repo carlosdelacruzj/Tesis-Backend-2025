@@ -35,12 +35,22 @@ async function login({ correo, contrasena }) {
     throw err;
   }
 
+  const perfilesRows = await repo.findPerfilesByUsuarioId(user.usuarioId);
+  const perfiles = perfilesRows.map((row) => ({
+    id: row.perfilId,
+    codigo: row.perfilCodigo,
+    nombre: row.perfilNombre,
+    principal: Number(row.principal) === 1,
+  }));
+  const perfilesCodigos = perfiles.map((p) => p.codigo);
+
   const payload = {
     sub: user.usuarioId,
     email: user.correo,
     clienteId: user.clienteId ?? null,
     empleadoId: user.empleadoId ?? null,
     tipoEmpleado: user.tipoEmpleado ?? null,
+    perfiles: perfilesCodigos,
   };
 
   const token = jwt.sign(
@@ -59,6 +69,7 @@ async function login({ correo, contrasena }) {
       apellidos: user.apellidos ?? null,
       empleadoId: user.empleadoId ?? null,
       tipoEmpleado: user.tipoEmpleado ?? null,
+      perfiles,
     },
   };
 }

@@ -1,6 +1,9 @@
 const { Router } = require("express");
 const ctrl = require("./cliente.controller");
+const requireProfile = require("../../middlewares/require-profile");
 const router = Router();
+
+router.use(requireProfile("ADMIN", "VENTAS"));
 
 /**
  * @swagger
