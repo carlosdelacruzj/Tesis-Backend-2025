@@ -27,6 +27,8 @@
  *         estadoPagoNombre:    { type: string, nullable: true }
  *         montoAbonado:        { type: number, format: double, nullable: true }
  *         saldoPendiente:      { type: number, format: double, nullable: true }
+ *         saldoNoCobrable:     { type: number, format: double, nullable: true }
+ *         montoPorDevolver:    { type: number, format: double, nullable: true }
  *         pedidoServicios:
  *           type: array
  *           items:
@@ -80,6 +82,7 @@
  *         estadoPagoId:   { type: integer, nullable: true }
  *         estadoPagoNombre: { type: string, nullable: true }
  *         saldoPendiente: { type: number, format: double, nullable: true }
+ *         saldoNoCobrable: { type: number, format: double, nullable: true }
  *         pendientesDevolucion: { type: integer, nullable: true }
  *         tienePendientes: { type: integer, nullable: true }
  *         notas:          { type: string, nullable: true }

@@ -47,6 +47,8 @@ const CANCEL_MOTIVOS_POR_RESPONSABLE = {
   INTERNO: new Set(["FUERZA_MAYOR_INTERNA", "OTRO_INTERNO"]),
 };
 const CANCEL_MOTIVOS_OTRO = new Set(["OTRO_CLIENTE", "OTRO_INTERNO"]);
+const ESTADO_PAGO_CERRADO = "CERRADO";
+const ESTADO_PEDIDO_CANCELADO = "CANCELADO";
 
 function normalizeTipoIncidencia(value) {
   const tipo = String(value || "").trim().toUpperCase();
@@ -129,6 +131,15 @@ function tryParseJSON(value) {
   }
 }
 
+function normalizeUpper(value) {
+  return String(value || "").trim().toUpperCase();
+}
+
+function toNumber(value) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 function normalizeDevolucionPayload(payload = {}, { requireUsuarioId = false } = {}) {
   const equiposInput = ensureArray(payload, "equipos");
   if (!equiposInput.length) {
@@ -205,7 +216,26 @@ function normalizeDevolucionPayload(payload = {}, { requireUsuarioId = false } =
 async function listProyecto() {
   const rows = await repo.getAllProyecto();
   if (!Array.isArray(rows)) return rows;
+  const pedidoIds = [
+    ...new Set(
+      rows
+        .map((row) => Number(row?.pedidoId ?? 0))
+        .filter((id) => Number.isInteger(id) && id > 0)
+    ),
+  ];
+  const estados = await repo.getPedidosEstadosFinancierosByIds(pedidoIds);
+  const estadosByPedidoId = new Map(estados.map((e) => [Number(e.pedidoId), e]));
+
   return rows.map((row) => {
+    const pedidoId = Number(row?.pedidoId ?? 0);
+    const est = estadosByPedidoId.get(pedidoId) || null;
+    const estadoPagoNombre = est?.estadoPagoNombre ?? row?.estadoPagoNombre ?? null;
+    const estadoPedidoNombre = est?.estadoPedidoNombre ?? null;
+    const saldoBruto = toNumber(row?.saldoPendiente);
+    const saldoNoEsCobrable =
+      normalizeUpper(estadoPagoNombre) === ESTADO_PAGO_CERRADO ||
+      normalizeUpper(estadoPedidoNombre) === ESTADO_PEDIDO_CANCELADO;
+
     const postproduccion = {
       fechaInicioEdicion: row.fechaInicioEdicion ?? null,
       fechaFinEdicion: row.fechaFinEdicion ?? null,
@@ -229,6 +259,12 @@ async function listProyecto() {
     delete proyecto.respaldoNotas;
     delete proyecto.entregaFinalEnlace;
     delete proyecto.entregaFinalFecha;
+    proyecto.estadoPagoId = est?.estadoPagoId ?? row?.estadoPagoId ?? null;
+    proyecto.estadoPagoNombre = estadoPagoNombre;
+    proyecto.estadoPedidoId = est?.estadoPedidoId ?? null;
+    proyecto.estadoPedidoNombre = estadoPedidoNombre;
+    proyecto.saldoPendiente = saldoNoEsCobrable ? 0 : saldoBruto;
+    proyecto.saldoNoCobrable = saldoNoEsCobrable ? saldoBruto : 0;
     return { ...proyecto, postproduccion };
   });
 }
@@ -263,6 +299,18 @@ async function findProyectoById(id) {
   delete proyecto.respaldoNotas;
   delete proyecto.entregaFinalEnlace;
   delete proyecto.entregaFinalFecha;
+  const pedidoId = Number(proyecto?.pedidoId ?? 0);
+  if (pedidoId > 0) {
+    try {
+      const resumenPago = await pagosService.getResumen(pedidoId);
+      proyecto.montoAbonado = toNumber(resumenPago?.MontoAbonado);
+      proyecto.saldoPendiente = toNumber(resumenPago?.SaldoPendiente);
+      proyecto.saldoNoCobrable = toNumber(resumenPago?.SaldoNoCobrable);
+      proyecto.montoPorDevolver = toNumber(resumenPago?.MontoPorDevolver);
+    } catch (_err) {
+      // Mantener respuesta de proyecto aun si no se pudo obtener resumen de pagos.
+    }
+  }
   const diasNormalizados = (data?.dias || []).map((d) => ({
     ...d,
     cancelResponsable: d?.cancelResponsable ?? d?.PD_CancelResponsable ?? null,

@@ -225,11 +225,27 @@ async function getResumen(pedidoId) {
       ? toNumber(base.CostoTotalNeto)
       : toNumber(base?.CostoTotal ?? normalized?.CostoTotal);
 
+  const [pedidoEstados, cerradoId, canceladoId] = await Promise.all([
+    repo.getPedidoEstadosFinancierosById(id),
+    repo.getEstadoPagoIdByNombre(ESTADO_PAGO_CERRADO),
+    repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_CANCELADO),
+  ]);
+
+  const saldoPendienteBruto = round2(Math.max(totalNeto - montoAbonado, 0));
+  const pedidoEstaCancelado =
+    Number(pedidoEstados?.estadoPedidoId || 0) === Number(canceladoId);
+  const pagoEstaCerrado =
+    Number(pedidoEstados?.estadoPagoId || 0) === Number(cerradoId);
+  const saldoNoEsCobrable = pedidoEstaCancelado || pagoEstaCerrado;
+  const saldoPendiente = saldoNoEsCobrable ? 0 : saldoPendienteBruto;
+  const saldoNoCobrable = saldoNoEsCobrable ? saldoPendienteBruto : 0;
+
   return {
     ...normalized,
     CostoTotal: round2(totalOriginal),
     CostoTotalNeto: round2(totalNeto),
-    SaldoPendiente: round2(Math.max(totalNeto - montoAbonado, 0)),
+    SaldoPendiente: round2(saldoPendiente),
+    SaldoNoCobrable: round2(saldoNoCobrable),
     MontoPorDevolver: round2(Math.max(montoAbonado - totalNeto, 0)),
   };
 }

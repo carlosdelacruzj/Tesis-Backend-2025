@@ -44,6 +44,11 @@
  *         SaldoPendiente:
  *           type: number
  *           format: double
+ *           description: Saldo aun cobrable al cliente
+ *         SaldoNoCobrable:
+ *           type: number
+ *           format: double
+ *           description: Diferencia contra el total neto que ya no se cobrara (pedido cancelado o pago cerrado)
  *         MontoPorDevolver:
  *           type: number
  *           format: double
@@ -55,6 +60,7 @@
  *         CostoTotalNeto: 0
  *         MontoAbonado: 3599
  *         SaldoPendiente: 0
+ *         SaldoNoCobrable: 0
  *         MontoPorDevolver: 3599
  *
  *     MetodoPago:

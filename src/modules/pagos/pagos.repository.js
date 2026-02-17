@@ -117,6 +117,19 @@ async function getPedidoEstadoById(pedidoId, executor = pool) {
   );
   return rows?.[0] || null;
 }
+
+async function getPedidoEstadosFinancierosById(pedidoId, executor = pool) {
+  const [rows] = await executor.query(
+    `SELECT
+       FK_EP_Cod AS estadoPedidoId,
+       FK_ESP_Cod AS estadoPagoId,
+       P_CierreFinancieroTipo AS cierreFinancieroTipo
+     FROM T_Pedido
+     WHERE PK_P_Cod = ?`,
+    [Number(pedidoId)]
+  );
+  return rows?.[0] || null;
+}
 async function listVouchersByPedido(pedidoId) {
   return runCall("CALL sp_voucher_listar_por_pedido_detalle(?,?)", [
     Number(pedidoId),
@@ -339,6 +352,7 @@ module.exports = {
   getResumenByPedido,
   getPedidoCierreFinancieroTipo,
   getPedidoEstadoById,
+  getPedidoEstadosFinancierosById,
   listVouchersByPedido,
   listMetodos,
   listEstadosPago,

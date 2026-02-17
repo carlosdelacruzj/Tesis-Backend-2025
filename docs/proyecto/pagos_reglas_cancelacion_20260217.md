@@ -118,3 +118,35 @@ Si ya existen pedidos historicos en estado cancelado con abono y estado de pago 
     - 1 nota de credito (`377.60`).
 - Visto bueno:
   - Correcto con la logica actual para cancelacion interna (genera NC automatica y cierra flujo financiero).
+
+### Prueba 7 (Validada OK)
+- Escenario:
+  - Pedido con 1 fecha.
+  - 1 pago por el monto completo (estado de pago `Pagado`).
+  - Cancelacion por problema de la empresa (problema interno).
+- Resultado observado:
+  - Proyecto queda `Cancelado`.
+  - Pedido queda `Cancelado`.
+  - Estado de pago queda `Cerrado`.
+  - Se visualizan 2 comprobantes:
+    - 1 boleta por el monto completo.
+    - 1 nota de credito por el monto completo.
+- Visto bueno:
+  - Correcto con la logica actual para cancelacion interna de pedidos pagados al 100% (reversion total con NC y cierre financiero).
+
+### Prueba 8 (Validada OK)
+- Escenario:
+  - Pedido creado con 2 fechas.
+  - Se realiza el primer pago parcial.
+  - Se inicia el proyecto y se cumple el primer dia.
+  - Se realiza el segundo pago.
+  - El segundo dia se cancela por problema interno (culpa de la empresa).
+- Resultado observado:
+  - El pedido se mantiene en `En ejecucion`.
+  - El estado de pago se mantiene en `Cerrado`.
+  - Se visualizan 3 comprobantes:
+    - 2 boletas correspondientes a los 2 pagos realizados.
+    - 1 nota de credito por el monto del dia cancelado.
+- Visto bueno:
+  - Correcto para el modelo operativo/financiero del negocio.
+  - Criterio aplicado: puede existir desacople intencional entre estado operativo (`En ejecucion`) y estado financiero (`Cerrado`) cuando los pagos se liquidan antes del evento y la cancelacion es parcial.

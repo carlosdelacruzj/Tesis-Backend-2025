@@ -746,6 +746,26 @@ async function getPagoInfoByPedido(pedidoId) {
   return rows;
 }
 
+async function getPedidosEstadosFinancierosByIds(pedidoIds = []) {
+  const ids = [...new Set((pedidoIds || []).map((x) => Number(x)).filter((x) => x > 0))];
+  if (!ids.length) return [];
+  const placeholders = ids.map(() => "?").join(", ");
+  const [rows] = await pool.query(
+    `SELECT
+       p.PK_P_Cod AS pedidoId,
+       p.FK_EP_Cod AS estadoPedidoId,
+       ep.EP_Nombre AS estadoPedidoNombre,
+       p.FK_ESP_Cod AS estadoPagoId,
+       esp.ESP_Nombre AS estadoPagoNombre
+     FROM T_Pedido p
+     LEFT JOIN T_Estado_Pedido ep ON ep.PK_EP_Cod = p.FK_EP_Cod
+     LEFT JOIN T_Estado_Pago esp ON esp.PK_ESP_Cod = p.FK_ESP_Cod
+     WHERE p.PK_P_Cod IN (${placeholders})`,
+    ids
+  );
+  return rows || [];
+}
+
 async function listEstadoProyecto() {
   const [rows] = await pool.query(
     `SELECT
@@ -1493,6 +1513,7 @@ module.exports = {
   putProyectoById,
   deleteProyecto,
   getPagoInfoByPedido,
+  getPedidosEstadosFinancierosByIds,
   listEstadoProyecto,
   getDisponibilidad,
   patchProyectoById,
