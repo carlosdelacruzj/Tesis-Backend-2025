@@ -711,6 +711,7 @@ async function cancelarDiaProyecto(diaId, payload = {}) {
         if (Number(info.pedidoEstadoId || 0) !== estadoPedCanceladoId) {
           await repo.updatePedidoEstadoById(info.pedidoId, estadoPedCanceladoId);
         }
+        await pagosService.syncEstadoPagoPedidoById(info.pedidoId);
         pedidoCancelado = true;
       }
     }
@@ -882,6 +883,10 @@ async function cancelarProyectoGlobal(proyectoId, payload = {}) {
     if (Array.isArray(cancelRes.diaIds) && cancelRes.diaIds.length > 0) {
       await repo.setProyectoDiasNcVoucherByIds(cancelRes.diaIds, voucherId);
     }
+  }
+
+  if (ctx.pedidoId != null) {
+    await pagosService.syncEstadoPagoPedidoById(ctx.pedidoId);
   }
 
   return {

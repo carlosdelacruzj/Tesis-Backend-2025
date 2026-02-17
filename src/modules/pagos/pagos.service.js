@@ -18,6 +18,7 @@ const ESTADO_VOUCHER_APROBADO = "Aprobado";
 const ESTADO_PEDIDO_COTIZADO = "Cotizado";
 const ESTADO_PEDIDO_CONTRATADO = "Contratado";
 const ESTADO_PEDIDO_EXPIRADO = "Expirado";
+const ESTADO_PEDIDO_CANCELADO = "Cancelado";
 const METODO_PAGO_TRANSFERENCIA = "Transferencia";
 const ISO_DATE_ONLY = /^\d{4}-\d{2}-\d{2}$/;
 const isEnabled = (value) =>
@@ -87,8 +88,14 @@ function applyIgvToResumen(resumen) {
 async function syncEstadoPagoPedido(pedidoId, executor) {
   const resumenRows = await repo.getResumenByPedido(pedidoId, executor);
   let cierreFinanciero = null;
+  let estadoPedido = null;
   try {
     cierreFinanciero = await repo.getPedidoCierreFinancieroTipo(pedidoId, executor);
+  } catch (err) {
+    if (err?.code !== "ER_BAD_FIELD_ERROR" && err?.errno !== 1054) throw err;
+  }
+  try {
+    estadoPedido = await repo.getPedidoEstadoById(pedidoId, executor);
   } catch (err) {
     if (err?.code !== "ER_BAD_FIELD_ERROR" && err?.errno !== 1054) throw err;
   }
@@ -112,18 +119,25 @@ async function syncEstadoPagoPedido(pedidoId, executor) {
   const saldoPendiente = round2(Math.max(costoTotalNeto - montoAbonado, 0));
   const montoPorDevolver = round2(Math.max(montoAbonado - costoTotalNeto, 0));
 
-  const [pendienteId, parcialId, pagadoId, cerradoId] = await Promise.all([
+  const [pendienteId, parcialId, pagadoId, cerradoId, pedidoCanceladoId] = await Promise.all([
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PENDIENTE, executor),
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PARCIAL, executor),
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_PAGADO, executor),
     repo.getEstadoPagoIdByNombre(ESTADO_PAGO_CERRADO, executor),
+    repo.getEstadoPedidoIdByNombre(ESTADO_PEDIDO_CANCELADO, executor),
   ]);
 
   let estadoPagoId = pendienteId;
+  const pedidoEstaCancelado =
+    Number(estadoPedido?.estadoPedidoId || 0) === Number(pedidoCanceladoId);
+
   if (
     cierreFinanciero?.cierreFinancieroTipo ===
     CIERRE_FINANCIERO_RETENCION_CANCEL_CLIENTE
   ) {
+    estadoPagoId = cerradoId;
+  } else if (pedidoEstaCancelado && montoAbonado > 0) {
+    // Regla de negocio: pedido cancelado con abono se clasifica en cerrado.
     estadoPagoId = cerradoId;
   } else if (costoTotalNeto <= 0 || montoPorDevolver > 0) {
     estadoPagoId = cerradoId;
@@ -143,6 +157,12 @@ async function syncEstadoPagoPedido(pedidoId, executor) {
     saldoPendiente,
     montoPorDevolver,
   };
+}
+
+async function syncEstadoPagoPedidoById(pedidoId) {
+  const id = assertIdPositivo(pedidoId, "pedidoId");
+  await syncEstadoPagoPedido(id);
+  return { Status: "Estado de pago sincronizado", pedidoId: id };
 }
 
 async function marcarPagosVencidosLocal() {
@@ -429,6 +449,7 @@ module.exports = {
   listVouchers,
   listMetodos,
   listEstadosPago,
+  syncEstadoPagoPedidoById,
   createVoucher,
   getVoucherImage,
   findVoucherById,
