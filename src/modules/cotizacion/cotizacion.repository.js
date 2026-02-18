@@ -14,6 +14,52 @@ async function callSP(sql, params = []) {
 // Helper: normaliza nÃºmeros/strings
 const n = (v) => (v == null ? null : Number(v));
 const s = (v) => (v == null ? null : String(v));
+const toJsonDb = (v) => (v == null ? null : JSON.stringify(v));
+
+function parseJsonValue(raw) {
+  if (raw == null) return null;
+  if (typeof raw === "object") return raw;
+  if (Buffer.isBuffer(raw)) {
+    try {
+      return JSON.parse(raw.toString("utf8"));
+    } catch (_err) {
+      return null;
+    }
+  }
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch (_err) {
+      return null;
+    }
+  }
+  return null;
+}
+
+async function getDatosEventoMapByCotizacionIds(ids = []) {
+  const cleanIds = [...new Set(ids.map(Number).filter((x) => Number.isInteger(x) && x > 0))];
+  if (!cleanIds.length) return new Map();
+  const [rows] = await pool.query(
+    `SELECT PK_Cot_Cod AS id, Cot_DatosEvento AS datosEvento
+     FROM T_Cotizacion
+     WHERE PK_Cot_Cod IN (${cleanIds.map(() => "?").join(",")})`,
+    cleanIds
+  );
+  const out = new Map();
+  for (const row of rows || []) {
+    out.set(Number(row.id), parseJsonValue(row.datosEvento));
+  }
+  return out;
+}
+
+async function setDatosEventoByCotizacionId(cotizacionId, datosEvento, conn = pool) {
+  await conn.query(
+    `UPDATE T_Cotizacion
+     SET Cot_DatosEvento = ?
+     WHERE PK_Cot_Cod = ?`,
+    [toJsonDb(datosEvento), Number(cotizacionId)]
+  );
+}
 
 // ===================== LISTAR =====================
 // repo.cotizacion.js (funciÃ³n listAll)
@@ -65,6 +111,7 @@ async function listAll({ estado } = {}) {
   const base = estado ? list.filter((x) => x.estado === estado) : list;
   const ids = [...new Set(base.map((x) => Number(x.id)).filter((n) => Number.isInteger(n) && n > 0))];
   if (!ids.length) return base;
+  const datosEventoMap = await getDatosEventoMapByCotizacionIds(ids);
 
   const [versionRows] = await pool.query(
     `SELECT
@@ -103,6 +150,7 @@ async function listAll({ estado } = {}) {
 
   return base.map((item) => ({
     ...item,
+    datosEvento: datosEventoMap.get(Number(item.id)) ?? null,
     ...(versionMap.get(Number(item.id)) || {
       cotizacionVersionVigenteId: null,
       cotizacionVersionVigente: null,
@@ -131,6 +179,18 @@ async function findByIdWithItems(id) {
   const str = Buffer.isBuffer(raw) ? raw.toString("utf8") : raw;
   const data = typeof str === "string" ? JSON.parse(str) : str;
   if (data && !Array.isArray(data.eventos)) data.eventos = [];
+  if (data && (!data.cotizacion || typeof data.cotizacion !== "object")) {
+    data.cotizacion = {};
+  }
+  const [rowsDatos] = await pool.query(
+    `SELECT Cot_DatosEvento AS datosEvento
+     FROM T_Cotizacion
+     WHERE PK_Cot_Cod = ?
+     LIMIT 1`,
+    [Number(id)]
+  );
+  const datosEvento = parseJsonValue(rowsDatos?.[0]?.datosEvento);
+  if (data?.cotizacion) data.cotizacion.datosEvento = datosEvento;
 
   return data || null; // { idCotizacion, lead, cotizacion, items: [...], eventos: [...] }
 }
@@ -260,8 +320,12 @@ async function createAdminV3({ cliente, lead, cotizacion, items = [], eventos = 
     params
   );
     const out = rows0?.[0] || {};
+    const idCotizacion = out.idCotizacion ?? null;
+    if (idCotizacion && cotizacion?.datosEvento !== undefined) {
+      await setDatosEventoByCotizacionId(idCotizacion, cotizacion?.datosEvento);
+    }
     return {
-      idCotizacion: out.idCotizacion ?? null,
+      idCotizacion,
       clienteId: out.clienteId ?? null,
       leadId: out.leadId ?? null,
       origen: out.origen ?? (hasCliente ? "CLIENTE" : "LEAD"),
@@ -307,7 +371,12 @@ async function createPublic({ lead, cotizacion }) {
     params
   );
   // SP retorna una fila con { lead_id, cotizacion_id }
-  return rows0[0];
+  const out = rows0[0];
+  const cotizacionId = Number(out?.cotizacion_id ?? 0);
+  if (cotizacionId > 0 && cotizacion?.datosEvento !== undefined) {
+    await setDatosEventoByCotizacionId(cotizacionId, cotizacion?.datosEvento);
+  }
+  return out;
 }
 
 // ===================== ACTUALIZAR (ADMIN) =====================
@@ -369,6 +438,9 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
     "CALL defaultdb.sp_cotizacion_admin_actualizar(?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
     params
   );
+  if (Object.prototype.hasOwnProperty.call(cotizacion || {}, "datosEvento")) {
+    await setDatosEventoByCotizacionId(Number(id), cotizacion?.datosEvento);
+  }
   return { updated: true };
 }
 
@@ -376,13 +448,25 @@ async function updateAdmin(id, { cotizacion = {}, items, eventos } = {}) {
 async function getFechaYEstado(id) {
   const [rows] = await pool.query(
     `SELECT c.Cot_FechaEvento AS fechaEvento,
-            ec.ECot_Nombre AS estado
+            ec.ECot_Nombre AS estado,
+            c.Cot_IdTipoEvento AS idTipoEvento
      FROM T_Cotizacion c
      JOIN T_Estado_Cotizacion ec ON ec.PK_ECot_Cod = c.FK_ECot_Cod
      WHERE c.PK_Cot_Cod = ?`,
     [Number(id)]
   );
   return rows && rows[0] ? rows[0] : null;
+}
+
+async function getDatosEventoByCotizacionId(id) {
+  const [rows] = await pool.query(
+    `SELECT Cot_DatosEvento AS datosEvento
+     FROM T_Cotizacion
+     WHERE PK_Cot_Cod = ?
+     LIMIT 1`,
+    [Number(id)]
+  );
+  return parseJsonValue(rows?.[0]?.datosEvento);
 }
 
 async function rechazarVencidas(fechaCorte) {
@@ -523,5 +607,6 @@ module.exports = {
   cambiarEstado,
   migrarAPedido,
   getPedidoIdByCotizacionId,
+  getDatosEventoByCotizacionId,
 };
 

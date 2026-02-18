@@ -107,6 +107,28 @@ function hashSnapshot(snapshot) {
   return crypto.createHash("sha256").update(JSON.stringify(snapshot)).digest("hex");
 }
 
+function parseJsonIfNeeded(raw) {
+  if (raw == null) return null;
+  if (typeof raw === "object") return raw;
+  if (typeof raw !== "string") return null;
+  try {
+    return JSON.parse(raw);
+  } catch (_err) {
+    return null;
+  }
+}
+
+function buildHashableSnapshot(snapshot = {}) {
+  if (!snapshot || typeof snapshot !== "object") return snapshot;
+  const out = { ...snapshot };
+  delete out.estadoCotizacion;
+  if (out.cotizacion && typeof out.cotizacion === "object") {
+    out.cotizacion = { ...out.cotizacion };
+    delete out.cotizacion.estado;
+  }
+  return out;
+}
+
 function parseRow(row) {
   if (!row) return null;
   let snapshot = row.snapshot ?? null;
@@ -155,7 +177,7 @@ async function syncVersionFromCotizacionId(
   const templateData =
     typeof mapTemplateData === "function" ? mapTemplateData(detail) : null;
   const snapshot = stableSnapshot(detail, estadoInfo.estado, templateData);
-  const snapshotHash = hashSnapshot(snapshot);
+  const snapshotHash = hashSnapshot(buildHashableSnapshot(snapshot));
 
   const vigente = await repo.getVigenteByCotizacionId(id);
   if (vigente?.snapshotHash === snapshotHash) {
@@ -165,6 +187,20 @@ async function syncVersionFromCotizacionId(
       versionId: Number(vigente.id),
       version: Number(vigente.version),
     };
+  }
+  const vigenteSnapshot = parseJsonIfNeeded(vigente?.snapshot);
+  if (vigenteSnapshot) {
+    const vigenteCompatHash = hashSnapshot(
+      buildHashableSnapshot(vigenteSnapshot)
+    );
+    if (vigenteCompatHash === snapshotHash) {
+      return {
+        created: false,
+        reason: "sin_cambios",
+        versionId: Number(vigente.id),
+        version: Number(vigente.version),
+      };
+    }
   }
 
   const created = await repo.createVersionFromSnapshot({

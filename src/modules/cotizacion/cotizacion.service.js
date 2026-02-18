@@ -6,6 +6,10 @@ const { formatCodigo } = require("../../utils/codigo");
 const { getLimaDate, getLimaISODate } = require("../../utils/dates");
 const contratoService = require("../contrato/contrato.service");
 const cotizacionVersionService = require("../cotizacion_version/cotizacion_version.service");
+const eventoRepo = require("../evento/evento.repository");
+const {
+  validateDatosEventoAgainstSchema,
+} = require("../evento/evento-form-schema.validator");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ESTADOS_ABIERTOS = new Set(["Borrador", "Enviada"]);
@@ -29,6 +33,56 @@ function assertOptionalNonNegativeNumber(v,f){ if(v==null) return null; const n=
 function assertString(v,f){ if(typeof v!=="string"||!v.trim()) throw badRequest(`Campo '${f}' es requerido`); return v.trim(); }
 function assertDate(v,f){ if(v==null) return null; if(typeof v!=="string"||!ISO_DATE.test(v)) throw badRequest(`Campo '${f}' debe ser YYYY-MM-DD`); return v; }
 function assertEstado(v){ if(v==null) return "Borrador"; const e=String(v).trim(); if(!ESTADOS_VALIDOS.has(e)) throw badRequest(`estado invÃ¡lido. Valores permitidos: ${[...ESTADOS_VALIDOS].join(", ")}`); return e; }
+function assertOptionalPlainObject(v, f) {
+  if (v == null) return null;
+  if (typeof v !== "object" || Array.isArray(v)) {
+    throw badRequest(`Campo '${f}' debe ser un objeto JSON`);
+  }
+  return v;
+}
+
+function buildFormSchemaResolved(formSchema = [], datosEvento = {}) {
+  const schema = Array.isArray(formSchema) ? formSchema : [];
+  const values =
+    datosEvento && typeof datosEvento === "object" && !Array.isArray(datosEvento)
+      ? datosEvento
+      : {};
+
+  return schema
+    .map((field) => ({
+      ...field,
+      value: Object.prototype.hasOwnProperty.call(values, field?.key)
+        ? values[field.key]
+        : null,
+    }))
+    .sort((a, b) => Number(a?.order || 0) - Number(b?.order || 0));
+}
+
+async function validateDatosEventoByTipoEventoId({
+  idTipoEvento,
+  datosEvento,
+  fieldPath = "cotizacion.datosEvento",
+}) {
+  if (idTipoEvento == null) {
+    if (datosEvento !== undefined && datosEvento !== null) {
+      throw badRequest("cotizacion.idTipoEvento es requerido cuando envia datosEvento");
+    }
+    return;
+  }
+
+  const eventoId = Number(idTipoEvento);
+  if (!Number.isInteger(eventoId) || eventoId <= 0) {
+    throw badRequest("cotizacion.idTipoEvento invalido");
+  }
+  const row = await eventoRepo.getSchemaById(eventoId);
+  if (!row) throw badRequest(`Tipo de evento no existe: ${eventoId}`);
+
+  validateDatosEventoAgainstSchema({
+    schemaRaw: row.formSchema ?? row.E_FormSchema ?? [],
+    datosEvento,
+    fieldPath,
+  });
+}
 
 function normalizeViaticos(cotizacion) {
   if (!cotizacion || typeof cotizacion !== "object") return;
@@ -196,6 +250,30 @@ async function findById(id){
     });
   }
   data.serviciosFechas = await repo.listServiciosFechasByCotizacionId(n);
+
+  const idTipoEvento = Number(data?.cotizacion?.idTipoEvento || 0);
+  if (idTipoEvento > 0) {
+    const evento = await eventoRepo.getSchemaById(idTipoEvento);
+    let formSchema = evento?.formSchema ?? evento?.E_FormSchema ?? [];
+    if (typeof formSchema === "string") {
+      try {
+        formSchema = JSON.parse(formSchema);
+      } catch (_err) {
+        formSchema = [];
+      }
+    }
+    if (!Array.isArray(formSchema)) formSchema = [];
+
+    data.cotizacion.formSchema = formSchema;
+    data.cotizacion.formSchemaResolved = buildFormSchemaResolved(
+      formSchema,
+      data?.cotizacion?.datosEvento
+    );
+  } else {
+    data.cotizacion.formSchema = [];
+    data.cotizacion.formSchemaResolved = [];
+  }
+
   return data;
 }
 
@@ -438,6 +516,7 @@ async function list({ estado } = {}) {
         : (r.Cot_ViaticosMonto != null ? Number(r.Cot_ViaticosMonto) : null),
 
       mensaje: r.mensaje ?? r.Cot_Mensaje,
+      datosEvento: r.datosEvento ?? r.Cot_DatosEvento ?? null,
       total:
         r.total != null ? Number(r.total)
         : (r.cot_total != null ? Number(r.cot_total) : null),
@@ -457,6 +536,14 @@ async function createPublic(payload = {}) {
   assertString(lead?.nombre ?? "", "lead.nombre");
   assertString(cotizacion?.tipoEvento ?? "", "cotizacion.tipoEvento");
   assertDate(cotizacion?.fechaEvento, "cotizacion.fechaEvento");
+  if (cotizacion?.datosEvento !== undefined) {
+    assertOptionalPlainObject(cotizacion.datosEvento, "cotizacion.datosEvento");
+  }
+  await validateDatosEventoByTipoEventoId({
+    idTipoEvento: cotizacion?.idTipoEvento ?? null,
+    datosEvento: cotizacion?.datosEvento,
+    fieldPath: "cotizacion.datosEvento",
+  });
   if (cotizacion?.dias != null) assertOptionalPositiveInt(cotizacion.dias, "cotizacion.dias");
   if (cotizacion?.viaticosMonto != null)
     assertOptionalNonNegativeNumber(cotizacion.viaticosMonto, "cotizacion.viaticosMonto");
@@ -480,6 +567,14 @@ async function createAdmin(payload = {}) {
   if (payload?.cotizacion?.estado != null) {
     assertEstado(payload.cotizacion.estado);
   }
+  if (payload?.cotizacion?.datosEvento !== undefined) {
+    assertOptionalPlainObject(payload.cotizacion.datosEvento, "cotizacion.datosEvento");
+  }
+  await validateDatosEventoByTipoEventoId({
+    idTipoEvento: payload?.cotizacion?.idTipoEvento ?? null,
+    datosEvento: payload?.cotizacion?.datosEvento,
+    fieldPath: "cotizacion.datosEvento",
+  });
   if (payload?.cotizacion?.dias != null) {
     assertOptionalPositiveInt(payload.cotizacion.dias, "cotizacion.dias");
   }
@@ -505,6 +600,9 @@ async function update(id, body = {}) {
   if (body?.cotizacion?.estado != null) {
     assertEstado(body.cotizacion.estado);
   }
+  if (body?.cotizacion?.datosEvento !== undefined) {
+    assertOptionalPlainObject(body.cotizacion.datosEvento, "cotizacion.datosEvento");
+  }
   if (body?.cotizacion?.dias != null) {
     assertOptionalPositiveInt(body.cotizacion.dias, "cotizacion.dias");
   }
@@ -517,6 +615,22 @@ async function update(id, body = {}) {
   if (!info) { const err = new Error(`Cotización ${nId} no encontrada`); err.status = 404; throw err; }
 
   const fechaEvento = body?.cotizacion?.fechaEvento ?? info.fechaEvento;
+  const hasDatosEventoInPayload =
+    Object.prototype.hasOwnProperty.call(body?.cotizacion || {}, "datosEvento");
+  const hasTipoEventoInPayload =
+    Object.prototype.hasOwnProperty.call(body?.cotizacion || {}, "idTipoEvento");
+  if (hasDatosEventoInPayload || hasTipoEventoInPayload) {
+    const idTipoEventoFinal =
+      body?.cotizacion?.idTipoEvento ?? info?.idTipoEvento ?? null;
+    const datosEventoFinal = hasDatosEventoInPayload
+      ? body?.cotizacion?.datosEvento
+      : await repo.getDatosEventoByCotizacionId(nId);
+    await validateDatosEventoByTipoEventoId({
+      idTipoEvento: idTipoEventoFinal,
+      datosEvento: datosEventoFinal,
+      fieldPath: "cotizacion.datosEvento",
+    });
+  }
   if (!isEditableFechaEvento(fechaEvento)) {
     throw badRequest("Cotización no editable el mismo día del evento.");
   }

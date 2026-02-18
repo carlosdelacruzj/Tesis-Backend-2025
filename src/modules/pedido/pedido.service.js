@@ -6,6 +6,10 @@ const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 const { calcIgv } = require("../../utils/igv");
 const pagosService = require("../pagos/pagos.service");
 const contratoService = require("../contrato/contrato.service");
+const eventoRepo = require("../evento/evento.repository");
+const {
+  validateDatosEventoAgainstSchema,
+} = require("../evento/evento-form-schema.validator");
 
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -47,6 +51,51 @@ function assertOptionalNonNegativeNumber(v, f) {
     throw e;
   }
   return n;
+}
+function assertOptionalPlainObject(v, f) {
+  if (v == null) return null;
+  if (typeof v !== "object" || Array.isArray(v)) {
+    const e = new Error(`El campo '${f}' debe ser un objeto JSON`);
+    e.status = 400;
+    throw e;
+  }
+  return v;
+}
+
+async function validatePedidoDatosEventoByTipoEventoId({
+  idTipoEvento,
+  datosEvento,
+  fieldPath = "pedido.datosEvento",
+}) {
+  if (idTipoEvento == null) {
+    if (datosEvento !== undefined && datosEvento !== null) {
+      const e = new Error(
+        "pedido.idTipoEvento es requerido cuando envia datosEvento"
+      );
+      e.status = 400;
+      throw e;
+    }
+    return;
+  }
+
+  const eventoId = Number(idTipoEvento);
+  if (!Number.isInteger(eventoId) || eventoId <= 0) {
+    const e = new Error("idTipoEvento invalido");
+    e.status = 400;
+    throw e;
+  }
+  const row = await eventoRepo.getSchemaById(eventoId);
+  if (!row) {
+    const e = new Error(`Tipo de evento no existe: ${eventoId}`);
+    e.status = 400;
+    throw e;
+  }
+
+  validateDatosEventoAgainstSchema({
+    schemaRaw: row.formSchema ?? row.E_FormSchema ?? [],
+    datosEvento,
+    fieldPath,
+  });
 }
 
 function normalizeViaticos(pedido) {
@@ -150,6 +199,9 @@ function validatePayload(payload) {
       new Error("pedido.mensaje supera 500 caracteres"),
       { status: 422 }
     );
+  }
+  if (pedido.datosEvento !== undefined) {
+    assertOptionalPlainObject(pedido.datosEvento, "pedido.datosEvento");
   }
 
   // eventos
@@ -261,6 +313,9 @@ function validateUpdatePayload(payload) {
       new Error("pedido.mensaje supera 500 caracteres"),
       { status: 422 }
     );
+  if (pedido.datosEvento !== undefined) {
+    assertOptionalPlainObject(pedido.datosEvento, "pedido.datosEvento");
+  }
   if (pedido.cotizacionId != null) {
     assert(
       Number.isInteger(pedido.cotizacionId) && pedido.cotizacionId > 0,
@@ -574,6 +629,11 @@ async function createNewPedido(payload) {
 
   normalizeViaticos(payload.pedido);
   applyFechaEventoFromEventos(payload.pedido, payload.eventos);
+  await validatePedidoDatosEventoByTipoEventoId({
+    idTipoEvento: payload?.pedido?.idTipoEvento ?? null,
+    datosEvento: payload?.pedido?.datosEvento,
+    fieldPath: "pedido.datosEvento",
+  });
 
   // Normalizar horas HH:mm -> HH:mm:ss y limpiar strings
   const norm = {
@@ -589,6 +649,10 @@ async function createNewPedido(payload) {
       horasEstimadas: payload.pedido.horasEstimadas ?? null,
       viaticosMonto: payload.pedido.viaticosMonto ?? null,
       mensaje: (payload.pedido.mensaje || "").trim() || null,
+      datosEvento:
+        payload.pedido.datosEvento === undefined
+          ? undefined
+          : payload.pedido.datosEvento ?? null,
     },
     eventos: payload.eventos.map((e, idx) => ({
       clientEventKey: e.clientEventKey ?? idx + 1, // fallback a Ã­ndice base 1
@@ -658,6 +722,27 @@ async function updatePedidoById(payload) {
     throw e;
   }
 
+  const hasDatosEventoInPayload = Object.prototype.hasOwnProperty.call(
+    pedido || {},
+    "datosEvento"
+  );
+  const hasTipoEventoInPayload = Object.prototype.hasOwnProperty.call(
+    pedido || {},
+    "idTipoEvento"
+  );
+  if (hasDatosEventoInPayload || hasTipoEventoInPayload) {
+    const idTipoEventoFinal =
+      pedido?.idTipoEvento ?? estadoActual?.idTipoEvento ?? null;
+    const datosEventoFinal = hasDatosEventoInPayload
+      ? pedido?.datosEvento
+      : estadoActual?.datosEvento;
+    await validatePedidoDatosEventoByTipoEventoId({
+      idTipoEvento: idTipoEventoFinal,
+      datosEvento: datosEventoFinal,
+      fieldPath: "pedido.datosEvento",
+    });
+  }
+
   normalizeViaticos(pedido);
   if (Array.isArray(ev)) applyFechaEventoFromEventos(pedido, ev);
 
@@ -681,6 +766,8 @@ async function updatePedidoById(payload) {
       horasEstimadas: pedido.horasEstimadas ?? null,
       viaticosMonto: pedido.viaticosMonto ?? null,
       mensaje: (pedido.mensaje ?? "").trim() || null,
+      datosEvento:
+        pedido.datosEvento === undefined ? undefined : pedido.datosEvento ?? null,
     },
     eventos: Array.isArray(ev)
       ? ev.map((e, idx) => ({

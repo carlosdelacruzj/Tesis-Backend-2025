@@ -23,7 +23,8 @@ async function getById(id) {
     `SELECT
         PK_E_Cod AS id,
         E_Nombre AS nombre,
-        E_IconUrl AS iconUrl
+        E_IconUrl AS iconUrl,
+        E_FormSchema AS formSchema
      FROM T_Eventos
      WHERE PK_E_Cod = ?
      LIMIT 1`,
@@ -43,7 +44,14 @@ async function create({ nombre, iconUrl }) {
   );
 }
 
-async function updateById({ idEvento, nombre, iconUrl }) {
+async function createWithSchema({ nombre, iconUrl, formSchema }) {
+  return runQuery(
+    "INSERT INTO T_Eventos (E_Nombre, E_IconUrl, E_FormSchema) VALUES (?, ?, ?)",
+    [t(nombre), t(iconUrl), formSchema ?? null]
+  );
+}
+
+async function updateById({ idEvento, nombre, iconUrl, formSchema }) {
   const fields = [];
   const params = [];
 
@@ -55,6 +63,10 @@ async function updateById({ idEvento, nombre, iconUrl }) {
     fields.push("E_IconUrl = ?");
     params.push(t(iconUrl));
   }
+  if (formSchema !== undefined) {
+    fields.push("E_FormSchema = ?");
+    params.push(formSchema);
+  }
 
   if (!fields.length) return { affectedRows: 0 };
 
@@ -64,4 +76,35 @@ async function updateById({ idEvento, nombre, iconUrl }) {
   return runQuery(sql, params);
 }
 
-module.exports = { getAll, getById, create, updateById };
+async function getSchemaById(id) {
+  const rows = await runQuery(
+    `SELECT
+        PK_E_Cod AS id,
+        E_FormSchema AS formSchema
+     FROM T_Eventos
+     WHERE PK_E_Cod = ?
+     LIMIT 1`,
+    [Number(id)]
+  );
+  if (Array.isArray(rows)) return rows[0] || null;
+  return rows ?? null;
+}
+
+async function updateSchemaById({ idEvento, formSchema }) {
+  return runQuery(
+    `UPDATE T_Eventos
+     SET E_FormSchema = ?
+     WHERE PK_E_Cod = ?`,
+    [formSchema, Number(idEvento)]
+  );
+}
+
+module.exports = {
+  getAll,
+  getById,
+  create,
+  createWithSchema,
+  updateById,
+  getSchemaById,
+  updateSchemaById,
+};

@@ -27,6 +27,26 @@ const toHMS = (v) => {
   return `${m[1]}:${m[2]}:${m[3] || "00"}`;
 };
 const t = (v) => (typeof v === "string" ? v.trim() : v ?? null);
+const toJsonDb = (v) => (v == null ? null : JSON.stringify(v));
+function parseJsonValue(raw) {
+  if (raw == null) return null;
+  if (typeof raw === "object") return raw;
+  if (Buffer.isBuffer(raw)) {
+    try {
+      return JSON.parse(raw.toString("utf8"));
+    } catch (_err) {
+      return null;
+    }
+  }
+  if (typeof raw === "string") {
+    try {
+      return JSON.parse(raw);
+    } catch (_err) {
+      return null;
+    }
+  }
+  return null;
+}
 function toHms(h) {
   if (h == null) return null;
   const s = String(h).trim();
@@ -115,6 +135,17 @@ async function getAll() {
 
   if (!pedidoIds.length) return mapped;
 
+  const [pedidoDatosEventoRows] = await pool.query(
+    `SELECT PK_P_Cod AS pedidoId, P_DatosEvento AS datosEvento
+     FROM T_Pedido
+     WHERE PK_P_Cod IN (${pedidoIds.map(() => "?").join(",")})`,
+    pedidoIds
+  );
+  const datosEventoByPedido = new Map();
+  for (const row of pedidoDatosEventoRows || []) {
+    datosEventoByPedido.set(Number(row.pedidoId), parseJsonValue(row.datosEvento));
+  }
+
   const [contratos] = await pool.query(
     `SELECT
        c.FK_P_Cod AS pedidoId,
@@ -154,6 +185,7 @@ async function getAll() {
     };
     return {
       ...r,
+      datosEvento: datosEventoByPedido.get(pedidoId) ?? null,
       ...contrato,
     };
   });
@@ -205,6 +237,7 @@ async function getById(id) {
     horasEstimadas: cab.horasEstimadas != null ? Number(cab.horasEstimadas) : null,
     viaticosMonto: cab.viaticosMonto != null ? Number(cab.viaticosMonto) : null,
     mensaje: cab.mensaje ?? null,
+    datosEvento: null,
     cliente: {
       id: cab.clienteId,
       documento: cab.clienteDocumento,
@@ -220,6 +253,15 @@ async function getById(id) {
       apellidos: cab.empleadoApellidos,
     },
   };
+
+  const [rowsDatosEvento] = await pool.query(
+    `SELECT P_DatosEvento AS datosEvento
+     FROM T_Pedido
+     WHERE PK_P_Cod = ?
+     LIMIT 1`,
+    [Number(id)]
+  );
+  pedido.datosEvento = parseJsonValue(rowsDatosEvento?.[0]?.datosEvento);
 
   const eventosOut = eventos.map((e) => ({
     id: e.id,
@@ -271,7 +313,9 @@ async function getEstadoPedidoMetaById(pedidoId) {
   const [rows] = await pool.query(
     `SELECT
        p.FK_EP_Cod AS estadoPedidoId,
-       ep.EP_Nombre AS estadoPedidoNombre
+       ep.EP_Nombre AS estadoPedidoNombre,
+       p.P_IdTipoEvento AS idTipoEvento,
+       p.P_DatosEvento AS datosEvento
      FROM T_Pedido p
      LEFT JOIN T_Estado_Pedido ep
        ON ep.PK_EP_Cod = p.FK_EP_Cod
@@ -279,7 +323,11 @@ async function getEstadoPedidoMetaById(pedidoId) {
      LIMIT 1`,
     [Number(pedidoId)]
   );
-  return rows?.[0] || null;
+  if (!rows?.[0]) return null;
+  return {
+    ...rows[0],
+    datosEvento: parseJsonValue(rows[0].datosEvento),
+  };
 }
 
 function normalizeKey(value) {
@@ -522,8 +570,8 @@ async function createComposite({ pedido, eventos, items, serviciosFechas }) {
       `
       INSERT INTO T_Pedido
       (FK_EP_Cod, FK_Cli_Cod, FK_ESP_Cod, FK_Cot_Cod, P_Fecha_Creacion, P_Observaciones, FK_Em_Cod,
-       P_Nombre_Pedido, P_FechaEvento, P_Lugar, P_IdTipoEvento, P_Dias, P_ViaticosMonto, P_HorasEst, P_Mensaje)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       P_Nombre_Pedido, P_FechaEvento, P_Lugar, P_IdTipoEvento, P_Dias, P_ViaticosMonto, P_HorasEst, P_Mensaje, P_DatosEvento)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `,
       [
         pedido.estadoPedidoId,
@@ -541,6 +589,7 @@ async function createComposite({ pedido, eventos, items, serviciosFechas }) {
         pedido.viaticosMonto ?? 0,
         pedido.horasEstimadas ?? null,
         pedido.mensaje ?? null,
+        toJsonDb(pedido.datosEvento ?? null),
       ]
     );
     const pedidoId = rPedido.insertId;
@@ -776,6 +825,10 @@ async function updateCompositeById(
     if (pedido?.cotizacionId != null) {
       updFields.push("FK_Cot_Cod = ?");
       updParams.push(pedido.cotizacionId);
+    }
+    if (Object.prototype.hasOwnProperty.call(pedido || {}, "datosEvento")) {
+      updFields.push("P_DatosEvento = ?");
+      updParams.push(toJsonDb(pedido?.datosEvento ?? null));
     }
 
     if (updFields.length) {
