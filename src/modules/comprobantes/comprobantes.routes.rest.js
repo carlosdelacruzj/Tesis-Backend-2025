@@ -7,8 +7,4 @@ const ctrl = require("./comprobantes.controller");
 // GET /api/v1/comprobantes/vouchers/:voucherId/pdf
 router.get("/vouchers/:voucherId/pdf", ctrl.downloadByVoucher);
 
-// NOTA DE CREDITO (requiere body)
-// POST /api/v1/comprobantes/vouchers/:voucherId/nota-credito/pdf
-router.post("/vouchers/:voucherId/nota-credito/pdf", ctrl.downloadNotaCreditoByVoucher);
-
 module.exports = router;

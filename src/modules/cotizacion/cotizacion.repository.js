@@ -62,8 +62,53 @@ async function listAll({ estado } = {}) {
 
     return item;
   });
+  const base = estado ? list.filter((x) => x.estado === estado) : list;
+  const ids = [...new Set(base.map((x) => Number(x.id)).filter((n) => Number.isInteger(n) && n > 0))];
+  if (!ids.length) return base;
 
-  return estado ? list.filter((x) => x.estado === estado) : list;
+  const [versionRows] = await pool.query(
+    `SELECT
+       cv.FK_Cot_Cod AS cotizacionId,
+       cv.PK_CotVer_Cod AS cotizacionVersionVigenteId,
+       cv.CotVer_Version AS cotizacionVersionVigente,
+       cv.CotVer_Estado AS cotizacionVersionEstadoVigente
+     FROM T_CotizacionVersion cv
+     INNER JOIN (
+       SELECT FK_Cot_Cod AS cotizacionId, MAX(CotVer_Version) AS maxVersion
+       FROM T_CotizacionVersion
+       WHERE CotVer_EsVigente = 1
+         AND FK_Cot_Cod IN (${ids.map(() => "?").join(",")})
+       GROUP BY FK_Cot_Cod
+     ) v
+       ON v.cotizacionId = cv.FK_Cot_Cod
+      AND v.maxVersion = cv.CotVer_Version
+     WHERE cv.CotVer_EsVigente = 1`,
+    ids
+  );
+
+  const versionMap = new Map();
+  for (const row of versionRows || []) {
+    versionMap.set(Number(row.cotizacionId), {
+      cotizacionVersionVigenteId:
+        row.cotizacionVersionVigenteId != null
+          ? Number(row.cotizacionVersionVigenteId)
+          : null,
+      cotizacionVersionVigente:
+        row.cotizacionVersionVigente != null
+          ? Number(row.cotizacionVersionVigente)
+          : null,
+      cotizacionVersionEstadoVigente: row.cotizacionVersionEstadoVigente || null,
+    });
+  }
+
+  return base.map((item) => ({
+    ...item,
+    ...(versionMap.get(Number(item.id)) || {
+      cotizacionVersionVigenteId: null,
+      cotizacionVersionVigente: null,
+      cotizacionVersionEstadoVigente: null,
+    }),
+  }));
 }
 
 // ===================== OBTENER (JSON) =====================

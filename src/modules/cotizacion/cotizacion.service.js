@@ -1,11 +1,11 @@
 ﻿const repo = require("./cotizacion.repository");
 //const { generarCotizacionPdf } = require("../../pdf/cotizacion");
-//const { generarCotizacionPdfV2 } = require("../../pdf/cotizacion_v2");
 const path = require("path");
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 const { formatCodigo } = require("../../utils/codigo");
 const { getLimaDate, getLimaISODate } = require("../../utils/dates");
 const contratoService = require("../contrato/contrato.service");
+const cotizacionVersionService = require("../cotizacion_version/cotizacion_version.service");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ESTADOS_ABIERTOS = new Set(["Borrador", "Enviada"]);
@@ -293,7 +293,7 @@ function uniqueJoin(values = [], joiner = " - ") {
   return uniq.join(joiner);
 }
 
-async function streamPdf({ id, res } = {}) {
+async function streamPdf({ id, res, query = {} } = {}) {
   const cotizacionId = assertPositiveInt(id, "id");
 
   const detail = await repo.findByIdWithItems(cotizacionId);
@@ -344,6 +344,7 @@ async function streamPdf({ id, res } = {}) {
     "src",
     "pdf",
     "templates",
+    "current",
     "cotizacion.docx"
   );
 
@@ -381,6 +382,7 @@ async function migrarAPedido(id, { empleadoId, nombrePedido } = {}) {
   if (out?.pedidoId) {
     await contratoService.syncVersionFromPedidoId(out.pedidoId, { force: true });
   }
+  await cotizacionVersionService.closeVigenteIfFinalState(cotizacionId);
   return out;
 }
 
@@ -407,6 +409,15 @@ async function list({ estado } = {}) {
       id,
       codigo: r.codigo ?? formatCodigo("COT", id),
       estado: r.estado,
+      cotizacionVersionVigenteId:
+        r.cotizacionVersionVigenteId != null
+          ? Number(r.cotizacionVersionVigenteId)
+          : null,
+      cotizacionVersionVigente:
+        r.cotizacionVersionVigente != null
+          ? Number(r.cotizacionVersionVigente)
+          : null,
+      cotizacionVersionEstadoVigente: r.cotizacionVersionEstadoVigente ?? null,
       fechaCreacion: r.fechaCreacion ?? r.Cot_Fecha_Crea,
 
       // ðŸ”¹ asegÃºrate de poblar eventoId (desde idTipoEvento en el SP)
@@ -449,7 +460,15 @@ async function createPublic(payload = {}) {
   if (cotizacion?.dias != null) assertOptionalPositiveInt(cotizacion.dias, "cotizacion.dias");
   if (cotizacion?.viaticosMonto != null)
     assertOptionalNonNegativeNumber(cotizacion.viaticosMonto, "cotizacion.viaticosMonto");
-  return await repo.createPublic({ lead, cotizacion });
+  const out = await repo.createPublic({ lead, cotizacion });
+  const cotizacionId = Number(out?.cotizacion_id ?? out?.idCotizacion ?? 0);
+  if (cotizacionId > 0) {
+    await cotizacionVersionService.syncVersionFromCotizacionId(cotizacionId, {
+      force: true,
+      mapTemplateData: mapSpJsonToTemplateData,
+    });
+  }
+  return out;
 }
 
 async function createAdmin(payload = {}) {
@@ -469,6 +488,10 @@ async function createAdmin(payload = {}) {
   }
   const created = await repo.createAdmin(payload);
   await applyServiciosFechas(created.idCotizacion, payload);
+  await cotizacionVersionService.syncVersionFromCotizacionId(created.idCotizacion, {
+    force: true,
+    mapTemplateData: mapSpJsonToTemplateData,
+  });
   return created;
 }
 
@@ -504,6 +527,9 @@ async function update(id, body = {}) {
 
   const updated = await repo.updateAdmin(nId, body);
   await applyServiciosFechas(nId, body);
+  await cotizacionVersionService.syncVersionFromCotizacionId(nId, {
+    mapTemplateData: mapSpJsonToTemplateData,
+  });
   return updated;
 }
 
@@ -549,7 +575,29 @@ async function cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) 
     }
   }
 
+  await cotizacionVersionService.syncVersionFromCotizacionId(nId, {
+    force: true,
+    mapTemplateData: mapSpJsonToTemplateData,
+  });
+  await cotizacionVersionService.closeVigenteIfFinalState(nId);
+
   return out;
+}
+
+async function listVersiones(id) {
+  const nId = assertPositiveInt(id, "id");
+  return cotizacionVersionService.listByCotizacionId(nId);
+}
+
+async function getVersionVigente(id) {
+  const nId = assertPositiveInt(id, "id");
+  const data = await cotizacionVersionService.getVigenteByCotizacionId(nId);
+  if (!data) {
+    const err = new Error(`Cotizacion ${nId} sin version vigente`);
+    err.status = 404;
+    throw err;
+  }
+  return data;
 }
 
 function normalizeText(s) {
@@ -1052,4 +1100,6 @@ module.exports = {
   update,
   remove,
   cambiarEstadoOptimista,
+  listVersiones,
+  getVersionVigente,
 };

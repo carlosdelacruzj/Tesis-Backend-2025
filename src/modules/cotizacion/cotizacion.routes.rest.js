@@ -141,6 +141,8 @@ router.post("/:id(\\d+)/pdf", ctrl.downloadPdf);
  *       '400': { description: Parámetros inválidos }
  */
 router.post("/:id(\\d+)/pedido", ctrl.migrarAPedido);
+router.get("/:id(\\d+)/versiones", ctrl.getVersiones);
+router.get("/:id(\\d+)/version-vigente", ctrl.getVersionVigente);
 
 /**
  * @swagger

@@ -97,6 +97,26 @@ async function updateEstado(req, res, next) {
   } catch (err) { next(err); }
 }
 
+async function getVersiones(req, res, next) {
+  try {
+    const { id } = req.params;
+    const data = await svc.listVersiones(id);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
+async function getVersionVigente(req, res, next) {
+  try {
+    const { id } = req.params;
+    const data = await svc.getVersionVigente(id);
+    res.json(data);
+  } catch (err) {
+    next(err);
+  }
+}
+
 module.exports = {
   getAll,
   getById,
@@ -107,4 +127,6 @@ module.exports = {
   migrarAPedido,
   downloadPdf,
   updateEstado,
+  getVersiones,
+  getVersionVigente,
 };

@@ -1001,8 +1001,11 @@ async function streamContratoPdf({ id, res, body, query } = {}) {
 
 
   // Ruta EXACTA dentro del proyecto (portable)
-  // service estÃ¡ en src/modules/pedido, asÃ­ que subimos a src y bajamos a pdf/templates
-  const templatePath = path.join(__dirname, "../../pdf/templates/contrato.docx");
+  // service estÃ¡ en src/modules/pedido, asÃ­ que subimos a src y bajamos a pdf/templates/current
+  const templatePath = path.join(
+    __dirname,
+    "../../pdf/templates/current/contrato.docx"
+  );
 
   const data = mapPedidoToContratoTemplateData(detail, body, { viaticosToAdd });
 

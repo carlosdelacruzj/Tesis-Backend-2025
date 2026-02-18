@@ -223,9 +223,9 @@ function mapComprobanteToTemplateData(header, items) {
 
 function pickTemplate(tipoRaw) {
   const tipo = String(tipoRaw || "").trim().toUpperCase();
-  if (tipo.includes("CRED") || tipo === "NC") return "NotaCredito_v2.docx";
-  if (tipo === "FACTURA") return "Factura_v2.docx";
-  return "Boleta_v2.docx";
+  if (tipo.includes("CRED") || tipo === "NC") return "NotaCredito.docx";
+  if (tipo === "FACTURA") return "Factura.docx";
+  return "Boleta.docx";
 }
 
 async function generateComprobantePdfBufferByVoucherId(voucherId) {
@@ -243,6 +243,7 @@ async function generateComprobantePdfBufferByVoucherId(voucherId) {
     "src",
     "pdf",
     "templates",
+    "current",
     templateName
   );
 

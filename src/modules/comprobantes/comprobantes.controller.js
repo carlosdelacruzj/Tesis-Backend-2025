@@ -19,30 +19,4 @@ async function downloadByVoucher(req, res, next) {
     next(err);
   }
 }
-
-// POST /api/v1/comprobantes/vouchers/:voucherId/nota-credito/pdf
-// body: { montoDevolverConIgv: number, motivo: string }
-async function downloadNotaCreditoByVoucher(req, res, next) {
-  try {
-    const { voucherId } = req.params;
-    const { montoDevolverConIgv, motivo } = req.body || {};
-
-    const { pdfBuffer, header } = await service.generateNotaCreditoPdfBufferByVoucherId(
-      voucherId,
-      montoDevolverConIgv,
-      motivo
-    );
-
-    const serie = header?.serie || "NC01";
-    const numero = header?.numero || voucherId;
-
-    res.status(200);
-    res.setHeader("Content-Type", "application/pdf");
-    res.setHeader("Content-Disposition", `attachment; filename="nota_credito_${serie}-${numero}.pdf"`);
-    res.end(pdfBuffer);
-  } catch (err) {
-    next(err);
-  }
-}
-
-module.exports = { downloadByVoucher, downloadNotaCreditoByVoucher };
+module.exports = { downloadByVoucher };

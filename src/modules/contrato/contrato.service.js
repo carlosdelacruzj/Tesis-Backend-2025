@@ -353,7 +353,10 @@ async function streamContratoPdfById({
     return;
   }
 
-  const templatePath = path.join(__dirname, "../../pdf/templates/contrato.docx");
+  const templatePath = path.join(
+    __dirname,
+    "../../pdf/templates/current/contrato.docx"
+  );
   const data = mapSnapshotToContratoTemplateData(contrato.snapshot, query);
   const pdfBuffer = await generatePdfBufferFromDocxTemplate({
     templatePath,
