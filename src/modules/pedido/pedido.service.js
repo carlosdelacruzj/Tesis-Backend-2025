@@ -5,6 +5,7 @@ const path = require("path");
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 const { calcIgv } = require("../../utils/igv");
 const pagosService = require("../pagos/pagos.service");
+const contratoService = require("../contrato/contrato.service");
 
 
 const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -630,6 +631,7 @@ async function createNewPedido(payload) {
 
   // Orquestar transacciÃ³n en repo
   const result = await repo.createComposite(norm);
+  await contratoService.syncVersionFromPedidoId(result.pedidoId, { force: true });
   return { status: "Registro exitoso", ...result };
 }
 
@@ -643,6 +645,18 @@ async function updatePedidoById(payload) {
 
   const pedidoId = Number(pedido.id);
   assertPositiveNumber(pedidoId, "pedido.id");
+
+  const estadoActual = await repo.getEstadoPedidoMetaById(pedidoId);
+  if (!estadoActual) {
+    const e = new Error(`Pedido con id ${pedidoId} no encontrado`);
+    e.status = 404;
+    throw e;
+  }
+  if (contratoService.isEstadoContratado(estadoActual.estadoPedidoNombre)) {
+    const e = new Error("El pedido contratado no se puede editar");
+    e.status = 409;
+    throw e;
+  }
 
   normalizeViaticos(pedido);
   if (Array.isArray(ev)) applyFechaEventoFromEventos(pedido, ev);
@@ -716,6 +730,8 @@ async function updatePedidoById(payload) {
 
   // Importante: llama al repo nuevo (no al SP legacy)
   const result = await repo.updateCompositeById(pedidoId, norm);
+  await contratoService.syncVersionFromPedidoId(pedidoId);
+  await contratoService.closeVigenteIfContratado(pedidoId);
   return { status: "ActualizaciÃ³n exitosa", ...result };
 }
 

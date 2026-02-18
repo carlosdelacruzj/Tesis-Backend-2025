@@ -100,9 +100,62 @@ async function getEstadoPagoIdByNombre(nombre, conn = pool) {
 // ------------------------------
 async function getAll() {
   const rows = await runCall("CALL sp_pedido_listar()");
-  return rows.map((r) => {
+  const mapped = rows.map((r) => {
     const id = r.ID ?? r.id ?? r.pedidoId ?? r.idPedido;
     return { ...r, codigo: formatCodigo("PED", id) };
+  });
+
+  const pedidoIds = [
+    ...new Set(
+      mapped
+        .map((r) => Number(r.ID ?? r.id ?? r.pedidoId ?? r.idPedido))
+        .filter((n) => Number.isInteger(n) && n > 0)
+    ),
+  ];
+
+  if (!pedidoIds.length) return mapped;
+
+  const [contratos] = await pool.query(
+    `SELECT
+       c.FK_P_Cod AS pedidoId,
+       c.PK_Cont_Cod AS contratoVigenteId,
+       c.Cont_Version AS contratoVersionVigente,
+       c.Cont_Estado AS contratoEstadoVigente
+     FROM T_Contrato c
+     INNER JOIN (
+       SELECT FK_P_Cod AS pedidoId, MAX(Cont_Version) AS maxVersion
+       FROM T_Contrato
+       WHERE Cont_EsVigente = 1
+         AND FK_P_Cod IN (${pedidoIds.map(() => "?").join(",")})
+       GROUP BY FK_P_Cod
+     ) v
+       ON v.pedidoId = c.FK_P_Cod
+      AND v.maxVersion = c.Cont_Version
+     WHERE c.Cont_EsVigente = 1`,
+    pedidoIds
+  );
+
+  const contratoByPedido = new Map();
+  for (const c of contratos || []) {
+    contratoByPedido.set(Number(c.pedidoId), {
+      contratoVigenteId: c.contratoVigenteId != null ? Number(c.contratoVigenteId) : null,
+      contratoVersionVigente:
+        c.contratoVersionVigente != null ? Number(c.contratoVersionVigente) : null,
+      contratoEstadoVigente: c.contratoEstadoVigente ?? null,
+    });
+  }
+
+  return mapped.map((r) => {
+    const pedidoId = Number(r.ID ?? r.id ?? r.pedidoId ?? r.idPedido);
+    const contrato = contratoByPedido.get(pedidoId) || {
+      contratoVigenteId: null,
+      contratoVersionVigente: null,
+      contratoEstadoVigente: null,
+    };
+    return {
+      ...r,
+      ...contrato,
+    };
   });
 }
 
@@ -212,6 +265,21 @@ async function getById(id) {
 async function getLastEstado() {
   const result = await runCall("CALL sp_pedido_estado_obtener_ultimo()");
   return result[0] || null;
+}
+
+async function getEstadoPedidoMetaById(pedidoId) {
+  const [rows] = await pool.query(
+    `SELECT
+       p.FK_EP_Cod AS estadoPedidoId,
+       ep.EP_Nombre AS estadoPedidoNombre
+     FROM T_Pedido p
+     LEFT JOIN T_Estado_Pedido ep
+       ON ep.PK_EP_Cod = p.FK_EP_Cod
+     WHERE p.PK_P_Cod = ?
+     LIMIT 1`,
+    [Number(pedidoId)]
+  );
+  return rows?.[0] || null;
 }
 
 function normalizeKey(value) {
@@ -992,6 +1060,7 @@ module.exports = {
   getIndex,
   getById,
   getLastEstado,
+  getEstadoPedidoMetaById,
   getDisponibilidadDiaria,
   // flujo nuevo
   createComposite,

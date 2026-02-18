@@ -2,6 +2,7 @@ const repo = require("./pagos.repository");
 const pool = require("../../db");
 const { getLimaISODate } = require("../../utils/dates");
 const { calcIgv, round2 } = require("../../utils/igv");
+const contratoService = require("../contrato/contrato.service");
 
 function badRequest(msg) {
   const e = new Error(msg);
@@ -347,6 +348,7 @@ async function createVoucher({
 
     await syncEstadoPagoPedido(id, conn);
     await conn.commit();
+    await contratoService.closeVigenteIfContratado(id);
 
     return { Status: "Voucher registrado", voucherId };
   } catch (err) {

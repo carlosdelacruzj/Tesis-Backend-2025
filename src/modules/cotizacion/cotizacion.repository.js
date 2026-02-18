@@ -451,6 +451,18 @@ async function migrarAPedido({ cotizacionId, empleadoId, nombrePedido = null } =
     conn.release();
   }
 }
+
+async function getPedidoIdByCotizacionId(cotizacionId) {
+  const [rows] = await pool.query(
+    `SELECT PK_P_Cod AS pedidoId
+     FROM T_Pedido
+     WHERE FK_Cot_Cod = ?
+     ORDER BY PK_P_Cod DESC
+     LIMIT 1`,
+    [Number(cotizacionId)]
+  );
+  return rows?.[0]?.pedidoId != null ? Number(rows[0].pedidoId) : null;
+}
 module.exports = {
   listAll,
   findByIdWithItems, // usa SP JSON
@@ -465,5 +477,6 @@ module.exports = {
   deleteById,
   cambiarEstado,
   migrarAPedido,
+  getPedidoIdByCotizacionId,
 };
 

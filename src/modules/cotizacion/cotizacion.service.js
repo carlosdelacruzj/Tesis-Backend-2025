@@ -5,6 +5,7 @@ const path = require("path");
 const { generatePdfBufferFromDocxTemplate } = require("../../pdf/wordToPdf");
 const { formatCodigo } = require("../../utils/codigo");
 const { getLimaDate, getLimaISODate } = require("../../utils/dates");
+const contratoService = require("../contrato/contrato.service");
 
 const ESTADOS_VALIDOS = new Set(["Borrador", "Enviada", "Aceptada", "Rechazada"]);
 const ESTADOS_ABIERTOS = new Set(["Borrador", "Enviada"]);
@@ -372,11 +373,15 @@ async function migrarAPedido(id, { empleadoId, nombrePedido } = {}) {
   const empleado = assertPositiveInt(empleadoId, "empleadoId");
   const pedidoNombre = nombrePedido == null ? null : String(nombrePedido);
 
-  return await repo.migrarAPedido({
+  const out = await repo.migrarAPedido({
     cotizacionId,
     empleadoId: empleado,
     nombrePedido: pedidoNombre,
   });
+  if (out?.pedidoId) {
+    await contratoService.syncVersionFromPedidoId(out.pedidoId, { force: true });
+  }
+  return out;
 }
 
 /** ====== REST no tocado ====== */
@@ -531,7 +536,20 @@ async function cambiarEstadoOptimista(id, { estadoNuevo, estadoEsperado } = {}) 
     throw badRequest("La cotización solo puede aceptarse hasta un día antes del evento.");
   }
 
-  return await repo.cambiarEstado(nId, { estadoNuevo: nuevo, estadoEsperado: esperado });
+  const out = await repo.cambiarEstado(nId, { estadoNuevo: nuevo, estadoEsperado: esperado });
+
+  // Si el SP de cambio de estado crea/migra pedido al aceptar, aseguramos contrato v1.
+  if (nuevo === "Aceptada") {
+    const pedidoIdFromOut =
+      Number(out?.detalle?.pedidoId ?? out?.detalle?.idPedido ?? 0) || null;
+    const pedidoId =
+      pedidoIdFromOut || (await repo.getPedidoIdByCotizacionId(nId));
+    if (pedidoId) {
+      await contratoService.syncVersionFromPedidoId(pedidoId, { force: true });
+    }
+  }
+
+  return out;
 }
 
 function normalizeText(s) {
