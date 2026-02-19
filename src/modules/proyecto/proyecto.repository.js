@@ -851,6 +851,17 @@ async function cancelProyectoDia(diaId, payload = {}) {
       ]
     );
 
+    // Liberar recursos del dia cancelado para que vuelvan a estar disponibles.
+    await conn.query(`DELETE FROM T_ProyectoDiaEquipo WHERE FK_PD_Cod = ?`, [Number(diaId)]);
+    await conn.query(`DELETE FROM T_ProyectoDiaEmpleado WHERE FK_PD_Cod = ?`, [Number(diaId)]);
+    await conn.query(
+      `UPDATE T_ProyectoDiaIncidencia
+       SET FK_Em_Cod = NULL,
+           FK_Eq_Cod = NULL
+       WHERE FK_PD_Cod = ?`,
+      [Number(diaId)]
+    );
+
     await conn.commit();
     return { affectedRows: result.affectedRows };
   } catch (err) {
@@ -966,6 +977,17 @@ async function cancelProyectoDiasMasivo(proyectoId, payload = {}) {
         ]
       );
       affectedRows = Number(result.affectedRows || 0);
+
+      // Liberar recursos de todos los dias cancelados.
+      await conn.query(`DELETE FROM T_ProyectoDiaEquipo WHERE FK_PD_Cod IN (?)`, [diaIds]);
+      await conn.query(`DELETE FROM T_ProyectoDiaEmpleado WHERE FK_PD_Cod IN (?)`, [diaIds]);
+      await conn.query(
+        `UPDATE T_ProyectoDiaIncidencia
+         SET FK_Em_Cod = NULL,
+             FK_Eq_Cod = NULL
+         WHERE FK_PD_Cod IN (?)`,
+        [diaIds]
+      );
     }
 
     // Cambiar estado del proyecto dentro de la misma transaccion
