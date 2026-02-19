@@ -62,6 +62,7 @@ async function validateDatosEventoByTipoEventoId({
   idTipoEvento,
   datosEvento,
   fieldPath = "cotizacion.datosEvento",
+  enforceRequired = true,
 }) {
   if (idTipoEvento == null) {
     if (datosEvento !== undefined && datosEvento !== null) {
@@ -81,6 +82,7 @@ async function validateDatosEventoByTipoEventoId({
     schemaRaw: row.formSchema ?? row.E_FormSchema ?? [],
     datosEvento,
     fieldPath,
+    enforceRequired,
   });
 }
 
@@ -543,6 +545,7 @@ async function createPublic(payload = {}) {
     idTipoEvento: cotizacion?.idTipoEvento ?? null,
     datosEvento: cotizacion?.datosEvento,
     fieldPath: "cotizacion.datosEvento",
+    enforceRequired: false,
   });
   if (cotizacion?.dias != null) assertOptionalPositiveInt(cotizacion.dias, "cotizacion.dias");
   if (cotizacion?.viaticosMonto != null)

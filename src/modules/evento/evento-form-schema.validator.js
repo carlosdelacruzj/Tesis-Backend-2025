@@ -110,12 +110,15 @@ function validateDatosEventoAgainstSchema({
   schemaRaw,
   datosEvento,
   fieldPath = "datosEvento",
+  enforceRequired = true,
 }) {
   const schema = normalizeSchema(parseSchemaRaw(schemaRaw));
   if (!schema.length) return { normalizedSchema: schema, normalizedData: datosEvento ?? null };
 
   if (datosEvento == null) {
-    const requiredField = schema.find((f) => f.active && f.required);
+    const requiredField = enforceRequired
+      ? schema.find((f) => f.active && f.required)
+      : null;
     if (requiredField) {
       badRequest(`${fieldPath}.${requiredField.key} es requerido`);
     }
@@ -129,7 +132,7 @@ function validateDatosEventoAgainstSchema({
   for (const field of schema) {
     if (!field.active) continue;
     const value = datosEvento[field.key];
-    if (field.required && isEmptyValue(value)) {
+    if (enforceRequired && field.required && isEmptyValue(value)) {
       badRequest(`${fieldPath}.${field.key} es requerido`);
     }
     if (!isEmptyValue(value)) {
@@ -144,4 +147,3 @@ module.exports = {
   parseSchemaRaw,
   validateDatosEventoAgainstSchema,
 };
-
