@@ -361,7 +361,7 @@ async function createPublic({ lead, cotizacion }) {
     s(cotizacion?.fechaEvento),
     s(cotizacion?.lugar),
     n(cotizacion?.horasEstimadas),
-    n(cotizacion?.dias),
+    n(cotizacion?.dias ?? cotizacion?.diasEvento ?? null),
     n(cotizacion?.viaticosMonto),
     s(cotizacion?.mensaje),
     fechaCreacion,

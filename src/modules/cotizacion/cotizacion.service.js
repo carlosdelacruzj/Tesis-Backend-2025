@@ -534,6 +534,11 @@ async function createPublic(payload = {}) {
   const { lead, cotizacion } = payload;
   normalizeViaticos(cotizacion);
   applyFechaEventoFromEventos(cotizacion, payload.eventos);
+  if (cotizacion && typeof cotizacion === "object") {
+    if (cotizacion.dias == null && cotizacion.diasEvento != null) {
+      cotizacion.dias = cotizacion.diasEvento;
+    }
+  }
   // Validaciones mÃ­nimas (el SP tambiÃ©n valida)
   assertString(lead?.nombre ?? "", "lead.nombre");
   assertString(cotizacion?.tipoEvento ?? "", "cotizacion.tipoEvento");
