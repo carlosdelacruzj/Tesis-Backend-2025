@@ -1245,6 +1245,20 @@ async function createProyectoDiaIncidencia(diaId, payload = {}) {
           [Number(diaId), Number(empleadoReemplazoId)]
         );
       }
+
+      // Si hubo reemplazo de personal, transferir la responsabilidad de equipos
+      // asignados al faltante para que la devolución quede con el reemplazo.
+      await conn.query(
+        `UPDATE T_ProyectoDiaEquipo
+           SET FK_Em_Cod = ?,
+               PDQ_Notas = CONCAT(
+                 'INCIDENCIA: responsable reemplazado',
+                 CASE WHEN PDQ_Notas IS NULL OR PDQ_Notas = '' THEN '' ELSE CONCAT(' - ', PDQ_Notas) END
+               )
+         WHERE FK_PD_Cod = ?
+           AND FK_Em_Cod = ?`,
+        [Number(empleadoReemplazoId), Number(diaId), Number(empleadoId)]
+      );
     }
 
     if (equipoId != null && equipoReemplazoId != null) {
